@@ -1,0 +1,17 @@
+#!/bin/sh
+# ai-nexus scribe hook (pre-push) — batches everything being pushed into ONE
+# scribe run per ref (cheaper than per-commit). Fail-soft, never blocks a push.
+[ "$(git config --get brain.sync 2>/dev/null)" = "true" ] || exit 0
+[ -n "${SCRIBE_SKIP:-}" ] && exit 0
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+S="$ROOT/_brain/templates/scribe/scribe.py"
+[ -f "$S" ] || exit 0
+PY="$(command -v python3 2>/dev/null || command -v python 2>/dev/null || true)"
+[ -n "$PY" ] || exit 0
+Z=0000000000000000000000000000000000000000
+while read -r _lref LOCAL _rref REMOTE; do
+  [ "$LOCAL" = "$Z" ] && continue                       # branch deletion
+  if [ "$REMOTE" = "$Z" ]; then RANGE="$LOCAL"; else RANGE="$REMOTE..$LOCAL"; fi
+  "$PY" "$S" --range "$RANGE" >>"$ROOT/.git/scribe.log" 2>&1 || true
+done
+exit 0

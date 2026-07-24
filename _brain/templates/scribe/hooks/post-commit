@@ -1,0 +1,12 @@
+#!/bin/sh
+# ai-nexus scribe hook (post-commit) — fail-soft, must never block git.
+# Installed into .git/hooks via a trampoline by install-scribe.sh.
+[ "$(git config --get brain.sync 2>/dev/null)" = "true" ] || exit 0
+[ -n "${SCRIBE_SKIP:-}" ] && exit 0
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
+S="$ROOT/_brain/templates/scribe/scribe.py"
+[ -f "$S" ] || exit 0
+PY="$(command -v python3 2>/dev/null || command -v python 2>/dev/null || true)"
+[ -n "$PY" ] || exit 0
+"$PY" "$S" --range "HEAD~1..HEAD" >>"$ROOT/.git/scribe.log" 2>&1 || true
+exit 0
