@@ -11,7 +11,7 @@
 
 ## Current work
 
-- FND-01: in progress — schema and RBAC foundation.
-- Decision: Team Leaders can view/comment only by default; Pod Leaders create tickets.
-- Git: repository initialization and remote push occur after FND-01 verification.
-
+- FND-01: complete — schema, setup, session authentication, and RBAC foundation.
+- Verified: PHP syntax checks; MariaDB import (6 roles, 11 permissions, 32 grants); real setup run (20 users) then clean database reset.
+- Commit/push: `872ec07` — `feat: add schema and RBAC foundation`.
+- Next: UI-01 — shared stylesheet, header, and dashboard table preview.
