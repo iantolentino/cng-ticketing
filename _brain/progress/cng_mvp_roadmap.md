@@ -14,4 +14,5 @@
 - FND-01: complete — schema, setup, session authentication, and RBAC foundation.
 - Verified: PHP syntax checks; MariaDB import (6 roles, 11 permissions, 32 grants); real setup run (20 users) then clean database reset.
 - Commit/push: `872ec07` — `feat: add schema and RBAC foundation`.
-- Next: UI-01 — shared stylesheet, header, and dashboard table preview.
+- UI-01: complete — branded header and dashboard preview (`d5b87b4`).
+- Current: TKT-01 — ticket creation, list, updates, comments, and activity history.
