@@ -15,4 +15,5 @@
 13. MIG-002 — leave and calendar foundation migration — complete (applied locally and idempotence-verified)
 14. F003 — shared styling for login page — complete
 15. EXP-01 — permission-gated CSV and Excel ticket exports — complete
-16. DEP-01b — cPanel upload, configuration, schema import, additive migrations, and SMTP go-live verification — pending user upload
+16. UI-04 — dual-logo login header — complete
+17. DEP-01b — cPanel upload, configuration, schema import, additive migrations, and SMTP go-live verification — pending user upload

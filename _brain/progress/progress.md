@@ -22,6 +22,7 @@ None — permission-gated ticket export is complete; cPanel deployment resumes a
 | MIG-002 | Leave and calendar foundation migration | 2026-07-25 |
 | F003 | Shared styling for login page | 2026-07-25 |
 | EXP-01 | Permission-gated CSV and Excel ticket exports | 2026-07-25 |
+| UI-04 | Dual-logo login header | 2026-07-25 |
 
 ## Deployment Progress
 
