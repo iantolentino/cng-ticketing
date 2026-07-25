@@ -16,6 +16,7 @@ None — layout polish is complete; cPanel deployment resumes after approval.
 | UI-02 | Permission-aware ticket and user-management action links | 2026-07-25 |
 | VRF-01 | Local MVP verification and deployment handoff | 2026-07-25 |
 | UI-03 | Sidebar layout and ticket-page density polish | 2026-07-25 |
+| F001 | Dynamic sidebar active state | 2026-07-25 |
 
 ## Deployment Progress
 

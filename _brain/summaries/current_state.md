@@ -10,7 +10,7 @@ Layout polish complete — deployment paused by user request
 
 ## Last Completed Task
 
-UI-03 — Sidebar layout and ticket-page density polish
+F001 — Dynamic sidebar active state
 Completed: 2026-07-25
 
 ## Next Task
@@ -24,6 +24,6 @@ Waiting for the user to approve the current layout pass.
 
 ## Session Notes
 
-The generated cPanel ZIP was deleted at the user's request. Desktop and mobile sidebar CSS plus authenticated dashboard/detail markup checks passed. SMTP credentials must be entered directly into ignored `config/config.local.php`.
+The generated cPanel ZIP was deleted at the user's request. Sidebar active-state verification passed for Tickets, ticket detail, Roles & Access, password reset, and sign-out. SMTP credentials must be entered directly into ignored `config/config.local.php`.
 
 Last updated: 2026-07-25

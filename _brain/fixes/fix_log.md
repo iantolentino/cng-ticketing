@@ -23,7 +23,7 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 
 | ID | Title | Category | Root Cause (1 line) | Detail File | Date | Status |
 |----|-------|----------|----------------------|-------------|------|--------|
-| | | | | | | |
+| F001 | Sidebar active state stayed on Tickets | WEB | Tickets used a hardcoded `active` class instead of the current route. | inline | 2026-07-25 | FIXED |
 
 ---
 
