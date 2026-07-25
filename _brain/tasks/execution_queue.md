@@ -1,9 +1,9 @@
 # Execution Queue
 
-1. FND-01 — schema, setup, auth, RBAC — complete (`872ec07`)
-2. UI-01 — branded header and dashboard shell — complete (`d5b87b4`)
-3. TKT-01 — ticket creation, list, update, comments, activity — in progress
-3. TKT-01 — ticket workflow and history
-4. ADM-01 — users and Roles & Access Management
-5. NTF-01 — SMTP notifications
-6. VRF-01 — local verification and deployment handoff
+1. FND-01 — schema, setup, authentication, and RBAC — complete (`872ec07`)
+2. UI-01 — branded dashboard and local dual-logo header — complete (`12f5fb2`)
+3. TKT-01 — ticket creation, details, workflow, comments, activity, and soft deletion — complete (`899743e`)
+4. ADM-01 — roles, access management, user activation, and password resets — complete (`ef4958a`)
+5. NTF-01 — SMTP notification hooks and protected configuration — complete (`96370ef`)
+6. UI-02 — permission-aware action links — complete (pending commit)
+7. VRF-01 — final local verification and deployment handoff — next

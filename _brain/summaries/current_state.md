@@ -1,30 +1,29 @@
-# CURRENT STATE
-
-> The AI reads this file at the start of every EXECUTION_MODE session.
-> Update this file at the end of every session — before stopping.
-
----
+# Current State
 
 ## System State
-[BOOTSTRAP_MODE / CONFIRMATION_LOCK / SYSTEM_GENERATION / EXECUTION_MODE]
+
+EXECUTION_MODE
 
 ## Current Phase
-[MVP / Scale Prep / Scaling]
+
+MVP
 
 ## Last Completed Task
-[Task ID] — [Task title]
-Completed: [date]
+
+UI-02 — Permission-aware ticket and user-management action links
+Completed: 2026-07-25
 
 ## Next Task
-[Task ID] — [Task title]
-Depends on: [Task ID or "none"]
+
+VRF-01 — Final local MVP verification and handoff documentation
+Depends on: FND-01, UI-01, TKT-01, ADM-01, NTF-01
 
 ## Active Blockers
-[None — or describe what is blocked and why]
+
+None. SMTP delivery is intentionally untested until deployment credentials are entered locally.
 
 ## Session Notes
-[Anything the next session needs to know that is not captured in progress.md or backlog.md]
 
----
+The local XAMPP database is configured. Super Admin visibility of ticket edit/delete controls and the user password-reset link is verified. Do not commit `config/config.local.php`.
 
-Last updated: [date]
+Last updated: 2026-07-25
