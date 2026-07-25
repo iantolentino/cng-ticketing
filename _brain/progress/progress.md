@@ -23,6 +23,7 @@ None — permission-gated ticket export is complete; cPanel deployment resumes a
 | F003 | Shared styling for login page | 2026-07-25 |
 | EXP-01 | Permission-gated CSV and Excel ticket exports | 2026-07-25 |
 | UI-04 | Dual-logo login header | 2026-07-25 |
+| UI-05 | Product naming and login copy refinement | 2026-07-25 |
 
 ## Deployment Progress
 
