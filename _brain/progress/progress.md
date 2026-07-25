@@ -20,6 +20,7 @@ None — layout polish is complete; cPanel deployment resumes after approval.
 | F002 | Ticket detail action-button sizing and spacing | 2026-07-25 |
 | QA-01 | Role-based local test accounts and authentication checks | 2026-07-25 |
 | MIG-002 | Leave and calendar foundation migration | 2026-07-25 |
+| F003 | Shared styling for login page | 2026-07-25 |
 
 ## Deployment Progress
 

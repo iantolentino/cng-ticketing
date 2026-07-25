@@ -13,4 +13,5 @@
 11. F002 — ticket detail action-button sizing and spacing — complete (pending user visual approval)
 12. QA-01 — role-based local test accounts and authentication checks — complete
 13. MIG-002 — leave and calendar foundation migration — complete (applied locally and idempotence-verified)
-14. DEP-01b — cPanel upload, configuration, schema import, and SMTP go-live verification — pending layout approval and user upload
+14. F003 — shared styling for login page — complete
+15. DEP-01b — cPanel upload, configuration, schema import, and SMTP go-live verification — pending layout approval and user upload

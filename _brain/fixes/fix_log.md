@@ -25,6 +25,7 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 |----|-------|----------|----------------------|-------------|------|--------|
 | F001 | Sidebar active state stayed on Tickets | WEB | Tickets used a hardcoded `active` class instead of the current route. | inline | 2026-07-25 | FIXED |
 | F002 | Ticket detail action-button spacing | WEB | Detail actions lacked a shared size rule and form-action spacing. | inline | 2026-07-25 | FIXED |
+| F003 | Login page loaded without styling | WEB | `login.php` omitted the shared stylesheet and font references. | inline | 2026-07-25 | FIXED |
 
 ---
 
