@@ -20,10 +20,10 @@ Depends on: user approval of layout, then cPanel upload
 
 ## Active Blockers
 
-Waiting for the user to upload the approved build in cPanel.
+Waiting for the user to upload the verified archive and enter production database/SMTP values in cPanel.
 
 ## Session Notes
 
-Ticket save, comment, and delete actions now show pressed/processing states and green success feedback. The existing delete confirmation is retained. SMTP credentials must be entered directly into ignored `config/config.local.php`.
+Fresh cPanel archive `cng-ticketing-cpanel-upload-2026-07-25.zip` is verified (base schema, migrations 002/003, config template; no local configuration, Git, or `_brain`). SMTP credentials must be entered directly into ignored `config/config.local.php`.
 
 Last updated: 2026-07-25

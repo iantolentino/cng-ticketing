@@ -14,12 +14,13 @@
 
 1. Upload the repository contents to the intended document-root folder.
 2. Create the MySQL database and a database user in cPanel; grant all database privileges.
-3. Import `database/schema.sql` in phpMyAdmin.
-4. Copy `config/config.example.php` to `config/config.local.php`.
-5. Fill the database values in `config/config.local.php`.
-6. **Reminder: fill all SMTP values in `config/config.local.php` before enabling live notifications.**
-7. Ensure `config/config.local.php` is not publicly downloadable; keep it outside version control.
-8. Open `setup.php`, create the Super Admin, save the temporary passwords, then confirm setup redirects to login.
+3. For a new database, import `database/schema.sql` in phpMyAdmin.
+4. Import `migrations/002_leave_and_calendar_foundation.sql`, then `migrations/003_ticket_export_permission.sql` in that order.
+5. Copy `config/config.example.php` to `config/config.local.php`.
+6. Fill the database values in `config/config.local.php`.
+7. **Reminder: fill all SMTP values in `config/config.local.php` before enabling live notifications.**
+8. Ensure `config/config.local.php` is not publicly downloadable; keep it outside version control.
+9. Open `setup.php`, create the Super Admin, save the temporary passwords, then confirm setup redirects to login.
 
 ## Go-live verification
 

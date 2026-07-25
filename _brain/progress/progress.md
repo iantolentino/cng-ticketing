@@ -29,7 +29,7 @@ None — permission-gated ticket export is complete; cPanel deployment resumes a
 
 ## Deployment Progress
 
-- Upload package prepared: `cng-ticketing-cpanel-upload-2026-07-25.zip`.
+- Upload package refreshed and integrity-checked: `cng-ticketing-cpanel-upload-2026-07-25.zip` (current through `3652fb6`).
 - Pending: cPanel upload, production configuration, schema import, additive migrations, and live notification test.
 
 Last updated: 2026-07-25
