@@ -24,7 +24,7 @@ Waiting for the user to upload the verified archive and enter production databas
 
 ## Session Notes
 
-TKT-02 completed: `tickets_paginated.php` is the production-ready 15-ticket register route. It requires `view_all_tickets`, redirects unauthenticated visitors to login, and uses a bounded page-number window. Upload it with `app/layout.php` and `assets/css/app.css`.
+F006 completed: `index.php` is now the only ticket register and contains the pagination query and navigation. The duplicate `tickets_paginated.php` route was removed.
 
 Login now uses an explicit case-normalized username comparison; setup and seeded usernames already store lowercase. No email lookup is used for authentication or authorization. SMTP credentials must be entered directly into ignored `config/config.local.php`.
 

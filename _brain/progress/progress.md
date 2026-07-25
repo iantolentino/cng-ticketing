@@ -28,6 +28,7 @@ None — permission-gated ticket export is complete; cPanel deployment resumes a
 | F004 | Ticket action feedback and delete confirmation | 2026-07-25 |
 | F005 | Case-normalized username lookup | 2026-07-25 |
 | TKT-02 | Permission-protected paginated ticket register | 2026-07-25 |
+| F006 | Merge pagination into canonical Tickets page | 2026-07-25 |
 
 ## Deployment Progress
 

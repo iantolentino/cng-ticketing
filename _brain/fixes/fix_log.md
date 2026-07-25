@@ -28,6 +28,7 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F003 | Login page loaded without styling | WEB | `login.php` omitted the shared stylesheet and font references. | inline | 2026-07-25 | FIXED |
 | F004 | Ticket actions had no user feedback | WEB | Action forms redirected without processing states or success confirmation. | inline | 2026-07-25 | FIXED |
 | F005 | Username lookup depended on database collation | AUTH | Login normalized input but compared against the stored value without explicit case normalization. | inline | 2026-07-25 | FIXED |
+| F006 | Tickets sidebar bypassed pagination | WEB | Pagination was added to a duplicate route while the sidebar still targeted the unpaginated canonical page. | inline | 2026-07-25 | FIXED |
 
 ---
 
