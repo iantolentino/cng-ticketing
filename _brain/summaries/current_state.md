@@ -10,7 +10,7 @@ Ticket exports complete — deployment paused by user request
 
 ## Last Completed Task
 
-UI-06 — Login eyebrow removal
+F004 — Ticket action feedback and delete confirmation
 Completed: 2026-07-25
 
 ## Next Task
@@ -24,6 +24,6 @@ Waiting for the user to upload the approved build in cPanel.
 
 ## Session Notes
 
-The login eyebrow has been removed. The login subtitle is “CNG / Jamesons account ticketing portal”; no layout or styling was changed. SMTP credentials must be entered directly into ignored `config/config.local.php`.
+Ticket save, comment, and delete actions now show pressed/processing states and green success feedback. The existing delete confirmation is retained. SMTP credentials must be entered directly into ignored `config/config.local.php`.
 
 Last updated: 2026-07-25
