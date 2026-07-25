@@ -10,7 +10,7 @@ Layout polish complete — deployment paused by user request
 
 ## Last Completed Task
 
-F001 — Dynamic sidebar active state
+F002 — Ticket detail action-button sizing and spacing
 Completed: 2026-07-25
 
 ## Next Task
@@ -24,6 +24,6 @@ Waiting for the user to approve the current layout pass.
 
 ## Session Notes
 
-The generated cPanel ZIP was deleted at the user's request. Sidebar active-state verification passed for Tickets, ticket detail, Roles & Access, password reset, and sign-out. SMTP credentials must be entered directly into ignored `config/config.local.php`.
+The generated cPanel ZIP was deleted at the user's request. Ticket detail action-button presence, shared sizing, and spacing rules passed local verification. SMTP credentials must be entered directly into ignored `config/config.local.php`.
 
 Last updated: 2026-07-25
