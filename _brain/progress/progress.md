@@ -2,7 +2,7 @@
 
 ## Active Task
 
-None — layout polish is complete; cPanel deployment resumes after approval.
+None — permission-gated ticket export is complete; cPanel deployment resumes after approval.
 
 ## Completed
 
@@ -21,11 +21,12 @@ None — layout polish is complete; cPanel deployment resumes after approval.
 | QA-01 | Role-based local test accounts and authentication checks | 2026-07-25 |
 | MIG-002 | Leave and calendar foundation migration | 2026-07-25 |
 | F003 | Shared styling for login page | 2026-07-25 |
+| EXP-01 | Permission-gated CSV and Excel ticket exports | 2026-07-25 |
 
 ## Deployment Progress
 
 - Upload package prepared: `cng-ticketing-cpanel-upload-2026-07-25.zip`.
-- Pending: cPanel upload, production configuration, schema import, and live notification test.
+- Pending: cPanel upload, production configuration, schema import, additive migrations, and live notification test.
 
 Last updated: 2026-07-25
 Current phase: Deployment in progress
