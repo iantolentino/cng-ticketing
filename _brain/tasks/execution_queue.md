@@ -17,4 +17,5 @@
 15. EXP-01 — permission-gated CSV and Excel ticket exports — complete
 16. UI-04 — dual-logo login header — complete
 17. UI-05 — product naming and login copy refinement — complete
-18. DEP-01b — cPanel upload, configuration, schema import, additive migrations, and SMTP go-live verification — pending user upload
+18. UI-06 — login eyebrow removal — complete
+19. DEP-01b — cPanel upload, configuration, schema import, additive migrations, and SMTP go-live verification — pending user upload
