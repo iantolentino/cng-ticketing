@@ -8,4 +8,5 @@
 6. UI-02 — permission-aware action links — complete (`5cb9ce1`)
 7. VRF-01 — local verification and deployment handoff — complete
 8. DEP-01a — clean cPanel upload archive — complete (local file, excluded from Git)
-9. DEP-01b — cPanel upload, configuration, schema import, and SMTP go-live verification — pending user upload
+9. UI-03 — sidebar layout, density, ticket cards, and row arrows — complete (pending user visual approval)
+10. DEP-01b — cPanel upload, configuration, schema import, and SMTP go-live verification — pending layout approval and user upload

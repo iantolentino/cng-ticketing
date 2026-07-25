@@ -2,7 +2,7 @@
 
 ## Active Task
 
-DEP-01 — cPanel upload, configuration, and go-live verification.
+None — layout polish is complete; cPanel deployment resumes after approval.
 
 ## Completed
 
@@ -15,6 +15,7 @@ DEP-01 — cPanel upload, configuration, and go-live verification.
 | NTF-01 | SMTP hooks and protected local configuration | 2026-07-25 |
 | UI-02 | Permission-aware ticket and user-management action links | 2026-07-25 |
 | VRF-01 | Local MVP verification and deployment handoff | 2026-07-25 |
+| UI-03 | Sidebar layout and ticket-page density polish | 2026-07-25 |
 
 ## Deployment Progress
 
