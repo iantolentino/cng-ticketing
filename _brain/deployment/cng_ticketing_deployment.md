@@ -6,6 +6,7 @@
 - [ ] Export a backup of the production database if one already exists.
 - [ ] Obtain the cPanel MySQL database name, user, password, and host.
 - [ ] Obtain SMTP host, port, encryption, username, password, sender email, and sender name.
+- [ ] Keep SMTP credentials in a password manager; enter them directly into `config/config.local.php` on the target server. Never commit or paste them into Git, `_brain`, support tickets, or chat logs.
 - [ ] Obtain Management email addresses and add them to user accounts after setup.
 - [ ] Add `assets/jamesons-logo.*` when the client logo is received.
 
@@ -35,4 +36,3 @@
 1. Put the previous application files back in place.
 2. Restore the database backup if the schema/data needs to be reverted.
 3. Record the incident and corrective action in `_brain/fixes/fix_log.md`.
-
