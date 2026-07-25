@@ -2,7 +2,7 @@
 
 ## Active Task
 
-None — MVP build is complete.
+DEP-01 — cPanel upload, configuration, and go-live verification.
 
 ## Completed
 
@@ -16,10 +16,10 @@ None — MVP build is complete.
 | UI-02 | Permission-aware ticket and user-management action links | 2026-07-25 |
 | VRF-01 | Local MVP verification and deployment handoff | 2026-07-25 |
 
-## External Go-Live Actions
+## Deployment Progress
 
-- Configure production database, SMTP, and Management recipient email addresses.
-- Run the deployment runbook and final live notification test.
+- Upload package prepared: `cng-ticketing-cpanel-upload-2026-07-25.zip`.
+- Pending: cPanel upload, production configuration, schema import, and live notification test.
 
 Last updated: 2026-07-25
-Current phase: MVP complete — deployment pending
+Current phase: Deployment in progress
