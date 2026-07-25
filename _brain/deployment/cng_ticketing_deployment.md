@@ -8,7 +8,7 @@
 - [ ] Obtain SMTP host, port, encryption, username, password, sender email, and sender name.
 - [ ] Keep SMTP credentials in a password manager; enter them directly into `config/config.local.php` on the target server. Never commit or paste them into Git, `_brain`, support tickets, or chat logs.
 - [ ] Obtain Management email addresses and add them to user accounts after setup.
-- [ ] Add `assets/jamesons-logo.*` when the client logo is received.
+- [x] Jamesons logo is already vendored at `assets/jamesons-logo.svg`.
 
 ## cPanel deployment
 

@@ -1,40 +1,40 @@
-# ACTUAL TIMELINE (TECHNICAL)
+# Actual Timeline — Technical
 
-> This is the real technical execution plan. Used by the AI during EXECUTION_MODE.
-> Not shown to non-technical stakeholders — use `reported_timeline.md` for that.
+## Phase 1 — MVP Build
 
----
+Completed: 2026-07-25
 
-## Phase 1 — MVP
-Target completion: [date]
+| Order | Deliverable | Status | Dependency |
+|---|---|---|---|
+| 1 | MySQL schema, first-run setup, sessions, CSRF, RBAC | Complete | None |
+| 2 | Branded dashboard, responsive header, local Strata and Jamesons assets | Complete | 1 |
+| 3 | Ticket create, list, edit, workflow, comments, activity, soft delete | Complete | 1, 2 |
+| 4 | Roles, permissions, user activation, temporary-password reset | Complete | 1 |
+| 5 | PHPMailer SMTP hooks and ignored local configuration | Complete | 1, 3 |
+| 6 | XAMPP lifecycle verification and deployment documentation | Complete | 1–5 |
 
-| Week   | Task IDs        | Status  |
-|--------|-----------------|---------|
-| Week 1 | T001, T002      | PENDING |
-| Week 2 | T003, T004      | PENDING |
-| Week 3 | T005            | PENDING |
+## Phase 2 — Deployment
 
-## Phase 2 — Scale Prep
-Target completion: [date]
+Status: Pending operator action.
 
-| Week   | Task IDs        | Status  |
-|--------|-----------------|---------|
+1. Create cPanel database and import `database/schema.sql`.
+2. Create `config/config.local.php` from the example and enter database and SMTP values.
+3. Run setup once, add Management email addresses, then complete the go-live checks.
 
-## Phase 3 — Scaling
-Target completion: [date]
+## Phase 3 — Future Enhancements
 
-| Week   | Task IDs        | Status  |
-|--------|-----------------|---------|
+Status: Deferred by scope.
 
----
+- Confidential medical-certificate uploads with role access.
+- Calendar and attendance view.
+- Restricted leave self-service with Team Leader then Department Head approval.
 
 ## Scaling Checkpoints
-| Milestone          | Trigger         | Action Required                        |
-|--------------------|-----------------|----------------------------------------|
-| 100 users          | [metric]        | [e.g. add caching layer]               |
-| 1,000 users        | [metric]        | [e.g. separate read/write DB]          |
-| 10,000 users       | [metric]        | [e.g. introduce queue for heavy tasks] |
 
----
+| Trigger | Review |
+|---|---|
+| More than 100 active users or large ticket history | Review ticket-list pagination and reporting indexes. |
+| Email volume affects request response time | Move notification delivery to a queue or scheduled job. |
+| Attachments or leave module are approved | Add storage, access-control review, and module-specific testing. |
 
-Last updated: [date]
+Last updated: 2026-07-25

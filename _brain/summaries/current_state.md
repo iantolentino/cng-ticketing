@@ -6,24 +6,24 @@ EXECUTION_MODE
 
 ## Current Phase
 
-MVP
+MVP complete — deployment pending
 
 ## Last Completed Task
 
-UI-02 — Permission-aware ticket and user-management action links
+VRF-01 — Local MVP verification and deployment handoff
 Completed: 2026-07-25
 
 ## Next Task
 
-VRF-01 — Final local MVP verification and handoff documentation
-Depends on: FND-01, UI-01, TKT-01, ADM-01, NTF-01
+DEP-01 — cPanel deployment and SMTP go-live verification
+Depends on: production database, SMTP credentials, and Management recipient email addresses
 
 ## Active Blockers
 
-None. SMTP delivery is intentionally untested until deployment credentials are entered locally.
+External deployment settings are required. SMTP credentials must be entered directly into ignored `config/config.local.php` and not shared in chat or committed.
 
 ## Session Notes
 
-The local XAMPP database is configured. Super Admin visibility of ticket edit/delete controls and the user password-reset link is verified. Do not commit `config/config.local.php`.
+Local lifecycle testing passed. Test tickets were soft-deleted. The user-facing and technical timelines are complete at `_brain/timelines/`.
 
 Last updated: 2026-07-25

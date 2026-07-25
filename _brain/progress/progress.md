@@ -2,7 +2,7 @@
 
 ## Active Task
 
-VRF-01 — final local MVP verification and handoff documentation.
+None — MVP build is complete.
 
 ## Completed
 
@@ -14,10 +14,12 @@ VRF-01 — final local MVP verification and handoff documentation.
 | ADM-01 | Roles, access management, user activation, and password resets | 2026-07-25 |
 | NTF-01 | SMTP hooks and protected local configuration | 2026-07-25 |
 | UI-02 | Permission-aware ticket and user-management action links | 2026-07-25 |
+| VRF-01 | Local MVP verification and deployment handoff | 2026-07-25 |
 
-## Blocked
+## External Go-Live Actions
 
-None. SMTP delivery is intentionally untested until deployment credentials are entered locally.
+- Configure production database, SMTP, and Management recipient email addresses.
+- Run the deployment runbook and final live notification test.
 
 Last updated: 2026-07-25
-Current phase: MVP
+Current phase: MVP complete — deployment pending
