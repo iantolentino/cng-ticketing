@@ -18,6 +18,7 @@ None — layout polish is complete; cPanel deployment resumes after approval.
 | UI-03 | Sidebar layout and ticket-page density polish | 2026-07-25 |
 | F001 | Dynamic sidebar active state | 2026-07-25 |
 | F002 | Ticket detail action-button sizing and spacing | 2026-07-25 |
+| QA-01 | Role-based local test accounts and authentication checks | 2026-07-25 |
 
 ## Deployment Progress
 

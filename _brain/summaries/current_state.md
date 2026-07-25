@@ -10,7 +10,7 @@ Layout polish complete — deployment paused by user request
 
 ## Last Completed Task
 
-F002 — Ticket detail action-button sizing and spacing
+QA-01 — Role-based local test accounts and authentication checks
 Completed: 2026-07-25
 
 ## Next Task
@@ -24,6 +24,6 @@ Waiting for the user to approve the current layout pass.
 
 ## Session Notes
 
-The generated cPanel ZIP was deleted at the user's request. Ticket detail action-button presence, shared sizing, and spacing rules passed local verification. SMTP credentials must be entered directly into ignored `config/config.local.php`.
+Six labelled local test accounts now cover every current role; each was verified to log in and reach the forced password-change page. Their temporary credentials are intentionally not stored in Git or `_brain`. SMTP credentials must be entered directly into ignored `config/config.local.php`.
 
 Last updated: 2026-07-25

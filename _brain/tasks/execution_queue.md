@@ -11,4 +11,5 @@
 9. UI-03 — sidebar layout, density, ticket cards, and row arrows — complete (pending user visual approval)
 10. F001 — dynamic sidebar active state — complete
 11. F002 — ticket detail action-button sizing and spacing — complete (pending user visual approval)
-12. DEP-01b — cPanel upload, configuration, schema import, and SMTP go-live verification — pending layout approval and user upload
+12. QA-01 — role-based local test accounts and authentication checks — complete
+13. DEP-01b — cPanel upload, configuration, schema import, and SMTP go-live verification — pending layout approval and user upload
