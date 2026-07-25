@@ -10,7 +10,7 @@ Layout polish complete — deployment paused by user request
 
 ## Last Completed Task
 
-QA-01 — Role-based local test accounts and authentication checks
+MIG-002 — Leave and calendar foundation migration
 Completed: 2026-07-25
 
 ## Next Task
@@ -24,6 +24,6 @@ Waiting for the user to approve the current layout pass.
 
 ## Session Notes
 
-Six labelled local test accounts now cover every current role; each was verified to log in and reach the forced password-change page. Their temporary credentials are intentionally not stored in Git or `_brain`. SMTP credentials must be entered directly into ignored `config/config.local.php`.
+Migration `002_leave_and_calendar_foundation.sql` is applied locally and safe to rerun. It added the restricted Team Member role, leave/calendar tables, and a disabled Team Calendar sidebar item without changing existing tickets, users, roles, or grants. SMTP credentials must be entered directly into ignored `config/config.local.php`.
 
 Last updated: 2026-07-25
