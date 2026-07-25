@@ -27,6 +27,7 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F002 | Ticket detail action-button spacing | WEB | Detail actions lacked a shared size rule and form-action spacing. | inline | 2026-07-25 | FIXED |
 | F003 | Login page loaded without styling | WEB | `login.php` omitted the shared stylesheet and font references. | inline | 2026-07-25 | FIXED |
 | F004 | Ticket actions had no user feedback | WEB | Action forms redirected without processing states or success confirmation. | inline | 2026-07-25 | FIXED |
+| F005 | Username lookup depended on database collation | AUTH | Login normalized input but compared against the stored value without explicit case normalization. | inline | 2026-07-25 | FIXED |
 
 ---
 

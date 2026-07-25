@@ -5,7 +5,7 @@ if (current_user()) redirect('index.php');
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
-    $q = db()->prepare('SELECT id,password_hash,must_change_password FROM users WHERE username = ? AND is_active = 1');
+    $q = db()->prepare('SELECT id,password_hash,must_change_password FROM users WHERE LOWER(username) = ? AND is_active = 1');
     $q->execute([strtolower(trim($_POST['username'] ?? ''))]);
     $user = $q->fetch();
     if ($user && password_verify($_POST['password'] ?? '', $user['password_hash'])) {

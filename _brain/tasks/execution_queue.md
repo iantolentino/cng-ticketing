@@ -19,4 +19,5 @@
 17. UI-05 — product naming and login copy refinement — complete
 18. UI-06 — login eyebrow removal — complete
 19. F004 — ticket action feedback and delete confirmation — complete
-20. DEP-01b — cPanel upload, configuration, schema import, additive migrations, and SMTP go-live verification — pending user upload
+20. F005 — case-normalized username lookup — complete
+21. DEP-01b — cPanel upload, configuration, schema import, additive migrations, and SMTP go-live verification — pending user upload
