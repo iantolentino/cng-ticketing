@@ -32,6 +32,7 @@ The live MVP includes authentication, database-driven access control, ticket cre
 | TKT-02 | Permission-protected paginated ticket register | 2026-07-25 |
 | F006 | Merge pagination into canonical Tickets page | 2026-07-25 |
 | TKT-03 | Shareable on-screen ticket filters | 2026-07-25 |
+| F007 | Sidebar active-state consistency | 2026-07-27 |
 
 ## Deployment Outcome
 
@@ -45,4 +46,4 @@ The live MVP includes authentication, database-driven access control, ticket cre
 
 Use the MVP in normal operations, collect feedback, and prioritise future enhancements separately from the deployed core.
 
-Last updated: 2026-07-25
+Last updated: 2026-07-27
