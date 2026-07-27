@@ -1,26 +1,28 @@
 # CONTINUE PROMPT
 
-Paste this at the start of a session to resume work on an existing project.
+Paste the text below into a new session:
 
 ---
 
-Read the following files in this exact order. Do not read anything else.
+Resume the CNG / Jamesons Ticketing System in `C:\xampp\htdocs\cng-ticketing`.
 
-1. `_brain/claude.md` (or `_brain/aibrain.md`)
-2. `_brain/progress/progress.md`
-3. `_brain/summaries/current_state.md`
+Before taking any action, read these files in order:
 
-You are now in EXECUTION_MODE.
+1. `_brain/claude.md`
+2. `_brain/summaries/project_handoff.md`
+3. `_brain/progress/progress.md`
 
-Rules:
-- Select ONE incomplete task from progress.md
-- Validate that all its dependencies are COMPLETE
-- If a dependency is not complete, select that dependency instead
-- If the task is a bug fix (`B###`), read `_brain/fixes/fix_log.md` first
-- Execute the selected task to full completion
-- Update `progress/progress.md` and `summaries/current_state.md` (and `fixes/fix_log.md` if this
-  was a bug fix)
-- Stop
+The MVP is deployed and in use. Do not assume there is a next task or restart deployment. Wait for my request, then complete only that request.
 
-Do not plan. Do not re-explain the system. Do not propose future tasks.
-Execute the next task and stop.
+Project rules:
+
+- Work as one sequential agent; do not spawn subagents.
+- Use Vanilla PHP 8, PDO, MySQL/MariaDB, plain HTML/CSS/JS; no Composer or framework.
+- Use `apply_patch` for project file edits.
+- Preserve unrelated or untracked files. Never expose or commit `config/config.local.php` credentials.
+- For bugs, read `_brain/fixes/fix_log.md` before diagnosing.
+- For code changes, verify the affected behavior, then commit and push only the completed atomic task.
+- `index.php` is the canonical ticket list. Do not recreate `tickets_paginated.php`.
+- Do not change export behavior while working on dashboard filters unless I explicitly request it.
+
+First response: briefly confirm the handoff was loaded, then ask what I want to work on.
