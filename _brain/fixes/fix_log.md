@@ -29,6 +29,7 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F004 | Ticket actions had no user feedback | WEB | Action forms redirected without processing states or success confirmation. | inline | 2026-07-25 | FIXED |
 | F005 | Username lookup depended on database collation | AUTH | Login normalized input but compared against the stored value without explicit case normalization. | inline | 2026-07-25 | FIXED |
 | F006 | Tickets sidebar bypassed pagination | WEB | Pagination was added to a duplicate route while the sidebar still targeted the unpaginated canonical page. | inline | 2026-07-25 | FIXED |
+| F007 | Sidebar could show more than one active item | WEB | Navigation state used separate grouped flags instead of one route-selected active item. | inline | 2026-07-27 | FIXED |
 
 ---
 
