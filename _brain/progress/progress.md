@@ -1,8 +1,10 @@
 # Progress
 
-## Active Task
+## MVP Status
 
-None — permission-gated ticket export is complete; cPanel deployment resumes after approval.
+**Deployed and in use** — local and live production checks passed on 2026-07-25.
+
+The live MVP includes authentication, database-driven access control, ticket creation and workflow, comments and audit history, management notifications, ticket export permissions, the Team Calendar placeholder, pagination, and shareable on-screen ticket filters.
 
 ## Completed
 
@@ -29,11 +31,18 @@ None — permission-gated ticket export is complete; cPanel deployment resumes a
 | F005 | Case-normalized username lookup | 2026-07-25 |
 | TKT-02 | Permission-protected paginated ticket register | 2026-07-25 |
 | F006 | Merge pagination into canonical Tickets page | 2026-07-25 |
+| TKT-03 | Shareable on-screen ticket filters | 2026-07-25 |
 
-## Deployment Progress
+## Deployment Outcome
 
-- Upload package refreshed and integrity-checked: `cng-ticketing-cpanel-upload-2026-07-25.zip` (current through `3652fb6`).
-- Pending: cPanel upload, production configuration, schema import, additive migrations, and live notification test.
+- Production site: `https://cng-tickets.stratastaff.com/`
+- Database imported and configured in cPanel.
+- Local and live ticket-register pagination confirmed working.
+- Local and live ticket-list filtering confirmed ready for use.
+- Production SMTP credentials remain managed only in the server-local configuration file.
+
+## Next Phase
+
+Use the MVP in normal operations, collect feedback, and prioritise future enhancements separately from the deployed core.
 
 Last updated: 2026-07-25
-Current phase: Deployment in progress
