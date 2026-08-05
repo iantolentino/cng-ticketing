@@ -11,7 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($user && password_verify($_POST['password'] ?? '', $user['password_hash'])) {
         session_regenerate_id(true); $_SESSION['user_id'] = $user['id'];
         db()->prepare('UPDATE users SET last_login_at = NOW() WHERE id = ?')->execute([$user['id']]);
-        redirect($user['must_change_password'] ? 'change-password.php' : 'index.php');
+        refresh_current_user();
+        redirect($user['must_change_password'] ? 'change-password.php' : default_landing_page());
     }
     $error = 'Invalid username or password.';
 }

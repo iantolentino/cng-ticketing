@@ -1,12 +1,126 @@
 <?php
-require __DIR__ . '/app/bootstrap.php'; require __DIR__ . '/app/tickets.php'; require __DIR__ . '/app/layout.php';
-$user = require_permission('view_all_tickets'); $id = (int) ($_GET['id'] ?? 0);
-$q = db()->prepare('SELECT t.*,d.name department,a.full_name assignee FROM tickets t JOIN departments d ON d.id=t.department_id LEFT JOIN users a ON a.id=t.assignee_id WHERE t.id=? AND t.deleted_at IS NULL'); $q->execute([$id]); $ticket = $q->fetch(); if (!$ticket) { http_response_code(404); exit('Ticket not found.'); }
-if ($_SERVER['REQUEST_METHOD'] === 'POST') { verify_csrf(); $notice=''; if (isset($_POST['comment']) && user_can('comment_tickets')) { $body=trim($_POST['comment']); if ($body !== '') { db()->prepare('INSERT INTO ticket_comments(ticket_id,user_id,body) VALUES(?,?,?)')->execute([$id,$user['id'],$body]); activity($id,$user['id'],'commented'); $notice='comment_added'; } } elseif (user_can('edit_tickets')) { $new=$_POST['status'] ?? $ticket['status']; if (in_array($new,['open','in_progress','pending','closed'],true) && ($new !== 'closed' || user_can('close_tickets'))) { db()->prepare('UPDATE tickets SET status=?,closed_at=?,assignee_id=? WHERE id=?')->execute([$new,$new==='closed'?date('Y-m-d H:i:s'):null,$_POST['assignee_id']?:null,$id]); activity($id,$user['id'],'updated',['status'=>$new]); notify_management('Ticket updated: '.$ticket['ticket_number'],$ticket['subject'].' - '.$new); $notice='changes_saved'; } } redirect('ticket.php?id='.$id.($notice?'&notice='.$notice:'')); }
-$users=active_users(); $comments=db()->prepare('SELECT c.*,u.full_name FROM ticket_comments c JOIN users u ON u.id=c.user_id WHERE c.ticket_id=? ORDER BY c.created_at'); $comments->execute([$id]); $events=db()->prepare('SELECT a.*,u.full_name FROM ticket_activity a LEFT JOIN users u ON u.id=a.actor_id WHERE a.ticket_id=? ORDER BY a.created_at DESC'); $events->execute([$id]); $notices=['changes_saved'=>'Changes saved.','comment_added'=>'Comment added.']; $notice=$notices[$_GET['notice']??'']??null; page_start($ticket['subject'],$user); ?>
-<?php if($notice):?><p class="action-notice" role="status"><?=e($notice)?></p><?php endif;?>
-<p class="eyebrow"><?=e($ticket['ticket_number'])?></p><h1><?=e($ticket['subject'])?></h1><p class="page-subtitle"><?=e($ticket['department'])?> &middot; <?=e($ticket['category'])?></p>
-<div class="page-actions"><?php if(user_can('edit_tickets')): ?><a class="button" href="edit-ticket.php?id=<?=$id?>">Edit details</a><?php endif; ?><?php if(user_can('delete_tickets')): ?><form class="inline-form" method="post" action="delete-ticket.php" data-feedback data-confirm="Soft-delete this ticket?"><input type="hidden" name="csrf_token" value="<?=e(csrf_token())?>"><input type="hidden" name="id" value="<?=$id?>"><button class="button button-danger" data-processing="Deleting…">Delete ticket</button></form><?php endif; ?></div>
-<div class="ticket-detail"><section><h2>Description</h2><p><?=nl2br(e($ticket['description']))?></p><dl><dt>Escalator</dt><dd><?=e($ticket['issue_escalator'])?></dd><dt>Employee</dt><dd><?=e($ticket['employee_name'])?></dd></dl></section><?php if(user_can('edit_tickets')): ?><section><h2>Workflow</h2><form method="post" data-feedback><input type="hidden" name="csrf_token" value="<?=e(csrf_token())?>"><label>Status<select name="status"><?php foreach(['open'=>'Open','in_progress'=>'In Progress','pending'=>'Pending','closed'=>'Closed'] as $k=>$v): ?><option value="<?=$k?>" <?=$ticket['status']===$k?'selected':''?>><?=$v?></option><?php endforeach; ?></select></label><label>Assignee<select name="assignee_id"><option value="">Unassigned</option><?php foreach($users as $u): ?><option value="<?=$u['id']?>" <?=$ticket['assignee_id']==$u['id']?'selected':''?>><?=e($u['full_name'])?></option><?php endforeach; ?></select></label><button class="button" data-processing="Saving…">Save changes</button></form></section><?php endif; ?></div>
-<section><h2>Comments</h2><?php foreach($comments as $c): ?><p><strong><?=e($c['full_name'])?></strong> <span class="muted"><?=e($c['created_at'])?></span><br><?=nl2br(e($c['body']))?></p><?php endforeach; ?><?php if(user_can('comment_tickets')): ?><form method="post" data-feedback><input type="hidden" name="csrf_token" value="<?=e(csrf_token())?>"><label>Add comment<textarea name="comment" required rows="3"></textarea></label><button class="button" data-processing="Adding…">Add comment</button></form><?php endif; ?></section>
-<section><h2>Activity</h2><?php foreach($events as $event): ?><p class="muted"><?=e($event['created_at'])?> - <?=e($event['full_name']??'System')?> <?=e($event['action'])?></p><?php endforeach; ?></section><script>document.querySelectorAll('form[data-feedback]').forEach(function(form){form.addEventListener('submit',function(event){if(event.defaultPrevented)return;var button=form.querySelector('button[type="submit"],button');if(!button)return;if(form.dataset.confirm&&!window.confirm(form.dataset.confirm)){event.preventDefault();return;}button.disabled=true;button.classList.add('is-processing');button.textContent=button.dataset.processing||button.textContent;});});</script><?php page_end();
+declare(strict_types=1);
+
+require __DIR__ . '/app/bootstrap.php';
+require __DIR__ . '/app/tickets.php';
+require __DIR__ . '/app/notifications.php';
+require __DIR__ . '/app/layout.php';
+
+$user = require_permission('view_all_tickets');
+$id = (int) ($_GET['id'] ?? 0);
+$stmt = db()->prepare("SELECT t.*, d.name department,
+    COALESCE((SELECT GROUP_CONCAT(DISTINCT u.full_name ORDER BY u.full_name SEPARATOR ', ') FROM ticket_assignees ta JOIN users u ON u.id = ta.user_id WHERE ta.ticket_id = t.id), a.full_name) AS assignees,
+    COALESCE((SELECT GROUP_CONCAT(DISTINCT dep.name ORDER BY dep.name SEPARATOR ', ') FROM ticket_departments td JOIN departments dep ON dep.id = td.department_id WHERE td.ticket_id = t.id), d.name) AS departments
+    FROM tickets t
+    JOIN departments d ON d.id = t.department_id
+    LEFT JOIN users a ON a.id = t.assignee_id
+    WHERE t.id = ? AND t.deleted_at IS NULL");
+$stmt->execute([$id]);
+$ticket = $stmt->fetch();
+if (!$ticket) { http_response_code(404); exit('Ticket not found.'); }
+require_ticket_visible($user, $id);
+
+$users = active_users();
+$userIds = array_map('intval', array_column($users, 'id'));
+$selectedAssignees = selected_ids('ticket_assignees', 'user_id', $id) ?: array_filter([(int) ($ticket['assignee_id'] ?? 0)]);
+$attachmentError = '';
+$sla = ticket_sla_state($ticket);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verify_csrf();
+    $notice = '';
+    if (($_POST['action'] ?? '') === 'upload_attachment' && user_can('upload_attachments')) {
+        $file = $_FILES['attachment'] ?? null;
+        if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            $attachmentError = 'Choose a PDF or image file to upload.';
+        } elseif (($file['size'] ?? 0) > 10 * 1024 * 1024) {
+            $attachmentError = 'Attachment must be 10 MB or smaller.';
+        } else {
+            $originalName = basename((string) $file['name']);
+            $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+            $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mime = $finfo ? (finfo_file($finfo, (string) $file['tmp_name']) ?: 'application/octet-stream') : 'application/octet-stream';
+            if ($finfo) finfo_close($finfo);
+            $allowedMimes = ['application/pdf', 'image/jpeg', 'image/png'];
+            if (!in_array($extension, $allowedExtensions, true) || !in_array($mime, $allowedMimes, true)) {
+                $attachmentError = 'Only PDF, JPG, and PNG attachments are allowed.';
+            } else {
+                $storageDir = ROOT_PATH . '/storage/private/ticket-attachments/' . $id;
+                if (!is_dir($storageDir)) mkdir($storageDir, 0775, true);
+                $storedName = bin2hex(random_bytes(16)) . '.' . $extension;
+                $relativePath = 'storage/private/ticket-attachments/' . $id . '/' . $storedName;
+                if (!move_uploaded_file((string) $file['tmp_name'], ROOT_PATH . '/' . $relativePath)) {
+                    $attachmentError = 'Attachment could not be saved.';
+                } else {
+                    db()->prepare('INSERT INTO ticket_attachments(ticket_id,uploaded_by,file_name,file_path,stored_name,original_name,mime_type,file_size) VALUES(?,?,?,?,?,?,?,?)')->execute([$id, $user['id'], $originalName, $relativePath, $storedName, $originalName, $mime, (int) $file['size']]);
+                    activity($id, $user['id'], 'attachment_uploaded', ['file_name' => $originalName]);
+                    $notice = 'attachment_uploaded';
+                }
+            }
+        }
+    } elseif (isset($_POST['comment']) && user_can('comment_tickets')) {
+        $body = trim((string) $_POST['comment']);
+        if ($body !== '') {
+            db()->prepare('INSERT INTO ticket_comments(ticket_id,user_id,body) VALUES(?,?,?)')->execute([$id, $user['id'], $body]);
+            activity($id, $user['id'], 'commented');
+            notify_many(array_merge($selectedAssignees, [(int) $ticket['created_by']]), (int) $user['id'], 'comment', 'New comment: ' . $ticket['ticket_number'], $ticket['subject'], 'ticket.php?id=' . $id);
+            $notice = 'comment_added';
+        }
+    } elseif (user_can('edit_tickets') || user_can('assign_tickets')) {
+        $newStatus = user_can('edit_tickets') ? ($_POST['status'] ?? $ticket['status']) : $ticket['status'];
+        $assigneeIds = user_can('assign_tickets') ? posted_ids('assignee_ids') : $selectedAssignees;
+        $statusChanged = $newStatus !== $ticket['status'];
+        if (!in_array($newStatus, ['open', 'in_progress', 'pending', 'closed'], true) || ($statusChanged && $newStatus === 'closed' && !user_can('close_tickets')) || !valid_ids($assigneeIds, $userIds)) {
+            http_response_code(400);
+            exit('Invalid workflow update.');
+        }
+        $closedAt = $newStatus === 'closed' ? ($statusChanged ? date('Y-m-d H:i:s') : $ticket['closed_at']) : null;
+        $pdo = db();
+        $pdo->beginTransaction();
+        try {
+            $pdo->prepare('UPDATE tickets SET status=?,closed_at=?,assignee_id=? WHERE id=?')->execute([$newStatus, $closedAt, $assigneeIds[0] ?? null, $id]);
+            if (user_can('assign_tickets')) sync_ticket_assignees($id, $assigneeIds);
+            if (user_can('assign_tickets')) notify_many(array_diff($assigneeIds, $selectedAssignees), (int) $user['id'], 'assignment', 'Ticket assigned: ' . $ticket['ticket_number'], $ticket['subject'], 'ticket.php?id=' . $id);
+            activity($id, $user['id'], 'updated', ['status' => $newStatus, 'assignee_ids' => $assigneeIds]);
+            $pdo->commit();
+            notify_management('Ticket updated: ' . $ticket['ticket_number'], $ticket['subject'] . ' - ' . $newStatus);
+            $notice = 'changes_saved';
+        } catch (Throwable $exception) {
+            $pdo->rollBack();
+            http_response_code(500);
+            exit('Ticket could not be updated.');
+        }
+    }
+    if (!$attachmentError) redirect('ticket.php?id=' . $id . ($notice ? '&notice=' . $notice : ''));
+}
+
+$comments = db()->prepare('SELECT c.*,u.full_name FROM ticket_comments c JOIN users u ON u.id=c.user_id WHERE c.ticket_id=? ORDER BY c.created_at');
+$comments->execute([$id]);
+$events = db()->prepare('SELECT a.*,u.full_name FROM ticket_activity a LEFT JOIN users u ON u.id=a.actor_id WHERE a.ticket_id=? ORDER BY a.created_at DESC');
+$events->execute([$id]);
+$attachments = [];
+if (user_can('view_attachments')) {
+    $attachmentQuery = db()->prepare('SELECT ta.*, u.full_name AS uploaded_by_name FROM ticket_attachments ta JOIN users u ON u.id = ta.uploaded_by WHERE ta.ticket_id = ? ORDER BY ta.uploaded_at DESC, ta.created_at DESC');
+    $attachmentQuery->execute([$id]);
+    $attachments = $attachmentQuery->fetchAll();
+}
+$notices = ['changes_saved' => 'Changes saved.', 'comment_added' => 'Comment added.', 'attachment_uploaded' => 'Attachment uploaded.'];
+$notice = $notices[$_GET['notice'] ?? ''] ?? null;
+page_start($ticket['subject'], $user);
+?>
+<?php if ($notice): ?><p class="action-notice" role="status"><?= e($notice) ?></p><?php endif; ?>
+<p class="eyebrow"><?= e($ticket['ticket_number']) ?></p>
+<h1><?= e($ticket['subject']) ?></h1>
+<p class="page-subtitle"><?= e($ticket['departments']) ?> &middot; <?= e($ticket['category']) ?></p>
+<div class="sla-summary sla-summary-<?= e($sla[0]) ?>"><span class="sla-badge sla-<?= e($sla[0]) ?>"><?= e($sla[1]) ?></span><span><?= e($sla[2]) ?></span><span><?= ticket_age_days($ticket, 'created_at') ?> days open</span><span><?= ticket_age_days($ticket, 'updated_at') ?> days idle</span></div>
+<div class="page-actions"><?php if (user_can('edit_tickets')): ?><a class="button" href="edit-ticket.php?id=<?= $id ?>">Edit details</a><?php endif; ?><?php if (user_can('delete_tickets')): ?><form class="inline-form" method="post" action="delete-ticket.php" data-feedback data-confirm="Soft-delete this ticket?"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= $id ?>"><button class="button button-danger" data-processing="Deleting...">Delete ticket</button></form><?php endif; ?></div>
+<div class="ticket-detail">
+    <section><h2>Description</h2><p><?= nl2br(e($ticket['description'])) ?></p><dl><dt>Priority</dt><dd><span class="pill pill-priority-<?= e($ticket['priority'] ?? 'normal') ?>"><?= e(TICKET_PRIORITIES[$ticket['priority'] ?? 'normal'] ?? 'Normal') ?></span></dd><dt>Escalator</dt><dd><?= e($ticket['issue_escalator']) ?></dd><dt>Employee</dt><dd><?= e($ticket['employee_name']) ?></dd><dt>Assignees</dt><dd><?= e($ticket['assignees'] ?? 'Unassigned') ?></dd><dt>Current department</dt><dd><?= e($ticket['department']) ?></dd></dl></section>
+    <?php if (user_can('edit_tickets') || user_can('assign_tickets')): ?><section><h2>Workflow</h2><form method="post" data-feedback><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><?php if (user_can('edit_tickets')): ?><label>Status<select name="status"><?php foreach (['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pending', 'closed' => 'Closed'] as $key => $label): ?><option value="<?= $key ?>"<?= $ticket['status'] === $key ? ' selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></label><?php endif; ?><?php if (user_can('assign_tickets')): ?><label>Assignees<select name="assignee_ids[]" multiple size="6"><?php foreach ($users as $member): ?><option value="<?= (int) $member['id'] ?>"<?= in_array((int) $member['id'], $selectedAssignees, true) ? ' selected' : '' ?>><?= e($member['full_name']) ?></option><?php endforeach; ?></select></label><?php endif; ?><button class="button" data-processing="Saving...">Save changes</button></form></section><?php endif; ?>
+</div>
+<?php if (user_can('view_attachments') || user_can('upload_attachments')): ?><section><div class="section-head"><div><h2>Confidential attachments</h2><p class="muted">Medical certificates and private files are visible only to roles granted attachment access.</p></div><?php if (user_can('upload_attachments')): ?><span class="pill pill-pending">Restricted</span><?php endif; ?></div><?php if ($attachmentError): ?><p class="auth-error"><?= e($attachmentError) ?></p><?php endif; ?><?php if (user_can('view_attachments')): ?><div class="attachment-list"><?php foreach ($attachments as $attachment): ?><div class="attachment-item"><div><strong><?= e($attachment['file_name'] ?: $attachment['original_name']) ?></strong><br><span class="muted">Uploaded by <?= e($attachment['uploaded_by_name']) ?> on <?= e($attachment['uploaded_at'] ?: $attachment['created_at']) ?></span></div><a class="button button-secondary" href="download-attachment.php?id=<?= (int) $attachment['id'] ?>">Download</a></div><?php endforeach; ?><?php if (!$attachments): ?><p class="muted">No confidential attachments uploaded yet.</p><?php endif; ?></div><?php endif; ?><?php if (user_can('upload_attachments')): ?><form method="post" enctype="multipart/form-data" class="compact-form" data-feedback><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="upload_attachment"><label>Upload attachment<input type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required></label><button class="button" data-processing="Uploading...">Upload file</button></form><?php endif; ?></section><?php endif; ?>
+<section><h2>Comments</h2><?php foreach ($comments as $comment): ?><p><strong><?= e($comment['full_name']) ?></strong> <span class="muted"><?= e($comment['created_at']) ?></span><br><?= nl2br(e($comment['body'])) ?></p><?php endforeach; ?><?php if (user_can('comment_tickets')): ?><form method="post" data-feedback><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><label>Add comment<textarea name="comment" required rows="3"></textarea></label><button class="button" data-processing="Adding...">Add comment</button></form><?php endif; ?></section>
+<section><h2>Activity</h2><?php foreach ($events as $event): ?><p class="muted"><?= e($event['created_at']) ?> - <?= e($event['full_name'] ?? 'System') ?> <?= e($event['action']) ?></p><?php endforeach; ?></section>
+<script>document.querySelectorAll('form[data-feedback]').forEach(function(form){form.addEventListener('submit',function(event){if(event.defaultPrevented)return;var button=form.querySelector('button[type="submit"],button');if(!button)return;if(form.dataset.confirm&&!window.confirm(form.dataset.confirm)){event.preventDefault();return;}button.disabled=true;button.classList.add('is-processing');button.textContent=button.dataset.processing||button.textContent;});});</script>
+<?php page_end();

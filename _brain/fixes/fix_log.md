@@ -30,6 +30,8 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F005 | Username lookup depended on database collation | AUTH | Login normalized input but compared against the stored value without explicit case normalization. | inline | 2026-07-25 | FIXED |
 | F006 | Tickets sidebar bypassed pagination | WEB | Pagination was added to a duplicate route while the sidebar still targeted the unpaginated canonical page. | inline | 2026-07-25 | FIXED |
 | F007 | Sidebar could show more than one active item | WEB | Navigation state used separate grouped flags instead of one route-selected active item. | inline | 2026-07-27 | FIXED |
+| F008 | Local pages showed session permission warnings | INFRA | PHP tried to store sessions in unwritable `C:\xampp\tmp`; app now uses ignored `.local/sessions`. | inline | 2026-08-04 | FIXED |
+| F009 | Login landed on password setup for ready users | AUTH | `current_user()` cached the anonymous lookup before `login.php` set the session user id. | inline | 2026-08-04 | FIXED |
 
 ---
 

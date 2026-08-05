@@ -32,15 +32,35 @@ CREATE TABLE user_permission_overrides (
   PRIMARY KEY(user_id, permission_id), FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY(permission_id) REFERENCES permissions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE notifications (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, user_id BIGINT UNSIGNED NOT NULL, actor_id BIGINT UNSIGNED NULL,
+  type VARCHAR(60) NOT NULL, title VARCHAR(160) NOT NULL, body VARCHAR(500) NOT NULL, url VARCHAR(500) NOT NULL,
+  read_at DATETIME NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_notifications_user_read(user_id, read_at, created_at), KEY idx_notifications_user_created(user_id, created_at),
+  FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY(actor_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE tickets (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, ticket_number VARCHAR(24) NOT NULL UNIQUE, issue_escalator VARCHAR(150) NOT NULL, subject VARCHAR(255) NOT NULL,
   category VARCHAR(80) NOT NULL, subcategory VARCHAR(80) NULL, department_id BIGINT UNSIGNED NOT NULL, employee_name VARCHAR(150) NOT NULL, description TEXT NOT NULL,
-  status ENUM('open','in_progress','pending','closed') NOT NULL DEFAULT 'open', assignee_id BIGINT UNSIGNED NULL, created_by BIGINT UNSIGNED NOT NULL,
+  status ENUM('open','in_progress','pending','closed') NOT NULL DEFAULT 'open', priority ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal', assignee_id BIGINT UNSIGNED NULL, created_by BIGINT UNSIGNED NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, closed_at DATETIME NULL,
   deleted_at DATETIME NULL, deleted_by BIGINT UNSIGNED NULL,
   KEY idx_tickets_dashboard(deleted_at,status,updated_at), KEY idx_tickets_department(department_id,deleted_at), KEY idx_tickets_assignee(assignee_id,deleted_at),
   FOREIGN KEY(department_id) REFERENCES departments(id), FOREIGN KEY(assignee_id) REFERENCES users(id) ON DELETE SET NULL,
   FOREIGN KEY(created_by) REFERENCES users(id), FOREIGN KEY(deleted_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE ticket_assignees (
+  ticket_id BIGINT UNSIGNED NOT NULL, user_id BIGINT UNSIGNED NOT NULL, assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(ticket_id, user_id), KEY idx_ticket_assignees_user(user_id, ticket_id),
+  FOREIGN KEY(ticket_id) REFERENCES tickets(id) ON DELETE CASCADE, FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE ticket_departments (
+  ticket_id BIGINT UNSIGNED NOT NULL, department_id BIGINT UNSIGNED NOT NULL, added_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(ticket_id, department_id), KEY idx_ticket_departments_department(department_id, ticket_id),
+  FOREIGN KEY(ticket_id) REFERENCES tickets(id) ON DELETE CASCADE, FOREIGN KEY(department_id) REFERENCES departments(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE ticket_comments (
@@ -56,9 +76,52 @@ CREATE TABLE ticket_activity (
 -- Metadata hook only; attachment upload is intentionally deferred.
 CREATE TABLE ticket_attachments (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, ticket_id BIGINT UNSIGNED NOT NULL, uploaded_by BIGINT UNSIGNED NOT NULL,
+  file_name VARCHAR(255) NOT NULL, file_path VARCHAR(500) NOT NULL, uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   stored_name VARCHAR(255) NOT NULL, original_name VARCHAR(255) NOT NULL, mime_type VARCHAR(120) NOT NULL, file_size BIGINT UNSIGNED NOT NULL,
   access_permission_key VARCHAR(80) NOT NULL DEFAULT 'view_attachments', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_attachments_ticket(ticket_id), FOREIGN KEY(ticket_id) REFERENCES tickets(id), FOREIGN KEY(uploaded_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE company_holidays (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, `date` DATE NOT NULL, label VARCHAR(150) NOT NULL,
+  country_code VARCHAR(12) NOT NULL DEFAULT 'COMPANY', holiday_type VARCHAR(40) NOT NULL DEFAULT 'company',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_company_holidays_scope(`date`,country_code,label)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE calendar_events (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, title VARCHAR(180) NOT NULL, event_date DATE NOT NULL, end_date DATE NULL,
+  event_type ENUM('team_event','coverage','reminder','other') NOT NULL DEFAULT 'team_event', created_by BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY idx_calendar_events_dates(event_date,end_date),
+  FOREIGN KEY(created_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE leave_requests (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, employee_user_id BIGINT UNSIGNED NOT NULL,
+  start_date DATE NOT NULL, end_date DATE NOT NULL, reason TEXT NOT NULL,
+  status ENUM('pending','team_leader_approved','department_head_approved','rejected') NOT NULL DEFAULT 'pending',
+  team_leader_approval_by BIGINT UNSIGNED NULL, team_leader_approval_at DATETIME NULL,
+  department_head_approval_by BIGINT UNSIGNED NULL, department_head_approval_at DATETIME NULL,
+  submitted_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  KEY idx_leave_requests_employee_status(employee_user_id,status,start_date), KEY idx_leave_requests_status_dates(status,start_date,end_date),
+  FOREIGN KEY(employee_user_id) REFERENCES users(id), FOREIGN KEY(team_leader_approval_by) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY(department_head_approval_by) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE leave_request_attachments (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, leave_request_id BIGINT UNSIGNED NOT NULL, uploaded_by BIGINT UNSIGNED NOT NULL,
+  file_name VARCHAR(255) NOT NULL, file_path VARCHAR(500) NOT NULL, mime_type VARCHAR(120) NOT NULL, file_size BIGINT UNSIGNED NOT NULL,
+  uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY idx_leave_request_attachments_request(leave_request_id),
+  FOREIGN KEY(leave_request_id) REFERENCES leave_requests(id) ON DELETE CASCADE, FOREIGN KEY(uploaded_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE team_attendance (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, attendance_date DATE NOT NULL, department_id BIGINT UNSIGNED NOT NULL, logged_by BIGINT UNSIGNED NOT NULL,
+  status ENUM('present','partial','absent','training','work_from_home') NOT NULL DEFAULT 'present', headcount INT UNSIGNED NOT NULL DEFAULT 0, notes TEXT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_team_attendance_day_department(attendance_date, department_id), KEY idx_team_attendance_date(attendance_date,status),
+  FOREIGN KEY(department_id) REFERENCES departments(id) ON DELETE CASCADE, FOREIGN KEY(logged_by) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE app_settings (setting_key VARCHAR(80) PRIMARY KEY, setting_value TEXT NOT NULL, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -66,9 +129,9 @@ CREATE TABLE app_settings (setting_key VARCHAR(80) PRIMARY KEY, setting_value TE
 INSERT INTO departments(name,code) VALUES
 ('Repairs and Maintenance (R&M)','rm'),('Strata Customer Care','customer-care'),('Strata Admin Specialist','admin'),('Strata Insurance Specialist','insurance'),('Strata Compliance Specialist','compliance');
 INSERT INTO roles(name,slug,is_system) VALUES
-('Super Admin','super-admin',1),('Management','management',1),('Team Leader','team-leader',1),('Pod Leader','pod-leader',1),('Subject Matter Expert','sme',1),('Department Head','department-head',1);
+('Super Admin','super-admin',1),('Management','management',1),('Team Leader','team-leader',1),('Pod Leader','pod-leader',1),('Subject Matter Expert','sme',1),('Department Head','department-head',1),('CNG Admin','cng-admin',1),('Team Member','team-member',1);
 INSERT INTO permissions(permission_key,label,description) VALUES
-('view_all_tickets','View all tickets','See all active tickets and histories.'),('create_tickets','Create tickets','Create account tickets.'),('edit_tickets','Edit tickets','Update ticket fields and workflow status.'),('close_tickets','Close tickets','Set status to Closed.'),('comment_tickets','Comment on tickets','Add ticket comments.'),('assign_tickets','Assign tickets','Change the ticket assignee.'),('manage_users','Manage users','Create and manage users.'),('manage_roles','Manage roles and access','Change access grants.'),('delete_tickets','Delete tickets','Soft-delete tickets.'),('view_attachments','View attachments','View confidential attachments.'),('upload_attachments','Upload attachments','Upload confidential attachments.');
+('view_all_tickets','View all tickets','See all active tickets and histories.'),('create_tickets','Create tickets','Create account tickets.'),('edit_tickets','Edit tickets','Update ticket fields and workflow status.'),('close_tickets','Close tickets','Set status to Closed.'),('comment_tickets','Comment on tickets','Add ticket comments.'),('assign_tickets','Assign tickets','Change the ticket assignee.'),('manage_users','Manage users','Create and manage users.'),('manage_roles','Manage roles and access','Change access grants.'),('delete_tickets','Delete tickets','Soft-delete tickets.'),('view_attachments','Can View Attachments','View confidential medical certificate attachments.'),('upload_attachments','Upload attachments','Upload confidential attachments.'),('access_leave_request_module','Access leave request module','Use the restricted leave-request module.');
 
 -- Permission grants: Team Leaders deliberately do not receive create/edit/close/assign.
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r CROSS JOIN permissions p WHERE r.slug='super-admin';
@@ -77,4 +140,6 @@ INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 F
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='team-leader' AND p.permission_key IN ('view_all_tickets','comment_tickets');
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='pod-leader' AND p.permission_key IN ('view_all_tickets','create_tickets','edit_tickets','close_tickets','comment_tickets','assign_tickets');
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='sme' AND p.permission_key IN ('view_all_tickets','comment_tickets');
-
+INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='cng-admin' AND p.permission_key IN ('view_all_tickets');
+INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='team-member' AND p.permission_key IN ('access_leave_request_module');
+INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug IN ('team-leader','department-head') AND p.permission_key IN ('access_leave_request_module');

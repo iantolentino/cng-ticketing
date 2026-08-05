@@ -15,7 +15,7 @@
 1. Upload the repository contents to the intended document-root folder.
 2. Create the MySQL database and a database user in cPanel; grant all database privileges.
 3. For a new database, import `database/schema.sql` in phpMyAdmin.
-4. Import `migrations/002_leave_and_calendar_foundation.sql`, then `migrations/003_ticket_export_permission.sql` in that order.
+4. Import `migrations/002_leave_and_calendar_foundation.sql`, then `migrations/003_ticket_export_permission.sql`, then `migrations/004_multi_assignees_departments_cng_admin.sql`, then `migrations/005_future_foundation_alignment.sql`, then `migrations/006_calendar_events_and_public_holidays.sql`, then `migrations/007_leave_attachments_calendar_details.sql`, then `migrations/008_ticket_priority.sql`, then `migrations/009_notifications.sql`, then `migrations/010_team_attendance.sql` in that order.
 5. Copy `config/config.example.php` to `config/config.local.php`.
 6. Fill the database values in `config/config.local.php`.
 7. **Reminder: fill all SMTP values in `config/config.local.php` before enabling live notifications.**
@@ -26,6 +26,17 @@
 
 - [ ] Sign in as Super Admin.
 - [ ] Confirm Team Leader cannot create a ticket and Pod Leader can.
+- [ ] Confirm Team Leader can only see tickets assigned to them.
+- [ ] Confirm CNG Admin can view and filter all tickets but cannot create, edit, export, or manage roles.
+- [ ] Confirm Team Member lands on `leave-requests.php` and cannot access ticketing pages.
+- [ ] Create a ticket with multiple assignees and multiple involved departments; confirm register, detail page, filters, and exports display them correctly.
+- [ ] Create or edit a ticket with each priority; confirm urgent tickets appear in the dashboard/My Work urgent counts and priority filters.
+- [ ] Confirm `department-workload.php` appears for Team Leader, lets them log involved departments on assigned tickets, and remains blocked for CNG Admin.
+- [ ] Confirm Leave Requests shows TL approval, Department Head approval, and approved-this-week counts for Team Member, Team Leader, and Department Head roles.
+- [ ] Confirm `dashboard.php` appears in the sidebar, shows ticket dashboard/recent activity, and card drill-down links open filtered `index.php` register views.
+- [ ] Confirm Notifications appears in the sidebar, unread count updates, mark-all-read works, and assignment/comment/leave approval notifications are created.
+- [ ] Confirm Dashboard ticket trend chart switches between daily, weekly, and monthly views with 3/6/9/12-month ranges.
+- [ ] Confirm Team Attendance appears in the sidebar, Team Leaders can log department coverage, and records appear on Team Calendar.
 - [ ] Change a role permission in `admin.php`; confirm it applies immediately.
 - [ ] Create, assign, update, comment on, close, and reopen a ticket.
 - [ ] Confirm audit activity appears and soft-deleted tickets are hidden.
