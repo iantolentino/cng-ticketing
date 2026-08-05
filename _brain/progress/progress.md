@@ -58,6 +58,9 @@ The live MVP includes authentication, database-driven access control, ticket cre
 | UI-10 | Ticket trend bar graph with daily, weekly, and monthly views | 2026-08-05 |
 | ATTEND-01 | Team Attendance module feeding Team Calendar | 2026-08-05 |
 | NTF-03 | Follow-up button for pending/overdue tickets that emails assignees | 2026-08-05 |
+| QA-02 | Local multi-assignee create/edit/detail/register/export verification | 2026-08-05 |
+| QA-03 | Local Team Leader assigned-ticket-only visibility verification | 2026-08-05 |
+| QA-04 | Local CNG Admin view/filter-only access verification | 2026-08-05 |
 
 ## Deployment Outcome
 

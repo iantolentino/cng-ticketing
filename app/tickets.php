@@ -12,7 +12,7 @@ function active_users(): array { return db()->query('SELECT id,full_name FROM us
 function active_departments(): array { return db()->query('SELECT id,name FROM departments ORDER BY name')->fetchAll(); }
 function posted_text(string $key): string { return trim((string) ($_POST[$key] ?? '')); }
 function posted_ids(string $key): array {
-    $values = $_POST[$key] ?? [];
+    $values = $_POST[$key] ?? $_POST[$key . '[]'] ?? [];
     if (!is_array($values)) $values = [$values];
     return array_values(array_unique(array_filter(array_map('intval', $values), static fn(int $id): bool => $id > 0)));
 }

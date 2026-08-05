@@ -25,10 +25,10 @@
 ## Next Tasks
 
 22. TKT-04 - multi-assignees, involved departments, Team Leader ticket scoping, CNG Admin role, and filter layout improvements - complete locally; pending deployment
-23. DEP-02 - apply migrations 004, 005, 006, 007, and 008, upload changed PHP/CSS files, and run live role/filter checks - pending
-24. QA-02 - verify multi-assignee create/edit/detail/register/export behavior with real role accounts - pending
-25. QA-03 - verify Team Leader assigned-ticket-only visibility, including direct ticket URLs - pending
-26. QA-04 - verify CNG Admin view/filter-only access with no create/edit/export/admin actions - pending
+23. DEP-02 - apply migrations 004 through 010, upload changed PHP/CSS files, and run live role/filter checks - pending
+24. QA-02 - verify multi-assignee create/edit/detail/register/export behavior with real role accounts - complete locally; pending production check
+25. QA-03 - verify Team Leader assigned-ticket-only visibility, including direct ticket URLs - complete locally; pending production check
+26. QA-04 - verify CNG Admin view/filter-only access with no create/edit/export/admin actions - complete locally; pending production check
 27. FND-02 - bring base schema into parity with leave/calendar migration 002 for fresh installs - complete locally; pending deployment
 28. FND-03 - align attachment metadata naming with requested medical certificate model while preserving compatibility - complete locally; pending deployment
 29. LVE-01 - add protected Leave Request placeholder route for Team Members only - complete locally; pending deployment

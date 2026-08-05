@@ -35,6 +35,7 @@
 - [ ] Confirm Leave Requests shows TL approval, Department Head approval, and approved-this-week counts for Team Member, Team Leader, and Department Head roles.
 - [ ] Confirm `dashboard.php` appears in the sidebar, shows ticket dashboard/recent activity, and card drill-down links open filtered `index.php` register views.
 - [ ] Confirm Notifications appears in the sidebar, unread count updates, mark-all-read works, and assignment/comment/leave approval notifications are created.
+- [ ] Confirm pending or overdue assigned tickets show the Follow up button and notify assignees.
 - [ ] Confirm Dashboard ticket trend chart switches between daily, weekly, and monthly views with 3/6/9/12-month ranges.
 - [ ] Confirm Team Attendance appears in the sidebar, Team Leaders can log department coverage, and records appear on Team Calendar.
 - [ ] Change a role permission in `admin.php`; confirm it applies immediately.

@@ -6,10 +6,10 @@
 
 | ID | Task | Priority | Depends On | Status |
 |----|------|----------|------------|--------|
-| DEP-02 | Apply `migrations/004_multi_assignees_departments_cng_admin.sql`, `migrations/005_future_foundation_alignment.sql`, `migrations/006_calendar_events_and_public_holidays.sql`, `migrations/007_leave_attachments_calendar_details.sql`, `migrations/008_ticket_priority.sql`, `migrations/009_notifications.sql`, and `migrations/010_team_attendance.sql`, upload changed PHP/CSS files, and run live role/filter checks | HIGH | TKT-04, FND-02, FND-03, LVE-01, CAL-01, CAL-03, CAL-04, ATT-02, TKT-07, NTF-02, ATTEND-01 | PENDING |
-| QA-02 | Verify multi-assignee create/edit/detail/register/export behavior with real role accounts | HIGH | DEP-02 | PENDING |
-| QA-03 | Verify Team Leader can only see tickets assigned to them and cannot view unassigned/other-assigned ticket URLs | HIGH | DEP-02 | PENDING |
-| QA-04 | Verify `cng-admin` can view/filter tickets only and has no create/edit/export/admin actions | HIGH | DEP-02 | PENDING |
+| DEP-02 | Apply `migrations/004_multi_assignees_departments_cng_admin.sql`, `migrations/005_future_foundation_alignment.sql`, `migrations/006_calendar_events_and_public_holidays.sql`, `migrations/007_leave_attachments_calendar_details.sql`, `migrations/008_ticket_priority.sql`, `migrations/009_notifications.sql`, and `migrations/010_team_attendance.sql`, upload changed PHP/CSS files, and run live role/filter checks | HIGH | TKT-04, FND-02, FND-03, LVE-01, CAL-01, CAL-03, CAL-04, ATT-02, TKT-07, NTF-02, ATTEND-01, NTF-03 | PENDING |
+| QA-02 | Verify multi-assignee create/edit/detail/register/export behavior with real role accounts | HIGH | DEP-02 | COMPLETE LOCALLY |
+| QA-03 | Verify Team Leader can only see tickets assigned to them and cannot view unassigned/other-assigned ticket URLs | HIGH | DEP-02 | COMPLETE LOCALLY |
+| QA-04 | Verify `cng-admin` can view/filter tickets only and has no create/edit/export/admin actions | HIGH | DEP-02 | COMPLETE LOCALLY |
 | QA-05 | Verify dashboard range counts, attachment permissions, leave approvals, and Team Calendar on production | HIGH | DEP-02 | PENDING |
 | QA-06 | Verify interactive calendar event/holiday creation and PH/AU/CA holidays on production | HIGH | DEP-02 | PENDING |
 | QA-07 | Verify calendar item details and leave attachment download permissions on production | HIGH | DEP-02 | PENDING |

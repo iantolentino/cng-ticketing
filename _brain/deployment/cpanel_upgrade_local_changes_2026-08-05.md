@@ -2,6 +2,8 @@
 
 This guide upgrades the already deployed cPanel site. Do not re-run `setup.php` and do not replace `config/config.local.php`.
 
+For the exact upload file list, use `cpanel_upload_manifest_2026-08-05.md`.
+
 ## 1. Backup First
 
 1. In cPanel/phpMyAdmin, export the live database.
@@ -54,6 +56,7 @@ Also upload changed existing files, including:
 - `app/auth.php`
 - `app/bootstrap.php`
 - `app/layout.php`
+- `app/mailer.php`
 - `app/tickets.php`
 - `assets/css/app.css`
 - `change-password.php`
@@ -100,6 +103,7 @@ Critical checks:
 - Team Calendar shows events, holidays, approved leave, and detail popovers.
 - Team Attendance allows Team Leaders to log department coverage and shows those records on Team Calendar.
 - Notifications appear, unread count updates, mark-all-read works.
+- Pending or overdue assigned tickets show the Follow up button and notify assignees.
 - Confidential attachment downloads respect permissions.
 
 ## 6. Rollback

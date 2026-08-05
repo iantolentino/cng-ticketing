@@ -10,13 +10,13 @@ Multi-assignee, ticket visibility, dashboard, priority, attachment, leave, and c
 
 ## Last Completed Task
 
-ATTEND-01 - Team Attendance module feeding Team Calendar
+NTF-03 - Follow-up button for pending/overdue tickets that emails assignees
 Completed: 2026-08-05
 
 ## Next Task
 
-DEP-02 - Apply local migrations/files to cPanel and run live role/filter checks
-Depends on: local user approval and production maintenance window
+QA-05 - Verify dashboard range counts, attachment permissions, leave approvals, and Team Calendar on production
+Depends on: DEP-02 production deploy
 
 ## Active Blockers
 
@@ -64,6 +64,14 @@ ATTEND-01 completed locally: `team-attendance.php` lets Team Leaders and Super A
 
 NTF-03 completed locally: pending or overdue assigned tickets now show a Follow up button on ticket detail for users who can comment. It emails active assignees when SMTP is configured, creates in-app follow-up notifications, and records `follow_up_sent` in ticket activity.
 
+QA-02 completed locally: Super Admin HTTP flow created ticket `10` with 2 assignees and 2 departments, confirmed detail/register/CSV export display, then edited it down to 1 assignee and 1 department with urgent priority. A small `posted_ids()` compatibility tweak now accepts both normal PHP array posts and explicit `[]` keys.
+
+QA-03 completed locally: Created QA tickets `11` and `12`; `test.teamleader` saw assigned ticket `11` in Tickets and My Work, did not see other-assigned ticket `12`, direct `ticket.php?id=11` returned 200, and direct `ticket.php?id=12` returned 404.
+
+QA-04 completed locally: `test.cngadmin` can load Dashboard, filtered Tickets, and ticket detail with HTTP 200. It does not see Edit/Workflow actions on ticket detail, does not see My Work/Departments/Team Calendar sidebar links, and receives HTTP 403 for create, edit, export, admin, My Work, Department workload, Team Calendar, and Team Attendance routes.
+
 Deployment guide created locally: `_brain/deployment/cpanel_upgrade_local_changes_2026-08-05.md` documents how to upgrade the already deployed cPanel site without re-running setup or overwriting `config/config.local.php`. It instructs backing up production, applying additive migrations `004` through `010`, uploading changed files, setting private storage permissions, and smoke-testing role boundaries.
+
+Upload manifest created locally: `_brain/deployment/cpanel_upload_manifest_2026-08-05.md` lists exact cPanel upload files and explicit do-not-upload local/private artifacts.
 
 Last updated: 2026-08-05
