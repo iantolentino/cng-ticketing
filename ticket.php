@@ -25,11 +25,25 @@ $userIds = array_map('intval', array_column($users, 'id'));
 $selectedAssignees = selected_ids('ticket_assignees', 'user_id', $id) ?: array_filter([(int) ($ticket['assignee_id'] ?? 0)]);
 $attachmentError = '';
 $sla = ticket_sla_state($ticket);
+$canFollowUp = user_can('comment_tickets') && $selectedAssignees && ($ticket['status'] === 'pending' || $sla[0] === 'overdue');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $notice = '';
-    if (($_POST['action'] ?? '') === 'upload_attachment' && user_can('upload_attachments')) {
+    if (($_POST['action'] ?? '') === 'follow_up' && $canFollowUp) {
+        $placeholders = implode(',', array_fill(0, count($selectedAssignees), '?'));
+        $assigneeQuery = db()->prepare("SELECT id,email FROM users WHERE is_active = 1 AND id IN ($placeholders)");
+        $assigneeQuery->execute($selectedAssignees);
+        $assignees = $assigneeQuery->fetchAll();
+        $assigneeIds = array_map('intval', array_column($assignees, 'id'));
+        $emails = array_column($assignees, 'email');
+        $subject = 'Follow up needed: ' . $ticket['ticket_number'];
+        $body = $ticket['subject'] . "\n\nStatus: " . $ticket['status'] . "\nSLA: " . $sla[1] . "\n\nPlease review and update the ticket.";
+        send_mail_to_addresses($emails, $subject, $body);
+        notify_many($assigneeIds, (int) $user['id'], 'follow_up', $subject, $ticket['subject'], 'ticket.php?id=' . $id);
+        activity($id, $user['id'], 'follow_up_sent', ['assignee_ids' => $assigneeIds]);
+        $notice = 'follow_up_sent';
+    } elseif (($_POST['action'] ?? '') === 'upload_attachment' && user_can('upload_attachments')) {
         $file = $_FILES['attachment'] ?? null;
         if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             $attachmentError = 'Choose a PDF or image file to upload.';
@@ -105,7 +119,7 @@ if (user_can('view_attachments')) {
     $attachmentQuery->execute([$id]);
     $attachments = $attachmentQuery->fetchAll();
 }
-$notices = ['changes_saved' => 'Changes saved.', 'comment_added' => 'Comment added.', 'attachment_uploaded' => 'Attachment uploaded.'];
+$notices = ['changes_saved' => 'Changes saved.', 'comment_added' => 'Comment added.', 'attachment_uploaded' => 'Attachment uploaded.', 'follow_up_sent' => 'Follow-up sent to assignees.'];
 $notice = $notices[$_GET['notice'] ?? ''] ?? null;
 page_start($ticket['subject'], $user);
 ?>
@@ -114,7 +128,7 @@ page_start($ticket['subject'], $user);
 <h1><?= e($ticket['subject']) ?></h1>
 <p class="page-subtitle"><?= e($ticket['departments']) ?> &middot; <?= e($ticket['category']) ?></p>
 <div class="sla-summary sla-summary-<?= e($sla[0]) ?>"><span class="sla-badge sla-<?= e($sla[0]) ?>"><?= e($sla[1]) ?></span><span><?= e($sla[2]) ?></span><span><?= ticket_age_days($ticket, 'created_at') ?> days open</span><span><?= ticket_age_days($ticket, 'updated_at') ?> days idle</span></div>
-<div class="page-actions"><?php if (user_can('edit_tickets')): ?><a class="button" href="edit-ticket.php?id=<?= $id ?>">Edit details</a><?php endif; ?><?php if (user_can('delete_tickets')): ?><form class="inline-form" method="post" action="delete-ticket.php" data-feedback data-confirm="Soft-delete this ticket?"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= $id ?>"><button class="button button-danger" data-processing="Deleting...">Delete ticket</button></form><?php endif; ?></div>
+<div class="page-actions"><?php if ($canFollowUp): ?><form class="inline-form" method="post" data-feedback data-confirm="Send a follow-up to all assignees?"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="follow_up"><button class="button button-secondary" data-processing="Sending...">Follow up</button></form><?php endif; ?><?php if (user_can('edit_tickets')): ?><a class="button" href="edit-ticket.php?id=<?= $id ?>">Edit details</a><?php endif; ?><?php if (user_can('delete_tickets')): ?><form class="inline-form" method="post" action="delete-ticket.php" data-feedback data-confirm="Soft-delete this ticket?"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= $id ?>"><button class="button button-danger" data-processing="Deleting...">Delete ticket</button></form><?php endif; ?></div>
 <div class="ticket-detail">
     <section><h2>Description</h2><p><?= nl2br(e($ticket['description'])) ?></p><dl><dt>Priority</dt><dd><span class="pill pill-priority-<?= e($ticket['priority'] ?? 'normal') ?>"><?= e(TICKET_PRIORITIES[$ticket['priority'] ?? 'normal'] ?? 'Normal') ?></span></dd><dt>Escalator</dt><dd><?= e($ticket['issue_escalator']) ?></dd><dt>Employee</dt><dd><?= e($ticket['employee_name']) ?></dd><dt>Assignees</dt><dd><?= e($ticket['assignees'] ?? 'Unassigned') ?></dd><dt>Current department</dt><dd><?= e($ticket['department']) ?></dd></dl></section>
     <?php if (user_can('edit_tickets') || user_can('assign_tickets')): ?><section><h2>Workflow</h2><form method="post" data-feedback><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><?php if (user_can('edit_tickets')): ?><label>Status<select name="status"><?php foreach (['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pending', 'closed' => 'Closed'] as $key => $label): ?><option value="<?= $key ?>"<?= $ticket['status'] === $key ? ' selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></label><?php endif; ?><?php if (user_can('assign_tickets')): ?><label>Assignees<select name="assignee_ids[]" multiple size="6"><?php foreach ($users as $member): ?><option value="<?= (int) $member['id'] ?>"<?= in_array((int) $member['id'], $selectedAssignees, true) ? ' selected' : '' ?>><?= e($member['full_name']) ?></option><?php endforeach; ?></select></label><?php endif; ?><button class="button" data-processing="Saving...">Save changes</button></form></section><?php endif; ?>

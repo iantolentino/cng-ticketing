@@ -45,7 +45,7 @@
 | CAL-04 | Add clickable calendar item details for holidays/events/leave, including leave reason and supporting attachment links | HIGH | CAL-03, ATT-02 | COMPLETE |
 | UI-10 | Add ticket trend bar graph with daily/weekly/monthly and 3/6/9/12-month ranges | MEDIUM | UI-07 | COMPLETE |
 | ATTEND-01 | Add Team Attendance module and feed attendance records into Team Calendar | LOW | CAL-03 | COMPLETE |
-| NTF-03 | Add follow-up button for pending/overdue tickets that emails assignees | HIGH | TKT-05, NTF-02 | PENDING |
+| NTF-03 | Add follow-up button for pending/overdue tickets that emails assignees | HIGH | TKT-05, NTF-02 | COMPLETE |
 
 ## Already Present
 

@@ -52,4 +52,4 @@
 47. NTF-02 - in-app notification center for assignments, comments, and approvals - complete locally; pending deployment
 48. UI-10 - ticket trend bar graph with daily/weekly/monthly and 3/6/9/12-month ranges - complete locally; pending deployment
 49. ATTEND-01 - Team Attendance module feeding Team Calendar - complete locally; pending deployment
-50. NTF-03 - follow-up button for pending/overdue tickets that emails assignees - pending
+50. NTF-03 - follow-up button for pending/overdue tickets that emails assignees - complete locally; pending deployment

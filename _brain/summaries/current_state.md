@@ -15,8 +15,8 @@ Completed: 2026-08-05
 
 ## Next Task
 
-NTF-03 - Follow-up button for pending/overdue tickets that emails assignees
-Depends on: TKT-05, NTF-02
+DEP-02 - Apply local migrations/files to cPanel and run live role/filter checks
+Depends on: local user approval and production maintenance window
 
 ## Active Blockers
 
@@ -61,6 +61,8 @@ NTF-02 completed locally: `notifications` table and `app/notifications.php` help
 UI-10 completed locally: `dashboard.php` now has a Ticket trend bar chart with daily, weekly, and monthly views plus 3/6/9/12-month ranges. Counts are generated server-side from `tickets.created_at` and respect Team Leader ticket scope.
 
 ATTEND-01 completed locally: `team-attendance.php` lets Team Leaders and Super Admin log daily department coverage with status, headcount, and notes. Records are stored in `team_attendance`, appear as attendance chips on `team-calendar.php`, and open in the existing calendar details popover.
+
+NTF-03 completed locally: pending or overdue assigned tickets now show a Follow up button on ticket detail for users who can comment. It emails active assignees when SMTP is configured, creates in-app follow-up notifications, and records `follow_up_sent` in ticket activity.
 
 Deployment guide created locally: `_brain/deployment/cpanel_upgrade_local_changes_2026-08-05.md` documents how to upgrade the already deployed cPanel site without re-running setup or overwriting `config/config.local.php`. It instructs backing up production, applying additive migrations `004` through `010`, uploading changed files, setting private storage permissions, and smoke-testing role boundaries.
 

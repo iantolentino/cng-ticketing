@@ -57,6 +57,7 @@ The live MVP includes authentication, database-driven access control, ticket cre
 | NTF-02 | In-app notification center for assignments, comments, and approvals | 2026-08-05 |
 | UI-10 | Ticket trend bar graph with daily, weekly, and monthly views | 2026-08-05 |
 | ATTEND-01 | Team Attendance module feeding Team Calendar | 2026-08-05 |
+| NTF-03 | Follow-up button for pending/overdue tickets that emails assignees | 2026-08-05 |
 
 ## Deployment Outcome
 
