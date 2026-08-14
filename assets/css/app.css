@@ -240,6 +240,7 @@ dd{margin:0}
 /* Auth and first-run setup */
 body.auth-page{min-height:100vh;padding:0;background:#EDF3FC}
 .auth-shell{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(440px,.95fr);min-height:100vh}
+.auth-shell:has(> .auth-card:only-child){display:flex;align-items:center;justify-content:center}
 .auth-intro{display:flex;flex-direction:column;justify-content:center;padding:64px clamp(36px,8vw,128px);background:linear-gradient(135deg,#0B3F96,#1555B9);color:#fff}
 .auth-intro h1{max-width:640px;margin:16px 0;color:#fff;font-size:clamp(36px,4vw,56px);line-height:1.04;letter-spacing:-.04em}
 .auth-intro>p:not(.auth-eyebrow){max-width:590px;margin:0;color:#E7F0FF;font-size:17px;line-height:1.55}

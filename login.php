@@ -11,6 +11,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = $q->fetch();
     if ($user && password_verify($_POST['password'] ?? '', $user['password_hash']) && $user['approval_status'] === 'pending') {
         $error = 'Your registration is awaiting Super Admin approval. Please wait a few minutes or contact the developer or Super Admin.';
+    } elseif ($user && password_verify($_POST['password'] ?? '', $user['password_hash']) && !$user['is_active']) {
+        $error = 'Your account is not activated yet. Please wait a few minutes or contact the Super Admin.';
     } elseif ($user && password_verify($_POST['password'] ?? '', $user['password_hash']) && $user['is_active']) {
         session_regenerate_id(true); $_SESSION['user_id'] = $user['id'];
         db()->prepare('UPDATE users SET last_login_at=NOW() WHERE id=?')->execute([$user['id']]);
