@@ -257,6 +257,8 @@ body.auth-page{min-height:100vh;padding:0;background:#EDF3FC}
 .auth-features{display:flex;flex-wrap:wrap;gap:10px;margin-top:36px}
 .auth-features span{padding:8px 12px;border:1px solid rgba(255,255,255,.3);border-radius:999px;color:#fff;font-size:12px;font-weight:600}
 .auth-card form,.setup-card form{margin-top:24px}
+.auth-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:22px;flex-wrap:wrap}
+.auth-actions .button{margin-top:0}
 .setup-card form{max-width:440px;margin-inline:auto}
 .auth-card label,.setup-card label{margin-top:16px}
 .auth-card .button,.setup-card .button{margin-top:22px}
