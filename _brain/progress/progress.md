@@ -12,6 +12,7 @@ The live MVP includes authentication, database-driven access control, ticket cre
 | API-01 | Token-authenticated public ticket feed, token rotation, access logging, and structured ticket activity logging | 2026-08-14 |
 | TKT-10 | Separate issue/resolution fields, resolution-driven status, and public feed fields | 2026-08-14 |
 | DEP-04 | Prepare one-time unused-production cleanup and Super Admin seed script | 2026-08-14 |
+| AUTH-03 | Add visible registration link to the login page | 2026-08-14 |
 
 | ID | Task | Date |
 |---|---|---|
