@@ -22,7 +22,7 @@ CREATE TABLE role_permissions (
 CREATE TABLE users (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, role_id BIGINT UNSIGNED NOT NULL, department_id BIGINT UNSIGNED NULL,
   username VARCHAR(80) NOT NULL UNIQUE, full_name VARCHAR(150) NOT NULL, email VARCHAR(190) NULL UNIQUE, password_hash VARCHAR(255) NOT NULL,
-  must_change_password TINYINT(1) NOT NULL DEFAULT 1, is_active TINYINT(1) NOT NULL DEFAULT 1, last_login_at DATETIME NULL,
+  must_change_password TINYINT(1) NOT NULL DEFAULT 1, is_active TINYINT(1) NOT NULL DEFAULT 1, approval_status ENUM('approved','pending','rejected') NOT NULL DEFAULT 'approved', last_login_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   KEY idx_users_role_active(role_id, is_active), FOREIGN KEY(role_id) REFERENCES roles(id), FOREIGN KEY(department_id) REFERENCES departments(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -42,7 +42,7 @@ CREATE TABLE notifications (
 
 CREATE TABLE tickets (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, ticket_number VARCHAR(24) NOT NULL UNIQUE, issue_escalator VARCHAR(150) NOT NULL, subject VARCHAR(255) NOT NULL,
-  category VARCHAR(80) NOT NULL, subcategory VARCHAR(80) NULL, department_id BIGINT UNSIGNED NOT NULL, employee_name VARCHAR(150) NOT NULL, description TEXT NOT NULL,
+  category VARCHAR(80) NOT NULL, subcategory VARCHAR(80) NULL, department_id BIGINT UNSIGNED NOT NULL, employee_name VARCHAR(150) NOT NULL, description TEXT NOT NULL, issue TEXT NULL, resolution TEXT NULL,
   status ENUM('open','in_progress','pending','closed') NOT NULL DEFAULT 'open', priority ENUM('low','normal','high','urgent') NOT NULL DEFAULT 'normal', assignee_id BIGINT UNSIGNED NULL, created_by BIGINT UNSIGNED NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, closed_at DATETIME NULL,
   deleted_at DATETIME NULL, deleted_by BIGINT UNSIGNED NULL,
@@ -72,6 +72,10 @@ CREATE TABLE ticket_activity (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, ticket_id BIGINT UNSIGNED NOT NULL, actor_id BIGINT UNSIGNED NULL, action VARCHAR(80) NOT NULL, details JSON NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   KEY idx_ticket_activity_ticket(ticket_id,created_at), FOREIGN KEY(ticket_id) REFERENCES tickets(id), FOREIGN KEY(actor_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE api_tokens (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, token CHAR(64) NOT NULL UNIQUE, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, created_by BIGINT UNSIGNED NULL, revoked_at DATETIME NULL, KEY idx_api_tokens_active(revoked_at,token), FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE SET NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE api_feed_access_log (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, token_id BIGINT UNSIGNED NULL, ip_address VARCHAR(45) NOT NULL, query_params JSON NULL, status_code SMALLINT UNSIGNED NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY idx_api_feed_access_log_created(created_at), FOREIGN KEY(token_id) REFERENCES api_tokens(id) ON DELETE SET NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE ticket_activity_log (id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, ticket_id BIGINT UNSIGNED NOT NULL, action VARCHAR(80) NOT NULL, changed_fields JSON NULL, old_values JSON NULL, new_values JSON NULL, changed_by VARCHAR(100) NOT NULL, created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, KEY idx_ticket_activity_log_ticket(ticket_id,created_at), FOREIGN KEY(ticket_id) REFERENCES tickets(id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Metadata hook only; attachment upload is intentionally deferred.
 CREATE TABLE ticket_attachments (
@@ -135,10 +139,10 @@ INSERT INTO permissions(permission_key,label,description) VALUES
 
 -- Permission grants: Team Leaders deliberately do not receive create/edit/close/assign.
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r CROSS JOIN permissions p WHERE r.slug='super-admin';
-INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='management' AND p.permission_key IN ('view_all_tickets','create_tickets','edit_tickets','close_tickets','comment_tickets','assign_tickets');
+INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='management' AND p.permission_key IN ('view_all_tickets','edit_tickets','close_tickets','comment_tickets','assign_tickets');
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='department-head' AND p.permission_key IN ('view_all_tickets','edit_tickets','close_tickets','comment_tickets','assign_tickets');
-INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='team-leader' AND p.permission_key IN ('view_all_tickets','comment_tickets');
-INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='pod-leader' AND p.permission_key IN ('view_all_tickets','create_tickets','edit_tickets','close_tickets','comment_tickets','assign_tickets');
+INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='team-leader' AND p.permission_key IN ('view_all_tickets','create_tickets','comment_tickets');
+INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='pod-leader' AND p.permission_key IN ('view_all_tickets','edit_tickets','close_tickets','comment_tickets','assign_tickets');
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='sme' AND p.permission_key IN ('view_all_tickets','comment_tickets');
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='cng-admin' AND p.permission_key IN ('view_all_tickets');
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='team-member' AND p.permission_key IN ('access_leave_request_module');

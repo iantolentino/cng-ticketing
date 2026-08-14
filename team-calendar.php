@@ -29,6 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Enter a valid event title, type, and date range.';
         } else {
             $pdo->prepare('INSERT INTO calendar_events(title,event_date,end_date,event_type,created_by) VALUES(?,?,?,?,?)')->execute([$title, $eventDate, $endDate ?: null, $eventType, $user['id']]);
+            audit_admin_action((int) $user['id'], 'calendar_event_created', 'calendar_event', (int) $pdo->lastInsertId(), ['title' => $title, 'event_date' => $eventDate]);
             redirect('team-calendar.php?month=' . substr($eventDate, 0, 7) . '&notice=event_saved');
         }
     } elseif ($action === 'add_holiday') {
@@ -40,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $type = $country === 'COMPANY' ? 'company' : 'public';
             $pdo->prepare('INSERT INTO company_holidays(`date`,label,country_code,holiday_type) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE holiday_type=VALUES(holiday_type)')->execute([$date, $label, $country, $type]);
+            audit_admin_action((int) $user['id'], 'company_holiday_saved', 'company_holiday', null, ['date' => $date, 'label' => $label, 'country_code' => $country]);
             redirect('team-calendar.php?month=' . substr($date, 0, 7) . '&notice=holiday_saved');
         }
     }

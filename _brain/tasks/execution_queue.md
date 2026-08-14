@@ -53,3 +53,21 @@
 48. UI-10 - ticket trend bar graph with daily/weekly/monthly and 3/6/9/12-month ranges - complete locally; pending deployment
 49. ATTEND-01 - Team Attendance module feeding Team Calendar - complete locally; pending deployment
 50. NTF-03 - follow-up button for pending/overdue tickets that emails assignees - complete locally; pending deployment
+
+## Approved Next Product Queue
+
+51. AUTH-01 - secure password recovery with expiring single-use email tokens - complete locally; pending deployment
+52. ADM-02 - dedicated Super Admin Users CRUD and permission-management sidebar module - complete locally; pending deployment
+53. TKT-08 - Super Admin-only restore for soft-deleted tickets - complete locally; pending deployment
+54. AUD-01 - Super Admin-only administrative audit log - complete locally; pending deployment
+55. SLA-01 - configurable priority-based SLA rules and escalation notifications - complete locally; pending deployment
+56. SRCH-01 - indexed ticket search with scalable pagination/filtering - complete locally; pending deployment
+57. BULK-01 - optional permission-gated bulk ticket actions - complete locally; pending deployment
+58. TKT-09 - private comments/internal notes by department and assignee visibility - complete locally; pending deployment
+59. CAL-05 - controlled calendar event/holiday edit and delete actions - complete locally; pending deployment
+60. IMP-01 - validated CSV import tools for users, departments, tickets, and holidays - complete locally; pending deployment
+61. RPT-01 - operational SLA, workload, resolution, and leave reports - complete locally; pending deployment
+62. OPS-01 - production logs, health check, failed-email visibility, and backup verification - complete locally; pending deployment
+63. QA-08 - automated regression and migration tests - complete locally; pending deployment
+
+Items explicitly rejected or deferred are recorded in `_brain/progress/backlog.md` and are not part of the execution queue.

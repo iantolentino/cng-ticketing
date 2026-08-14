@@ -55,10 +55,10 @@ $dashboardUnassigned = (int) $dashboardUnassignedQuery->fetchColumn();
 $dashboardUrgentQuery = db()->prepare('SELECT COUNT(*) FROM tickets t WHERE ' . $dashboardWhereSql . ' AND t.status <> "closed" AND t.priority = "urgent"');
 $dashboardUrgentQuery->execute($dashboardParams);
 $dashboardUrgent = (int) $dashboardUrgentQuery->fetchColumn();
-$dashboardOverdueQuery = db()->prepare('SELECT COUNT(*) FROM tickets t WHERE ' . $dashboardWhereSql . ' AND t.status <> "closed" AND t.created_at < DATE_SUB(NOW(), INTERVAL 7 DAY)');
+$dashboardOverdueQuery = db()->prepare('SELECT COUNT(*) FROM tickets t WHERE ' . $dashboardWhereSql . ' AND t.status <> "closed" AND TIMESTAMPDIFF(DAY,t.created_at,NOW()) >= COALESCE((SELECT open_days FROM sla_rules sr WHERE sr.priority=t.priority),7)');
 $dashboardOverdueQuery->execute($dashboardParams);
 $dashboardOverdue = (int) $dashboardOverdueQuery->fetchColumn();
-$dashboardIdleQuery = db()->prepare('SELECT COUNT(*) FROM tickets t WHERE ' . $dashboardWhereSql . ' AND t.status <> "closed" AND t.updated_at < DATE_SUB(NOW(), INTERVAL 3 DAY) AND t.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)');
+$dashboardIdleQuery = db()->prepare('SELECT COUNT(*) FROM tickets t WHERE ' . $dashboardWhereSql . ' AND t.status <> "closed" AND TIMESTAMPDIFF(DAY,t.updated_at,NOW()) >= COALESCE((SELECT idle_days FROM sla_rules sr WHERE sr.priority=t.priority),3) AND TIMESTAMPDIFF(DAY,t.created_at,NOW()) < COALESCE((SELECT open_days FROM sla_rules sr2 WHERE sr2.priority=t.priority),7)');
 $dashboardIdleQuery->execute($dashboardParams);
 $dashboardIdle = (int) $dashboardIdleQuery->fetchColumn();
 

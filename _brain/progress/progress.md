@@ -8,6 +8,11 @@ The live MVP includes authentication, database-driven access control, ticket cre
 
 ## Completed
 
+| AUTH-02 | Pending account registration with Super Admin approval workflow | 2026-08-14 |
+| API-01 | Token-authenticated public ticket feed, token rotation, access logging, and structured ticket activity logging | 2026-08-14 |
+| TKT-10 | Separate issue/resolution fields, resolution-driven status, and public feed fields | 2026-08-14 |
+| DEP-04 | Prepare one-time unused-production cleanup and Super Admin seed script | 2026-08-14 |
+
 | ID | Task | Date |
 |---|---|---|
 | FND-01 | Schema, setup, authentication, and RBAC | 2026-07-25 |
@@ -61,6 +66,9 @@ The live MVP includes authentication, database-driven access control, ticket cre
 | QA-02 | Local multi-assignee create/edit/detail/register/export verification | 2026-08-05 |
 | QA-03 | Local Team Leader assigned-ticket-only visibility verification | 2026-08-05 |
 | QA-04 | Local CNG Admin view/filter-only access verification | 2026-08-05 |
+| ADM-03 | Super Admin account creation, bulk CSV import, role assignment, and permission management | 2026-08-10 |
+| OPS-01 | One-shot account cleanup script with hardcoded Super Admin preservation and self-deletion | 2026-08-10 |
+| OPS-02 | One-time deployment password reset script with forced password change and self-deletion | 2026-08-11 |
 
 ## Deployment Outcome
 
@@ -73,5 +81,81 @@ The live MVP includes authentication, database-driven access control, ticket cre
 ## Next Phase
 
 Apply `migrations/004_multi_assignees_departments_cng_admin.sql`, updated `migrations/005_future_foundation_alignment.sql`, `migrations/006_calendar_events_and_public_holidays.sql`, `migrations/007_leave_attachments_calendar_details.sql`, `migrations/008_ticket_priority.sql`, `migrations/009_notifications.sql`, and `migrations/010_team_attendance.sql` before deploying this feature set. Upload the new UI files `dashboard.php`, `notifications.php`, `team-calendar.php`, `team-attendance.php`, `leave-requests.php`, `department-workload.php`, `download-attachment.php`, `download-leave-attachment.php`, `app/notifications.php`, and `storage/private/.htaccess` with the changed PHP/CSS files.
+
+Last updated: 2026-08-05
+
+## Latest UI Safety and Layout Update
+
+Added consistent confirmation prompts and completion notifications for operational POST actions across the shared ticketing pages. Added spacing below the ticket detail WATCH banner so the Edit details and Delete ticket actions are visually separated. PHP syntax validation and whitespace checks passed.
+
+Last updated: 2026-08-11
+
+## Production Database Configuration
+
+Added `config/config.production.example.php` as a deployment template for live database and SMTP credentials. Local test tickets were not deleted because `seed_test_tickets.php` and local data are excluded from deployment; production will read the separate server-local `config/config.local.php` and use the designated live database.
+
+Last updated: 2026-08-12
+
+## Production Handoff Planning
+
+No deployment actions were performed. Added explicit planning tasks `DEP-02A` through `DEP-02G` to `backlog.md` for database backup, ordered migrations, approved file upload, production configuration, health/smoke testing, QA-05 through QA-07 execution, and removal verification for one-time deployment scripts.
+
+Last updated: 2026-08-11
+
+## CAL-05 / IMP-01 / RPT-01 / OPS-01 / QA-08 Verification
+
+Verified that calendar administration, validated CSV import, operational reports, production observability/health checks, and automated regression coverage are implemented locally. The regression harness passed 42 checks with no failures; targeted PHP syntax checks also passed. These items remain deployment-dependent where noted in the execution queue.
+
+Last updated: 2026-08-11
+
+## TKT-09 Verification
+
+Verified that ticket comments already support shared, assignee-only, and department-only visibility in `ticket.php`. Comment retrieval applies server-side visibility rules based on the author, assigned users, and involved departments; the UI labels restricted comments accordingly. No duplicate implementation was added.
+
+Last updated: 2026-08-11
+
+## SRCH-01 / BULK-01 Verification
+
+Verified that the ticket register already supports keyword and multi-field filtering, shareable filter URLs, pagination, and dashboard views. Verified that bulk status, priority, and soft-delete actions are protected by the `bulk_ticket_actions` permission, CSRF validation, transaction handling, activity/audit logging, and the shared confirmation/success feedback pattern. Migration `014_bulk_ticket_actions_permission.sql` is required where the permission is not yet installed.
+
+Last updated: 2026-08-11
+
+## SLA-01 Verification
+
+Verified that configurable SLA rules are already implemented through the `sla_rules` table and Super Admin controls in `admin.php`. Ticket and dashboard views apply priority-based open and idle thresholds for overdue and watch states, with administrative audit entries for rule changes. No duplicate implementation was added.
+
+Last updated: 2026-08-11
+
+## TKT-08 / AUD-01 Verification
+
+Verified that Super Admin deleted-ticket restoration is already implemented through `deleted-tickets.php` and `restore-ticket.php`, including ticket activity and administrative audit entries. Verified that `app/audit.php`, `audit-log.php`, and the `admin_audit_log` schema support the administrative audit log. No duplicate implementation was added.
+
+Last updated: 2026-08-11
+
+## ADM-02 Verification
+
+Verified that the dedicated Super Admin user-management and access controls are already present in `users.php` and `admin.php`, including account creation/editing, role and department assignment, activation, password reset access, deletion, role permissions, and per-user permission overrides. No duplicate implementation was added.
+
+Last updated: 2026-08-11
+
+## Latest Task
+
+`AUTH-01` completed locally: password recovery now uses a one-hour, hashed, single-use token, generic account-enumeration-safe responses, SMTP delivery, password confirmation, and inactive-account protection. Production requires migration `011_password_reset_tokens.sql` and configured SMTP.
+
+## Approved Next Product Phase
+
+The next product phase is documented in `backlog.md` under **Phase 4 - Post-MVP Hardening and Operations**.
+
+Priority order:
+
+1. `AUTH-01` - password recovery.
+2. `ADM-02` - dedicated Super Admin Users module and permission management.
+3. `TKT-08` and `AUD-01` - Super Admin restore and administrative audit log.
+4. `SLA-01` - configurable SLA rules and escalation.
+5. `SRCH-01` and `BULK-01` - scalable search, pagination, and optional bulk actions.
+6. `TKT-09` - private department/assignee comments.
+7. `CAL-05`, `IMP-01`, `RPT-01`, `OPS-01`, and `QA-08`.
+
+Pagination already exists in the current ticket register. `SRCH-01` therefore focuses on indexed search and ensuring pagination remains performant as data grows.
 
 Last updated: 2026-08-05

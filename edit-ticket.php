@@ -26,6 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $values = [
         'issue_escalator' => posted_text('issue_escalator'),
         'subject' => posted_text('subject'),
+        'issue' => posted_text('issue'),
+        'resolution' => posted_text('resolution'),
         'priority' => posted_text('priority') ?: 'normal',
         'category' => posted_text('category'),
         'subcategory' => posted_text('subcategory'),
@@ -42,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (
         empty($values['issue_escalator']) ||
         empty($values['subject']) ||
+        empty($values['issue']) ||
         $subcategories === null ||
         !array_key_exists($values['priority'], TICKET_PRIORITIES) ||
         !in_array($departmentId, $departmentIds, true) ||
@@ -58,22 +61,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pdo = db();
     $pdo->beginTransaction();
     try {
-        $pdo->prepare('UPDATE tickets SET issue_escalator=?,subject=?,priority=?,category=?,subcategory=?,department_id=?,employee_name=?,description=?,assignee_id=? WHERE id=?')->execute([
+        $newStatus = $values['resolution'] !== '' ? 'closed' : 'in_progress';
+        $pdo->prepare('UPDATE tickets SET issue_escalator=?,subject=?,issue=?,priority=?,category=?,subcategory=?,department_id=?,employee_name=?,description=?,resolution=?,status=?,closed_at=?,assignee_id=? WHERE id=?')->execute([
             $values['issue_escalator'],
             $values['subject'],
+            $values['issue'],
             $values['priority'],
             $values['category'],
             $values['subcategory'] ?: null,
             $departmentId,
             $values['employee_name'],
             $values['description'],
+            $values['resolution'] ?: null,
+            $newStatus,
+            $newStatus === 'closed' ? ($ticket['status'] === 'closed' ? $ticket['closed_at'] : date('Y-m-d H:i:s')) : null,
             $assigneeIds[0] ?? null,
             $id,
         ]);
         sync_ticket_departments($id, $departmentSelection);
         if (user_can('assign_tickets')) sync_ticket_assignees($id, $assigneeIds);
         if (user_can('assign_tickets')) notify_many(array_diff($assigneeIds, $selectedAssignees), (int) $user['id'], 'assignment', 'Ticket assigned: ' . $ticket['ticket_number'], $values['subject'], 'ticket.php?id=' . $id);
-        activity($id, $user['id'], 'details_updated');
+        activity($id, $user['id'], 'details_updated', ['issue' => $values['issue'], 'resolution' => $values['resolution'], 'status' => $newStatus]);
         $pdo->commit();
         notify_management('Ticket updated: ' . $ticket['ticket_number'], $values['subject']);
         redirect('ticket.php?id=' . $id);
@@ -91,6 +99,7 @@ page_start('Edit ticket', $user);
     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
     <label>Issue Escalator<input name="issue_escalator" value="<?= e($ticket['issue_escalator']) ?>" required></label>
     <label>Subject<input name="subject" value="<?= e($ticket['subject']) ?>" required></label>
+    <label>Issue<textarea name="issue" required rows="4"><?= e($ticket['issue'] ?? '') ?></textarea></label>
     <label>Priority<select name="priority" required><?php foreach (TICKET_PRIORITIES as $value => $label): ?><option value="<?= e($value) ?>"<?= ($ticket['priority'] ?? 'normal') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
     <label>Category<select name="category"><?php foreach (TICKET_CATEGORIES as $category => $subcategories): ?><option<?= $ticket['category'] === $category ? ' selected' : '' ?>><?= e($category) ?></option><?php endforeach; ?></select></label>
     <label>Subcategory<input name="subcategory" value="<?= e($ticket['subcategory']) ?>"></label>
@@ -99,6 +108,7 @@ page_start('Edit ticket', $user);
     <label>Employee<input name="employee_name" value="<?= e($ticket['employee_name']) ?>" required></label>
     <?php if (user_can('assign_tickets')): ?><label>Assignees<select name="assignee_ids[]" multiple size="6"><?php foreach ($users as $member): ?><option value="<?= (int) $member['id'] ?>"<?= in_array((int) $member['id'], $selectedAssignees, true) ? ' selected' : '' ?>><?= e($member['full_name']) ?></option><?php endforeach; ?></select></label><?php endif; ?>
     <label>Description<textarea name="description" rows="6" required><?= e($ticket['description']) ?></textarea></label>
+    <label>Resolution<textarea name="resolution" rows="5"><?= e($ticket['resolution'] ?? '') ?></textarea></label>
     <button class="button">Save ticket details</button>
 </form>
 <?php page_end();

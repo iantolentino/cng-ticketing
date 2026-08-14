@@ -16,7 +16,7 @@ function notify_management(string $subject, string $body): void
         if ($smtp['encryption']==='tls') $mail->SMTPSecure=PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         if ($smtp['encryption']==='ssl') $mail->SMTPSecure=PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
         $mail->setFrom($smtp['from_email'],$smtp['from_name']); foreach($recipients as $email) $mail->addAddress($email); $mail->Subject=$subject; $mail->Body=$body; $mail->send();
-    } catch (Throwable $e) { error_log('CNG ticket notification failed: '.$e->getMessage()); }
+    } catch (Throwable $e) { system_log('error','email_failed','Management email failed',['error'=>$e->getMessage(),'subject'=>$subject]); }
 }
 
 function send_mail_to_addresses(array $recipients, string $subject, string $body): void
@@ -33,5 +33,5 @@ function send_mail_to_addresses(array $recipients, string $subject, string $body
         if ($smtp['encryption']==='tls') $mail->SMTPSecure=PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
         if ($smtp['encryption']==='ssl') $mail->SMTPSecure=PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
         $mail->setFrom($smtp['from_email'],$smtp['from_name']); foreach($recipients as $email) $mail->addAddress($email); $mail->Subject=$subject; $mail->Body=$body; $mail->send();
-    } catch (Throwable $e) { error_log('CNG direct notification failed: '.$e->getMessage()); }
+    } catch (Throwable $e) { system_log('error','email_failed','Direct email failed',['error'=>$e->getMessage(),'subject'=>$subject,'recipient_count'=>count($recipients)]); }
 }

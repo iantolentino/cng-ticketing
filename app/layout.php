@@ -10,6 +10,8 @@ function sidebar_icon(string $name): string
         'departments' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.75 19.25V8.75h6.5v10.5M12.75 19.25V4.75h6.5v14.5M3.75 19.25h16.5M7 12h2M7 15h2M15 8h2M15 11h2M15 14h2"/></svg>',
         'notifications' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.75 10.75a5.25 5.25 0 0 1 10.5 0c0 3 1.25 4.5 2 5.5H4.75c.75-1 2-2.5 2-5.5M9.75 18.25a2.25 2.25 0 0 0 4.5 0"/></svg>',
         'roles' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg>',
+        'deleted' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M9 7V4.75h6V7M7 7l.75 12.25h8.5L17 7M10 10.5v5M14 10.5v5"/></svg>',
+        'users' => '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.75 19c.5-3 2.25-4.5 5.25-4.5s4.75 1.5 5.25 4.5M15 7.5h5.25M17.5 5v5"/></svg>',
         'calendar' => '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" rx="1"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/></svg>',
         'attendance' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.75h14v13.5H5zM8 3.75v4M16 3.75v4M5 10h14M8 14h2M12 14h4M8 17h2M12 17h4"/></svg>',
         'leave' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.75h10l2 2v12.5H7zM17 4.75v4h4M10 13h7M10 16h5"/></svg>',
@@ -41,6 +43,7 @@ function page_start(string $title, ?array $user = null): void
     if ($canViewCalendar) {
         $items[] = ['calendar', 'team-calendar.php', ['team-calendar.php'], 'Team Calendar', 'calendar'];
         $items[] = ['attendance', 'team-attendance.php', ['team-attendance.php'], 'Team Attendance', 'attendance'];
+        if (($user['role_slug'] ?? '') === 'super-admin') $items[] = ['calendar-admin', 'calendar-admin.php', ['calendar-admin.php'], 'Calendar admin', 'calendar'];
     }
     if ($user && user_can('access_leave_request_module')) {
         $items[] = ['leave', 'leave-requests.php', ['leave-requests.php'], 'Leave Requests', 'leave'];
@@ -50,6 +53,16 @@ function page_start(string $title, ?array $user = null): void
     }
     if ($user && user_can('manage_roles')) {
         $items[] = ['roles', 'admin.php', ['admin.php', 'reset-user-password.php'], 'Roles & Access', 'roles'];
+    }
+    if ($user && user_can('manage_users')) {
+        $items[] = ['users', 'users.php', ['users.php'], 'Users', 'users'];
+    }
+    if ($user && ($user['role_slug'] ?? '') === 'super-admin') {
+        $items[] = ['deleted', 'deleted-tickets.php', ['deleted-tickets.php'], 'Deleted tickets', 'deleted'];
+        $items[] = ['audit', 'audit-log.php', ['audit-log.php'], 'Audit log', 'deleted'];
+        $items[] = ['import', 'import.php', ['import.php'], 'CSV import', 'users'];
+        $items[] = ['reports', 'reports.php', ['reports.php'], 'Reports', 'dashboard'];
+        $items[] = ['health', 'health.php', ['health.php'], 'System health', 'dashboard'];
     }
     $active = '';
     foreach ($items as $item) {
@@ -95,5 +108,18 @@ function page_start(string $title, ?array $user = null): void
 
 function page_end(): void
 {
-    ?></div></main></body></html><?php
+    ?><div class="action-toast" role="status" aria-live="polite" hidden>Action completed.</div><script>
+    (function(){
+        var toast=document.querySelector('.action-toast');
+        if(sessionStorage.getItem('cng_action_success')==='1'){sessionStorage.removeItem('cng_action_success');toast.hidden=false;window.setTimeout(function(){toast.hidden=true;},3500);}
+        document.querySelectorAll('form[method="post"]').forEach(function(form){form.addEventListener('submit',function(event){
+            if(event.defaultPrevented)return;
+            var button=event.submitter||form.querySelector('button[type="submit"],button');
+            if(!button)return;
+           if(!button.dataset.confirm&&!form.dataset.confirm&&!window.confirm('Are you sure you want to continue?')){event.preventDefault();return;}
+            sessionStorage.setItem('cng_action_success','1');
+            button.disabled=true;button.classList.add('is-processing');button.textContent=button.dataset.processing||button.textContent;
+        });});
+    })();
+    </script></div></main></body></html><?php
 }

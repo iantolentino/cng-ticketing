@@ -23,6 +23,13 @@ In phpMyAdmin, run these SQL files in order against the live database:
 5. `migrations/008_ticket_priority.sql`
 6. `migrations/009_notifications.sql`
 7. `migrations/010_team_attendance.sql`
+8. `migrations/011_password_reset_tokens.sql`
+9. `migrations/012_admin_audit_log.sql`
+10. `migrations/013_sla_rules.sql`
+11. `migrations/014_bulk_ticket_actions_permission.sql`
+12. `migrations/015_private_ticket_comments.sql`
+13. `migrations/016_system_logs.sql`
+14. `migrations/017_ticket_creation_role_scope.sql`
 
 These are additive/idempotent migrations for the local feature set.
 
@@ -50,6 +57,12 @@ New files to upload:
 - `migrations/008_ticket_priority.sql`
 - `migrations/009_notifications.sql`
 - `migrations/010_team_attendance.sql`
+- `migrations/011_password_reset_tokens.sql`
+- `migrations/012_admin_audit_log.sql`
+- `migrations/013_sla_rules.sql`
+- `migrations/014_bulk_ticket_actions_permission.sql`
+- `migrations/015_private_ticket_comments.sql`
+- `bulk-tickets.php`
 
 Also upload changed existing files, including:
 
@@ -67,6 +80,16 @@ Also upload changed existing files, including:
 - `index.php`
 - `login.php`
 - `ticket.php`
+- `forgot-password.php`
+- `reset-password.php`
+- `audit-log.php`
+- `calendar-admin.php`
+- `reports.php`
+- `health.php`
+- `app/logging.php`
+- `migrations/016_system_logs.sql`
+- `migrations/017_ticket_creation_role_scope.sql`
+- `app/audit.php`
 
 Do not upload or overwrite `config/config.local.php` unless you are deliberately changing live DB/SMTP settings.
 

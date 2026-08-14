@@ -72,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare('UPDATE leave_requests SET status=?, team_leader_approval_by=?, team_leader_approval_at=NOW() WHERE id=? AND status="pending"');
             $stmt->execute([$nextStatus, $user['id'], $requestId]);
             if ($stmt->rowCount()) {
+                audit_admin_action((int) $user['id'], 'leave_' . $action, 'leave_request', $requestId, ['stage' => 'team_leader', 'status' => $nextStatus]);
                 $request = $pdo->prepare('SELECT lr.employee_user_id, lr.start_date, lr.end_date, u.full_name FROM leave_requests lr JOIN users u ON u.id = lr.employee_user_id WHERE lr.id = ?');
                 $request->execute([$requestId]);
                 $leave = $request->fetch();
@@ -85,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare('UPDATE leave_requests SET status=?, department_head_approval_by=?, department_head_approval_at=NOW() WHERE id=? AND status="team_leader_approved"');
             $stmt->execute([$nextStatus, $user['id'], $requestId]);
             if ($stmt->rowCount()) {
+                audit_admin_action((int) $user['id'], 'leave_' . $action, 'leave_request', $requestId, ['stage' => 'department_head', 'status' => $nextStatus]);
                 $request = $pdo->prepare('SELECT employee_user_id, start_date, end_date FROM leave_requests WHERE id = ?');
                 $request->execute([$requestId]);
                 $leave = $request->fetch();

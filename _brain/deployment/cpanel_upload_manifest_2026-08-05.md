@@ -25,6 +25,15 @@ Root PHP pages:
 - `notifications.php`
 - `download-attachment.php`
 - `download-leave-attachment.php`
+- `forgot-password.php`
+- `reset-password.php`
+- `audit-log.php`
+- `calendar-admin.php`
+- `reports.php`
+- `health.php`
+- `app/logging.php`
+- `migrations/016_system_logs.sql`
+- `migrations/017_ticket_creation_role_scope.sql`
 - `export-tickets.php`
 - `login.php`
 - `change-password.php`
@@ -53,6 +62,15 @@ Database/migrations:
 - `migrations/008_ticket_priority.sql`
 - `migrations/009_notifications.sql`
 - `migrations/010_team_attendance.sql`
+- `migrations/011_password_reset_tokens.sql`
+- `migrations/012_admin_audit_log.sql`
+- `migrations/013_sla_rules.sql`
+- `migrations/014_bulk_ticket_actions_permission.sql`
+- `migrations/015_private_ticket_comments.sql`
+- `migrations/016_system_logs.sql`
+- `migrations/017_ticket_creation_role_scope.sql`
+- `bulk-tickets.php`
+- `app/audit.php`
 
 Deployment docs to keep for handoff:
 
@@ -77,7 +95,7 @@ Deployment docs to keep for handoff:
 ## Deployment Order
 
 1. Back up live database and live app folder.
-2. Run migrations `004` through `010` in order.
+2. Run migrations `004` through `017` in order.
 3. Upload files from this manifest, preserving paths.
 4. Create/writable-check `storage/private/ticket-attachments/`, `storage/private/leave-attachments/`, and `.local/sessions/`.
 5. Run the role smoke tests in the upgrade guide.

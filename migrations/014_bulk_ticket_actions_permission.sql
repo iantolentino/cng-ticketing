@@ -1,0 +1,2 @@
+INSERT INTO permissions(permission_key,label,description) VALUES('bulk_ticket_actions','Bulk ticket actions','Apply status, priority, or soft-delete actions to selected tickets.') ON DUPLICATE KEY UPDATE label=VALUES(label),description=VALUES(description);
+INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p ON p.permission_key='bulk_ticket_actions' WHERE r.slug='super-admin' ON DUPLICATE KEY UPDATE granted=VALUES(granted);

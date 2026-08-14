@@ -14,6 +14,20 @@
 | QA-06 | Verify interactive calendar event/holiday creation and PH/AU/CA holidays on production | HIGH | DEP-02 | PENDING |
 | QA-07 | Verify calendar item details and leave attachment download permissions on production | HIGH | DEP-02 | PENDING |
 
+### Production Handoff Checklist (planning only)
+
+These are deployment-phase tasks and are not being executed in the current local-only cycle:
+
+| ID | Task | Status |
+|----|------|--------|
+| DEP-02A | Back up the production database and record the backup location before changes | PENDING |
+| DEP-02B | Apply the required migrations in order, including migrations 011 through 017 where applicable | PENDING |
+| DEP-02C | Upload the approved PHP, CSS, asset, storage, and configuration changes | PENDING |
+| DEP-02D | Confirm production configuration, SMTP settings, file permissions, and private-storage protection | PENDING |
+| DEP-02E | Run production health check and smoke-test login, roles, tickets, calendar, leave, imports, reports, and audit access | PENDING |
+| DEP-02F | Run QA-05 through QA-07 with real role accounts and record results | PENDING |
+| DEP-02G | Remove one-time deployment scripts after successful use and confirm they are unavailable by URL | PENDING |
+
 ## Phase 2 - Foundation Scaffolding
 
 | ID | Task | Priority | Depends On | Status |
@@ -57,6 +71,37 @@
 | Calendar/leave additive migration | `migrations/002_leave_and_calendar_foundation.sql` | PRESENT |
 | Team Member leave permission scope | `access_leave_request_module` in migration 002 | PRESENT |
 | Team Member module boundary | `leave-requests.php` and permission-based nav | PRESENT |
+
+## Phase 4 - Post-MVP Hardening and Operations
+
+> Approved scope from the 2026-08-05 product review. Execute one task per cycle.
+
+| ID | Task | Priority | Depends On | Status |
+|----|------|----------|------------|--------|
+| AUTH-01 | Add secure password recovery with expiring, single-use email tokens and password reset audit entries | HIGH | DEP-02 | COMPLETE LOCALLY |
+| ADM-02 | Create a dedicated Super Admin-only Users sidebar module with user create/read/update/deactivate/delete controls, email fields, department assignment, role selection, temporary-password handling, and permission override management | HIGH | AUTH-01 | COMPLETE LOCALLY |
+| TKT-08 | Add Super Admin-only restore for soft-deleted tickets, with confirmation and audit history | HIGH | ADM-02 | COMPLETE LOCALLY |
+| AUD-01 | Add a Super Admin-only immutable administrative audit log for user, role, permission, restore, leave, attachment, and calendar administration actions | HIGH | ADM-02, TKT-08 | COMPLETE LOCALLY |
+| SLA-01 | Replace hard-coded aging thresholds with configurable SLA rules by priority, including due dates, business-day handling, and escalation notifications | HIGH | TKT-07, NTF-03 | COMPLETE LOCALLY |
+| SRCH-01 | Add indexed ticket search and scalable register pagination/filtering for ticket number, subject, employee, description, comments, assignee, department, status, and priority | HIGH | DEP-02 | COMPLETE LOCALLY |
+| BULK-01 | Add optional permission-gated bulk ticket actions for assignment, status, priority, archive/delete, and export selection; Super Admin controls access | MEDIUM | ADM-02, SRCH-01 | COMPLETE LOCALLY |
+| TKT-09 | Add private ticket comments/internal notes with visibility limited by configured department and/or assignee access | HIGH | ADM-02, AUD-01 | COMPLETE LOCALLY |
+| CAL-05 | Add controlled calendar event/holiday edit and delete actions, with Super Admin/authorized-role access and audit history | MEDIUM | AUD-01 | COMPLETE LOCALLY |
+| IMP-01 | Add permission-gated CSV import for users, departments, tickets, and holidays with validation preview and error report | MEDIUM | ADM-02, SRCH-01 | COMPLETE LOCALLY |
+| RPT-01 | Add operational reports for first response, resolution time, SLA compliance, reopen rate, workload by assignee/department, leave approvals, and trend exports | MEDIUM | SLA-01, SRCH-01 | COMPLETE LOCALLY |
+| OPS-01 | Add production observability: structured application logs, safe error reporting, health check, failed-email visibility, and database backup verification checklist | HIGH | DEP-02 | COMPLETE LOCALLY |
+| QA-08 | Build repeatable automated regression tests for authentication, permissions, direct URLs, CSRF, ticket visibility, attachments, leave transitions, and migrations | HIGH | ADM-02, TKT-09, SLA-01 | COMPLETE LOCALLY |
+
+## Explicitly Deferred or Rejected
+
+| Item | Decision | Reason |
+|------|----------|--------|
+| MFA, CAPTCHA, and account lockout | DEFERRED | Not needed for the current operating model; revisit after password recovery and production security review |
+| Ticket templates and recurring tickets | REJECTED | Not needed now |
+| Requester/customer portal and requester user accounts | REJECTED | Not needed now |
+| Leave balances, leave types, and payroll-style leave policy | REJECTED | Too complex for the current workflow |
+| Attachment virus scanning, preview, quotas, and retention | REJECTED | Not needed now |
+| API, webhooks, Slack/Teams, and calendar integrations | DEFERRED | Integration path is not yet defined |
 
 ## Task Status Key
 

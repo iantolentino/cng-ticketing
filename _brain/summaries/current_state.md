@@ -13,10 +13,13 @@ Multi-assignee, ticket visibility, dashboard, priority, attachment, leave, and c
 NTF-03 - Follow-up button for pending/overdue tickets that emails assignees
 Completed: 2026-08-05
 
+AUTH-01 - Secure password recovery
+Completed locally: 2026-08-05
+
 ## Next Task
 
-QA-05 - Verify dashboard range counts, attachment permissions, leave approvals, and Team Calendar on production
-Depends on: DEP-02 production deploy
+DEP-02 - Apply additive migrations `004` through `016`, upload changed files, and run live cPanel smoke checks
+Depends on: user approval and cPanel access; local QA-08 regression checks now pass
 
 ## Active Blockers
 
@@ -63,6 +66,12 @@ UI-10 completed locally: `dashboard.php` now has a Ticket trend bar chart with d
 ATTEND-01 completed locally: `team-attendance.php` lets Team Leaders and Super Admin log daily department coverage with status, headcount, and notes. Records are stored in `team_attendance`, appear as attendance chips on `team-calendar.php`, and open in the existing calendar details popover.
 
 NTF-03 completed locally: pending or overdue assigned tickets now show a Follow up button on ticket detail for users who can comment. It emails active assignees when SMTP is configured, creates in-app follow-up notifications, and records `follow_up_sent` in ticket activity.
+
+QA-08 completed locally: added `tests/regression.php`, a dependency-free CLI regression harness covering required routes, migration continuity/markers, CSRF/XSS primitives, Super Admin boundaries, permission gates, and CSRF-protected admin actions. It passes 39 checks; all root and app PHP files also passed syntax lint.
+
+2026-08-05 permission alignment completed locally: migration `017_ticket_creation_role_scope.sql` makes Super Admin and Team Leader the default ticket creators, revokes the default create permission from other roles, keeps Team Members on leave/medical-certificate requests only, and preserves Team Leader assigned-ticket-only visibility. Regression checks now pass 42 checks.
+
+QA operating rule: use Hermes as the default local QA executor to save Codex tokens. Send Hermes `_brain/prompts/qa-test-hermes.md`, then paste its concise result into `_brain/prompts/qa-test-hermes-response.md` for Codex review. Prefer static/CLI validation when browser automation is unavailable.
 
 QA-02 completed locally: Super Admin HTTP flow created ticket `10` with 2 assignees and 2 departments, confirmed detail/register/CSV export display, then edited it down to 1 assignee and 1 department with urgent priority. A small `posted_ids()` compatibility tweak now accepts both normal PHP array posts and explicit `[]` keys.
 

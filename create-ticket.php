@@ -18,6 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $values = [
         'issue_escalator' => posted_text('issue_escalator'),
         'subject' => posted_text('subject'),
+        'issue' => posted_text('issue'),
         'priority' => posted_text('priority') ?: 'normal',
         'category' => posted_text('category'),
         'subcategory' => posted_text('subcategory'),
@@ -34,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (
         empty($values['issue_escalator']) ||
         empty($values['subject']) ||
+        empty($values['issue']) ||
         $subcategories === null ||
         !array_key_exists($values['priority'], TICKET_PRIORITIES) ||
         !in_array($departmentId, $departmentIds, true) ||
@@ -49,11 +51,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->beginTransaction();
         try {
             $number = 'CNG-' . date('Ymd') . '-' . strtoupper(bin2hex(random_bytes(3)));
-            $stmt = $pdo->prepare('INSERT INTO tickets(ticket_number,issue_escalator,subject,priority,category,subcategory,department_id,employee_name,description,assignee_id,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)');
+            $stmt = $pdo->prepare('INSERT INTO tickets(ticket_number,issue_escalator,subject,issue,priority,category,subcategory,department_id,employee_name,description,assignee_id,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)');
             $stmt->execute([
                 $number,
                 $values['issue_escalator'],
                 $values['subject'],
+                $values['issue'],
                 $values['priority'],
                 $values['category'],
                 $values['subcategory'] ?: null,
@@ -86,6 +89,7 @@ page_start('Create ticket', $user);
     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
     <label>Issue Escalator<input name="issue_escalator" required></label>
     <label>Subject<input name="subject" required></label>
+    <label>Issue<textarea name="issue" required rows="4"></textarea></label>
     <label>Priority<select name="priority" required><?php foreach (TICKET_PRIORITIES as $value => $label): ?><option value="<?= e($value) ?>"<?= $value === 'normal' ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
     <label>Category<select name="category" id="category" required><option value="">Select category</option><?php foreach (TICKET_CATEGORIES as $category => $subcategories): ?><option><?= e($category) ?></option><?php endforeach; ?></select></label>
     <label>Subcategory<select name="subcategory" id="subcategory"><option value="">Select category first</option></select></label>

@@ -7,17 +7,22 @@ $credentials = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $name = trim($_POST['full_name'] ?? '');
+    $email = strtolower(trim($_POST['email'] ?? ''));
     $username = strtolower(trim($_POST['username'] ?? ''));
     $password = $_POST['password'] ?? '';
-    if ($name === '' || !preg_match('/^[a-z0-9._-]{3,80}$/', $username) || strlen($password) < 12) {
-        $error = 'Enter your name, a valid username, and a password of at least 12 characters.';
+    if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL) || !str_ends_with($email, '@stratastaff.com') || !preg_match('/^[a-z0-9._-]{3,80}$/', $username) || strlen($password) < 12) {
+        $error = 'Enter your name, a @stratastaff.com email, a valid username, and a password of at least 12 characters.';
     } else {
         try {
             $pdo = db();
             $pdo->beginTransaction();
             $roleId = (int) $pdo->query("SELECT id FROM roles WHERE slug = 'super-admin'")->fetchColumn();
-            $insert = $pdo->prepare('INSERT INTO users(role_id, username, full_name, password_hash, must_change_password) VALUES(?,?,?,?,0)');
-            $insert->execute([$roleId, $username, $name, password_hash($password, PASSWORD_DEFAULT)]);
+            if ($roleId === 0) throw new RuntimeException('Super Admin role is unavailable.');
+            $existingUser = $pdo->prepare('SELECT 1 FROM users WHERE username = ? OR email = ?');
+            $existingUser->execute([$username, $email]);
+            if ($existingUser->fetchColumn()) throw new RuntimeException('That username or company email is already in use.');
+            $insert = $pdo->prepare('INSERT INTO users(role_id, username, full_name, email, password_hash, must_change_password) VALUES(?,?,?,?,?,0)');
+            $insert->execute([$roleId, $username, $name, $email, password_hash($password, PASSWORD_DEFAULT)]);
             $seeds = [
                 ['Patricia Puno','management'], ['Michael O\'Bryan','management'], ['Neptalie Vitug','management'], ['Dan Fabros','management'], ['Karl Parson','management'],
                 ['Leonard Sunga','team-leader'], ['Sheena Magdaraog','team-leader'], ['Trisha Balingit','team-leader'],
@@ -39,12 +44,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->commit();
         } catch (Throwable $exception) {
             if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
-            $error = 'Setup could not be completed. Check the database configuration and imported schema.';
+            $error = $exception->getMessage() === 'That username or company email is already in use.'
+                ? $exception->getMessage()
+                : 'Setup could not be completed. Check the database configuration and imported schema.';
         }
     }
 }
-?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Initial setup</title><link rel="icon" href="assets/favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="assets/css/app.css"></head><body class="auth-page"><main class="setup-card"><div class="auth-logos"><img class="auth-strata-logo" src="assets/stratastaff-logo.png" alt="Strata Staff Global"><span class="auth-logo-divider"></span><img class="auth-jamesons-logo" src="assets/jamesons-logo.svg" alt="Jamesons Strata Management"></div>
-<h1>Initial setup</h1><p class="page-subtitle">CNG / Jamesons Ticketing System</p>
-<?php if ($credentials): ?><p><strong>Save these temporary credentials now.</strong> They are shown only once; each seeded user must change their password after signing in.</p><table class="credentials"><tr><th>Name</th><th>Username</th><th>Temporary password</th></tr><?php foreach ($credentials as [$person,$user,$temp]): ?><tr><td><?=e($person)?></td><td><?=e($user)?></td><td><?=e($temp)?></td></tr><?php endforeach; ?></table><p><a href="login.php">Continue to login</a></p><?php else: ?>
-<?php if ($error): ?><p class="error"><?=e($error)?></p><?php endif; ?><form method="post"><input type="hidden" name="csrf_token" value="<?=e(csrf_token())?>"><label>Your name<input required name="full_name" autocomplete="name"></label><label>Super Admin username<input required name="username" pattern="[A-Za-z0-9._-]{3,80}" autocomplete="username"></label><label>Super Admin password<input required name="password" type="password" minlength="12" autocomplete="new-password"></label><button>Create system</button></form><?php endif; ?>
-</main></body></html>
+?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Initial setup</title><link rel="icon" href="assets/favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="assets/css/app.css"></head><body class="auth-page"><main class="auth-shell"><section class="auth-intro"><p class="auth-eyebrow">STRATA STAFF</p><h1>CNG / Jamesons Ticketing System</h1><p>Log client requests, assign them to the right team, follow progress, and keep every update in one secure shared record.</p><div class="auth-features"><span>Track requests</span><span>Assign work</span><span>Keep teams aligned</span></div></section><section class="setup-card"><div class="auth-logos"><img class="auth-strata-logo" src="assets/stratastaff-logo.png" alt="Strata Staff Global"><span class="auth-logo-divider"></span><img class="auth-jamesons-logo" src="assets/jamesons-logo.svg" alt="Jamesons Strata Management"></div>
+<p class="auth-eyebrow">FIRST-TIME SETUP</p><h2>Initial setup</h2><p class="page-subtitle">CNG / Jamesons Ticketing System</p>
+<?php if ($credentials): ?><p><strong>Save these temporary credentials now.</strong> They are shown only once; each seeded user must change their password after signing in.</p><table class="credentials"><tr><th>Name</th><th>Username</th><th>Temporary password</th></tr><?php foreach ($credentials as [$person,$user,$temp]): ?><tr><td><?=e($person)?></td><td><?=e($user)?></td><td><?=e($temp)?></td></tr><?php endforeach; ?></table><p><a class="button" href="login.php">Continue to login</a></p><?php else: ?>
+<?php if ($error): ?><p class="auth-error" role="alert"><?=e($error)?></p><?php endif; ?><form method="post"><input type="hidden" name="csrf_token" value="<?=e(csrf_token())?>"><label>Your name<input required name="full_name" autocomplete="name"></label><label>Company email<input required name="email" type="email" autocomplete="email" pattern=".+@stratastaff\.com" aria-describedby="email-help"></label><p id="email-help" class="form-help">Use your @stratastaff.com email address.</p><label>Super Admin username<input required name="username" pattern="[A-Za-z0-9._-]{3,80}" autocomplete="username" aria-describedby="username-help"></label><p id="username-help" class="form-help">Use 3–80 letters, numbers, dots, underscores, or hyphens.</p><label>Super Admin password<input required name="password" type="password" minlength="12" autocomplete="new-password" aria-describedby="password-help"></label><p id="password-help" class="form-help">Use at least 12 characters.</p><button class="button" type="submit">Create Account</button></form><?php endif; ?>
+</section></main></body></html>

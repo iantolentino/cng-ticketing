@@ -1,264 +1,327 @@
-# CNG / Jamesons Issues Ticketing System
+# CITS — CNG/Jamesons Issues Ticketing System
 
-The CNG Ticketing System is an internal web application for recording, assigning, tracking, and reporting workplace issues and service requests. It gives each department one shared place to manage work instead of relying on scattered emails, spreadsheets, and verbal follow-ups.
+CITS is an internal ticketing and operations system for the CX department. It centralises issue reporting, assignment, status tracking, collaboration, leave coordination, attendance visibility, administration, and management reporting.
 
-This guide is written for both system users and non-technical project reporting. It explains what the system does, who uses it, how the main workflows operate, and how the local and production versions are managed.
+## Dashboard
 
-## 1. Project status
+### What it does
 
-The current version is implemented and tested locally. The older version remains deployed in cPanel.
+The Dashboard gives users a role-aware summary of current ticket activity and directs attention to work that needs action.
 
-Before production use, the deployment process must be completed:
+### What it contains
 
-1. Back up the production database and files.
-2. Apply additive migrations `004` through `016`.
-3. Upload the changed application files.
-4. Confirm private storage permissions.
-5. Run the production smoke checks.
+- **Ticket stat cards:**
+  - **Total Created** — tickets created within the selected date range.
+  - **Open Work** — tickets that remain active and require work.
+  - **Urgent** — tickets marked with urgent priority.
+  - **Overdue** — tickets that have passed their applicable SLA target.
+  - **Idle Watch** — tickets with no recent activity and requiring follow-up.
+  - **Unassigned** — tickets without an assigned owner.
+- **Status breakdown:** counts for **Open**, **In Progress**, **Pending**, and **Closed** tickets.
+- **Ticket Trend chart:** displays monthly ticket volume over a selectable date range for workload and demand analysis.
+- **Recent Activity feed:** shows the latest comments, ticket updates, assignments, status changes, and closures.
+- Clickable summaries that open the relevant filtered ticket list.
 
-The production upgrade path is documented in [`_brain/deployment/cpanel_upgrade_local_changes_2026-08-05.md`](_brain/deployment/cpanel_upgrade_local_changes_2026-08-05.md). Do not overwrite `config/config.local.php`; it contains environment-specific credentials and is intentionally excluded from Git.
+### Who it is for / when it is used
 
-## 2. What problem it solves
+All authenticated users use the Dashboard for an at-a-glance view. Team Leaders and administrators use it for daily prioritisation; management uses it for workload review.
 
-The system helps the organisation:
+### Why it is needed
 
-- Capture every issue with a clear subject, description, department, priority, and owner.
-- Make responsibilities visible through single or multiple assignees.
-- Keep involved departments informed without losing ownership.
-- Give each role only the records and actions they should have.
-- Track ageing, idle tickets, overdue work, comments, attachments, leave, attendance, and follow-ups.
-- Produce operational reports for management and department review.
-- Preserve administrative history and provide basic system health visibility.
+It makes urgency, ageing, ownership gaps, workload trends, and recent changes visible without requiring users to inspect every ticket individually.
 
-## 3. Main user roles
+## Tickets
 
-### Super Admin
+### What it does
 
-The full system administrator. Super Admins can manage users, roles, permissions, password resets, deleted-ticket restoration, audit logs, calendar administration, imports, reports, system health, and all ticket actions.
+Tickets record and manage CX issues from creation through assignment, collaboration, follow-up, and closure.
 
-### Management
+### What it contains
 
-Reviews operational work and reports. Access is controlled through the permissions assigned to the account.
+- Subject, description, department, priority, status, assignees, involved departments, dates, comments, attachments, and activity history.
+- Priority levels including low, normal, high, and urgent.
+- Statuses: Open, In Progress, Pending, and Closed.
+- Single or multiple assignees.
+- Public comments and restricted private comments.
+- Search, filtering, pagination, and export.
+- Ticket age, idle age, SLA state, and follow-up indicators.
+- Soft deletion with Super Admin restoration.
 
-### Department Head
+### Who it is for / when it is used
 
-Reviews tickets and department workload within the account’s access. Department Heads approve leave after the Team Leader stage and can review approved leave on the Team Calendar.
+Team Leaders create and assign work. Assignees update progress. Permitted users review, comment on, and follow tickets within their access scope.
 
-### Team Leader
+### Why it is needed
 
-Works on tickets assigned to the Team Leader and can participate in department workload tracking. Team Leaders approve Team Member leave before Department Head review.
+It provides one accountable record for each issue and prevents requests from being lost in email, chat, spreadsheets, or verbal handovers.
 
-### Team Member
+## My Work
 
-Uses the system for the access granted to the account. Team Members can submit and track leave requests and supporting files. Ticket access is permission-controlled.
+### What it does
 
-### CNG Admin
+My Work shows tickets assigned to the signed-in user.
 
-A restricted ticket-view role. CNG Admin can view and filter permitted tickets but does not receive ticket editing, creation, export, My Work, department workload, calendar administration, or attendance-management actions unless a Super Admin changes the account’s permissions.
+### What it contains
 
-## 4. Core ticket workflow
+Assigned ticket lists with priority, status, age, idle time, SLA state, department, and follow-up information.
 
-1. A user creates a ticket with the subject, description, department, priority, and optional files.
-2. A permitted user assigns one or more people and may identify involved departments.
-3. Assignees work the ticket through its status stages: open, in progress, pending, or closed.
-4. Users add public comments for normal collaboration or private comments for restricted internal communication.
-5. The system records ticket activity, updates notification recipients, and calculates age, idle age, and SLA status.
-6. The ticket can be filtered, exported, reported, or followed up until it is resolved.
-7. A deleted ticket is soft-deleted and can be restored only by a Super Admin.
+### Who it is for / when it is used
 
-## 5. Ticket features
+Assignees and Team Leaders use it as their personal work queue during daily operations.
 
-- Single and multiple assignees.
-- Multiple involved departments.
-- Priority levels: low, normal, high, and urgent.
-- Status workflow and editable ticket details.
-- Permission-aware ticket visibility.
-- Team Leader assigned-ticket-only visibility.
-- Search, filtering, pagination, and export to CSV/Excel.
-- Dashboard drill-down links for total, open work, urgent, overdue, idle, and unassigned tickets.
-- Age and idle-age indicators.
-- Configurable priority-based SLA rules.
-- SLA states: on track, watch, overdue, and closed.
-- Follow-up button for pending or overdue tickets.
-- In-app notifications for assignment, comments, approvals, and follow-ups.
-- Public ticket comments and restricted private comments.
-- Confidential ticket attachments with private download routes.
-- Soft deletion and Super Admin-only restoration.
-- Administrative audit history for sensitive changes.
+### Why it is needed
 
-## 6. Dashboard and reporting
+It separates a user’s actionable workload from the wider ticket register and makes ownership clear.
 
-The Dashboard provides a management-friendly overview of current work:
+## Departments
 
-- Ticket totals for a selected date range.
-- Open, in-progress, pending, and closed counts.
-- Urgent, overdue, idle-watch, and unassigned counts.
-- Clickable cards that open the matching filtered ticket register.
-- Ticket trend chart with daily, weekly, or monthly views.
-- Recent activity for new comments, updated tickets, and closed tickets.
+### What it does
 
-The Reports page provides operational views for:
+Departments organise ticket ownership, visibility, workload reporting, and leave coordination.
 
-- SLA performance.
-- Ticket workload by department.
-- Resolution and closure activity.
-- Leave activity and approval status.
+### What it contains
 
-Reports are intended to support weekly management reporting, workload discussions, and follow-up decisions. They describe the records visible to the logged-in user.
+Department-based workload views, department assignment, involved departments, and department-scoped access rules.
 
-## 7. Leave, calendar, and attendance
+### Who it is for / when it is used
 
-### Leave requests
+Team Leaders, Department Heads, and administrators use it when reviewing responsibility boundaries and workload distribution.
 
-Team Members submit leave requests with dates, a reason, and a required screenshot, photo, or PDF supporting file. The approval path is:
+### Why it is needed
 
-`Team Member → Team Leader → Department Head`
+It makes cross-department involvement visible while preserving appropriate access boundaries.
 
-Each approver sees the queue appropriate to their role. Supporting files remain private and are available only through permission-checked download routes.
+## Team Calendar
 
-### Team Calendar
+### What it does
 
-The Team Calendar shows:
+The Team Calendar provides a shared view of events, holidays, approved leave, and attendance coverage.
 
-- Company holidays.
-- Public holidays for the configured countries.
+### What it contains
+
+- Company and public holidays.
 - Team events.
 - Department Head-approved leave.
-- Attendance coverage records.
+- Attendance coverage indicators.
+- Detail views for calendar items.
 
-Calendar items open a detail view. Super Admin-controlled calendar actions can edit or delete events and holidays with CSRF protection.
+### Who it is for / when it is used
 
-### Team Attendance
+Teams use it for staffing awareness, scheduling, leave planning, and coverage checks.
 
-Team Leaders can record daily department coverage, status, headcount, and notes. Attendance appears on the Team Calendar as a compact operational indicator.
+### Why it is needed
 
-## 8. Super Admin administration
+It gives the department one shared view of availability and operational coverage.
 
-The Users module is the main account-management area. Super Admins can:
+## Team Attendance
 
-- Create user accounts.
-- Read and search existing accounts.
-- Update names, emails, roles, departments, and active status.
-- Delete or deactivate accounts according to the available account workflow.
-- Select permissions for a user’s job function.
-- Reset a user’s password.
+### What it does
 
-Additional Super Admin modules include:
+Team Attendance records daily department coverage.
 
-- Deleted tickets: review and restore soft-deleted records.
-- Audit log: review administrative actions.
-- Calendar administration: manage events and holidays.
-- CSV import: validate and import supported records.
-- Reports: review operational metrics.
-- System health: check database availability, SMTP configuration, writable storage paths, recent system logs, and backup-readiness information.
+### What it contains
 
-## 9. Security and privacy controls
+Attendance date, department, coverage status, headcount, and notes.
 
-- Passwords are stored using secure password hashing.
-- Password recovery uses expiring, single-use email tokens.
-- Forms use CSRF tokens.
-- HTML output is escaped through the shared security helper.
-- Permission checks are enforced on server-side routes, not only hidden in the interface.
-- Private comments are restricted by department and assignee visibility.
-- Confidential attachments use permission-checked download routes.
-- Super Admin-only operations are protected at the route level.
-- SMTP credentials remain in ignored local configuration and are never committed.
-- Administrative actions are recorded in the audit log where applicable.
+### Who it is for / when it is used
 
-## 10. Local installation
+Team Leaders use it during daily coverage and staffing checks.
 
-### Requirements
+### Why it is needed
 
-- PHP with PDO MySQL support.
-- MySQL or MariaDB.
-- Apache, XAMPP, or another PHP-capable web server.
-- A writable private storage directory for attachments.
+It helps leaders identify staffing gaps and gives the calendar useful operational context.
 
-### First-time setup
+## Calendar Admin
 
-1. Create a database named `cng_ticketing`.
-2. Copy `config/config.example.php` to `config/config.local.php`.
-3. Set the local database connection in `config/config.local.php`.
-4. Import `database/schema.sql` through phpMyAdmin or the MySQL client.
-5. Open `setup.php` and create the initial Super Admin.
-6. Sign in and configure users, roles, permissions, and SMTP settings.
+### What it does
 
-### Applying later local migrations
+Calendar Admin manages shared events and holidays displayed on the Team Calendar.
 
-Migrations are additive SQL files in `migrations/`. The current local feature set uses migrations `002` through `016`. Apply them in numeric order and do not run destructive reset commands against a database containing real data.
+### What it contains
 
-## 11. Local testing
+Event and holiday creation, editing, deletion, dates, titles, descriptions, and applicable calendar details.
 
-Run the dependency-free regression harness from the repository root:
+### Who it is for / when it is used
 
-```powershell
-& 'C:\xampp\php\php.exe' tests\regression.php
-```
+Super Admins use it to maintain the organisation-wide calendar information.
 
-The harness checks required routes, migration continuity and markers, security primitives, authorization boundaries, and CSRF-protected administrative actions. PHP syntax validation should also be run before deployment:
+### Why it is needed
 
-```powershell
-Get-ChildItem -Path . -Filter *.php -File | ForEach-Object { & 'C:\xampp\php\php.exe' -l $_.FullName }
-Get-ChildItem -Path app -Filter *.php -File | ForEach-Object { & 'C:\xampp\php\php.exe' -l $_.FullName }
-```
+It keeps shared scheduling data accurate and prevents users from relying on outdated holiday or event information.
 
-## 12. Suggested weekly operating routine
+## Notifications
 
-### Daily
+### What it does
 
-- Review the Dashboard.
-- Open urgent, overdue, idle-watch, and unassigned tickets.
-- Check the My Work queue.
-- Review notifications and pending approvals.
-- Update ticket status and ownership.
+Notifications alert users when tracked activity requires their attention.
 
-### Weekly reporting
+### What it contains
 
-1. Open Reports and review SLA performance.
-2. Compare department workload and unresolved ageing.
-3. Review urgent, overdue, and idle tickets.
-4. Check leave approvals and the Team Calendar.
-5. Record actions or follow-ups for the next reporting period.
+Assignment alerts, comment alerts, leave approval updates, follow-up reminders, and other relevant ticket or workflow notifications. Users can mark notifications as read.
 
-### Monthly administration
+### Who it is for / when it is used
 
-- Review inactive accounts and permissions.
-- Review the audit log for sensitive changes.
-- Check SMTP and private storage health.
-- Verify the database backup process.
-- Review SLA rules and department ownership.
+All authenticated users use Notifications to monitor changes affecting their work.
 
-## 13. Deployment notes
+### Why it is needed
 
-The cPanel site is a separate production environment. A production upgrade must be treated as a controlled change:
+It reduces missed handoffs and follow-ups by bringing important changes to the user’s attention.
 
-- Back up files and the database first.
-- Upload only the files listed in [`_brain/deployment/cpanel_upload_manifest_2026-08-05.md`](_brain/deployment/cpanel_upload_manifest_2026-08-05.md).
-- Apply migrations as additive changes in numeric order.
-- Keep production `config/config.local.php` unchanged.
-- Preserve private storage directories and permissions.
-- Test login, role boundaries, ticket visibility, attachments, leave, calendar, reports, and health checks after deployment.
+## Roles & Access
 
-## 14. Repository structure
+### What it does
 
-| Area | Purpose |
+Roles & Access controls which pages, records, and actions each account can use.
+
+### What it contains
+
+- Role-based permissions for ticket creation, viewing, editing, assignment, exports, administration, reports, and workflow actions.
+- Account-level permission overrides where authorised.
+- Server-side access checks for protected routes.
+- Role boundaries for ticket visibility, including Team Leader assignment scope.
+
+### Who it is for / when it is used
+
+Super Admins use it when configuring access for new staff, changing responsibilities, or reviewing permission boundaries.
+
+### Why it is needed
+
+It protects sensitive information and ensures users can perform only the work appropriate to their role.
+
+## Users
+
+### What it does
+
+Users manages internal accounts and their access settings.
+
+### What it contains
+
+Account name, email, username, role, department, active status, permission settings, account actions, and user password reset controls.
+
+### Who it is for / when it is used
+
+Super Admins use it to create accounts, update staff details, assign roles and departments, activate or deactivate accounts, and reset passwords.
+
+### Why it is needed
+
+It keeps account ownership and access current as staff join, leave, or change responsibilities.
+
+## Deleted Tickets
+
+### What it does
+
+Deleted Tickets stores soft-deleted tickets separately from the active workflow.
+
+### What it contains
+
+Deleted ticket records, deletion details, and a restore action.
+
+### Who it is for / when it is used
+
+Super Admins use it to review accidental or inappropriate deletions and restore records when necessary.
+
+### Why it is needed
+
+It provides recoverability and administrative control without exposing deleted records in normal ticket work queues.
+
+## Audit Log
+
+### What it does
+
+Audit Log records sensitive administrative and system actions.
+
+### What it contains
+
+The acting user, action type, affected record or area, timestamp, and available action details.
+
+### Who it is for / when it is used
+
+Super Admins use it for accountability, troubleshooting, access reviews, and operational investigations.
+
+### Why it is needed
+
+It creates a traceable history for changes that affect users, tickets, permissions, and system administration.
+
+## CSV Import
+
+### What it does
+
+CSV Import supports controlled bulk loading of supported operational records.
+
+### What it contains
+
+File upload, validation feedback, supported record mapping, import results, and row-level error information where applicable.
+
+### Who it is for / when it is used
+
+Super Admins use it when onboarding data or transferring supported records without entering each item manually.
+
+### Why it is needed
+
+It reduces repetitive data entry while validating imported data before it becomes part of the system.
+
+## Reports
+
+### What it does
+
+Reports turns ticket and workflow data into operational summaries.
+
+### What it contains
+
+- SLA performance.
+- Department workload.
+- Resolution and closure activity.
+- Leave activity and approval status.
+- Date and access-scoped reporting views.
+
+### Who it is for / when it is used
+
+Management, Department Heads, Team Leaders, and authorised administrators use Reports for weekly reviews, workload discussions, and follow-up decisions.
+
+### Why it is needed
+
+It supports decisions with measurable workload, ageing, service-level, and resolution information.
+
+## System Health
+
+### What it does
+
+System Health checks whether key application services and operational dependencies are available.
+
+### What it contains
+
+Database connectivity, SMTP configuration status, writable private storage paths, recent system logs, and operational readiness indicators.
+
+### Who it is for / when it is used
+
+Super Admins use it during troubleshooting, deployment validation, and routine operational checks.
+
+### Why it is needed
+
+It helps identify infrastructure or configuration problems before they prevent users from creating tickets, receiving notifications, or accessing files.
+
+## Roles and typical use
+
+| Role | Typical use |
 |---|---|
-| `app/` | Shared authentication, security, database, ticket, notification, audit, logging, and layout helpers |
-| Root `*.php` files | User-facing pages and route handlers |
-| `database/schema.sql` | Base database schema |
-| `migrations/` | Additive database changes |
-| `config/` | Example and environment-specific configuration; local secrets stay ignored |
-| `assets/` | CSS, JavaScript, and visual assets |
-| `storage/private/` | Permission-protected uploaded files |
-| `tests/` | Local regression checks |
-| `_brain/` | Project operating notes, task queue, progress, deployment, and handoff documentation |
+| Super Admin | Full administration, users, roles and access, deleted tickets, audit, calendar administration, imports, reports, and system health. |
+| Management | Reviews permitted operational workload and reports. |
+| Department Head | Reviews department work, completes the final leave approval stage, and reviews approved leave. |
+| Team Leader | Creates and manages assigned work, reviews team workload, approves Team Member leave, and records attendance. |
+| Team Member | Uses permitted ticket functions and submits or tracks leave requests. |
+| CNG Admin | Uses restricted ticket viewing and filtering according to assigned permissions. |
 
-## 15. Plain-language reporting summary
+## Cross-system controls
 
-The CNG Ticketing System is an internal control and service-management tool. It centralises issue reporting, assigns accountability, provides visibility by role and department, tracks urgency and ageing, supports leave and attendance coordination, and produces management reports. Its main business value is reducing missed follow-ups and making operational responsibility visible.
+- Ticket visibility and actions are permission-controlled on the server.
+- CSRF protection is used for state-changing forms.
+- Passwords use secure hashing and password recovery uses expiring, single-use tokens.
+- Private comments are restricted to authorised assignees and departments.
+- Confidential attachments are served through permission-checked download routes.
+- Delete and update actions include a confirmation step and completion notification.
+- SLA rules identify on-track, watch, overdue, and closed ticket states.
+- Soft-deleted tickets remain recoverable to authorised administrators.
 
-The current release is ready for local demonstration and user review. Production release is the next controlled step after the cPanel migrations, file upload, and smoke testing are completed.
+## Internal report summary
 
-## 16. Important operating rule
-
-Never commit passwords, SMTP credentials, production database credentials, or private uploaded files. Keep environment-specific values in `config/config.local.php` and follow the deployment guide for production changes.
+CITS gives the CX department a central operating record for issues, ownership, urgency, progress, and resolution. Its dashboards and reports support management visibility; its roles, private data controls, and audit history support accountability; and its calendar, attendance, notifications, and leave workflows support day-to-day team coordination.
