@@ -6,24 +6,21 @@ EXECUTION_MODE
 
 ## Current Phase
 
-Multi-assignee, ticket visibility, dashboard, priority, attachment, leave, and calendar UI implemented locally; production migration/deploy still pending
+Deployment preparation and post-deployment stabilization; August 10–14 feature work is recorded, with existing-ticket migration planned for the following week.
 
 ## Last Completed Task
 
-NTF-03 - Follow-up button for pending/overdue tickets that emails assignees
-Completed: 2026-08-05
-
-AUTH-01 - Secure password recovery
-Completed locally: 2026-08-05
+DEP-04 - One-time unused-production cleanup and Super Admin seed script
+Completed: 2026-08-14
 
 ## Next Task
 
-DEP-02 - Apply additive migrations `004` through `016`, upload changed files, and run live cPanel smoke checks
-Depends on: user approval and cPanel access; local QA-08 regression checks now pass
+MIG-003 - Migrate existing tickets after deployment stabilization
+Depends on: approved source data and production migration planning.
 
 ## Active Blockers
 
-Waiting for the user to approve the local changes, apply the new additive migration in cPanel, and upload the changed files.
+No technical blocker recorded; production evidence and ticket migration remain follow-up work.
 
 ## Local-Only Reminder
 
@@ -83,4 +80,4 @@ Deployment guide created locally: `_brain/deployment/cpanel_upgrade_local_change
 
 Upload manifest created locally: `_brain/deployment/cpanel_upload_manifest_2026-08-05.md` lists exact cPanel upload files and explicit do-not-upload local/private artifacts.
 
-Last updated: 2026-08-05
+Last updated: 2026-08-14

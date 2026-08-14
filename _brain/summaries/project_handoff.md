@@ -4,8 +4,8 @@
 
 - MVP is deployed and in use at `https://cng-tickets.stratastaff.com/`.
 - Local and live production flows have been confirmed working by the user.
-- There is no active implementation task. Continue only when the user provides a new request or feedback.
-- Current Git branch: `main`; verify the current commit with `git log -1 --oneline` before making changes.
+- August 10–14 feature work is complete locally; existing-ticket migration is planned for the following week.
+- Current Git branch: `codex/add-presenter-guide`; verify the current commit with `git log -1 --oneline` before making changes.
 
 ## Product and Stack
 
@@ -55,3 +55,9 @@
 - Use `apply_patch` for source and Markdown edits.
 - Preserve unrelated/untracked files and do not commit secrets.
 - Verify changes proportionally, then commit and push completed atomic work.
+
+## Week Handoff (2026-08-14)
+
+- Registration approval, login/register UI updates, public API feed, issue/resolution workflow, and deployment cleanup preparation are complete locally.
+- Next target: migrate existing tickets after deployment stabilization.
+- Do not replace live `config/config.local.php` or claim production completion without live evidence.
