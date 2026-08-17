@@ -67,9 +67,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!move_uploaded_file((string) $file['tmp_name'], ROOT_PATH . '/' . $relativePath)) {
                     $attachmentError = 'Attachment could not be saved.';
                 } else {
-                    db()->prepare('INSERT INTO ticket_attachments(ticket_id,uploaded_by,file_name,file_path,stored_name,original_name,mime_type,file_size) VALUES(?,?,?,?,?,?,?,?)')->execute([$id, $user['id'], $originalName, $relativePath, $storedName, $originalName, $mime, (int) $file['size']]);
-                    activity($id, $user['id'], 'attachment_uploaded', ['file_name' => $originalName]);
-                    $notice = 'attachment_uploaded';
+                    try {
+                        db()->prepare('INSERT INTO ticket_attachments(ticket_id,uploaded_by,file_name,file_path,stored_name,original_name,mime_type,file_size) VALUES(?,?,?,?,?,?,?,?)')->execute([$id, $user['id'], $originalName, $relativePath, $storedName, $originalName, $mime, (int) $file['size']]);
+                        activity($id, $user['id'], 'attachment_uploaded', ['file_name' => $originalName]);
+                        $notice = 'attachment_uploaded';
+                    } catch (Throwable $exception) {
+                        if (is_file(ROOT_PATH . '/' . $relativePath)) unlink(ROOT_PATH . '/' . $relativePath);
+                        $attachmentError = 'Attachment could not be saved.';
+                    }
                 }
             }
         }
@@ -85,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif (user_can('edit_tickets') || user_can('assign_tickets')) {
         $resolution = trim((string) ($_POST['resolution'] ?? ($ticket['resolution'] ?? '')));
-        $newStatus = $resolution !== '' ? 'closed' : 'in_progress';
+        $newStatus = user_can('edit_tickets') ? (string) ($_POST['status'] ?? $ticket['status']) : $ticket['status'];
         $assigneeIds = user_can('assign_tickets') ? posted_ids('assignee_ids') : $selectedAssignees;
         $statusChanged = $newStatus !== $ticket['status'];
         if (!in_array($newStatus, ['open', 'in_progress', 'pending', 'closed'], true) || ($statusChanged && $newStatus === 'closed' && !user_can('close_tickets')) || !valid_ids($assigneeIds, $userIds)) {

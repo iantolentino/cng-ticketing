@@ -33,6 +33,9 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F008 | Local pages showed session permission warnings | INFRA | PHP tried to store sessions in unwritable `C:\xampp\tmp`; app now uses ignored `.local/sessions`. | inline | 2026-08-04 | FIXED |
 | F009 | Login landed on password setup for ready users | AUTH | `current_user()` cached the anonymous lookup before `login.php` set the session user id. | inline | 2026-08-04 | FIXED |
 | F010 | Local setup could not create accounts | INFRA | MariaDB was stopped because the sandbox could not access its XAMPP data files; starting it outside the workspace sandbox restored database access. | inline | 2026-08-10 | FIXED |
+| F011 | Day 1 admin authorization hardening | AUTH | Role permission mutation and user access updates accepted client-supplied IDs without a Super Admin boundary or safety validation. | inline | 2026-08-18 | FIXED |
+| F012 | Day 1 ticket workflow status enforcement | BACKEND | Ticket update routes derived status from resolution or ignored the submitted status, allowing unintended transitions and inconsistent UI behavior. | inline | 2026-08-18 | FIXED |
+| F013 | Day 1 API token and attachment hardening | SECURITY | API tokens were stored/scanned as plaintext and attachment metadata failure could leave orphaned files. | inline | 2026-08-18 | FIXED |
 
 ---
 

@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'department_id' => posted_text('department_id'),
         'employee_name' => posted_text('employee_name'),
         'description' => posted_text('description'),
+        'status' => posted_text('status') ?: $ticket['status'],
     ];
     $subcategories = TICKET_CATEGORIES[$values['category'] ?? ''] ?? null;
     $departmentId = (int) ($values['department_id'] ?? 0);
@@ -61,7 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pdo = db();
     $pdo->beginTransaction();
     try {
-        $newStatus = $values['resolution'] !== '' ? 'closed' : 'in_progress';
+        $newStatus = $values['status'];
+        if (!in_array($newStatus, ['open', 'in_progress', 'pending', 'closed'], true) || ($newStatus === 'closed' && $ticket['status'] !== 'closed' && !user_can('close_tickets'))) {
+            http_response_code(403);
+            exit('You do not have permission to set this ticket status.');
+        }
         $pdo->prepare('UPDATE tickets SET issue_escalator=?,subject=?,issue=?,priority=?,category=?,subcategory=?,department_id=?,employee_name=?,description=?,resolution=?,status=?,closed_at=?,assignee_id=? WHERE id=?')->execute([
             $values['issue_escalator'],
             $values['subject'],
@@ -101,6 +106,7 @@ page_start('Edit ticket', $user);
     <label>Subject<input name="subject" value="<?= e($ticket['subject']) ?>" required></label>
     <label>Issue<textarea name="issue" required rows="4"><?= e($ticket['issue'] ?? '') ?></textarea></label>
     <label>Priority<select name="priority" required><?php foreach (TICKET_PRIORITIES as $value => $label): ?><option value="<?= e($value) ?>"<?= ($ticket['priority'] ?? 'normal') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
+    <label>Status<select name="status" required><?php foreach (['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pending', 'closed' => 'Closed'] as $value => $label): ?><option value="<?= e($value) ?>"<?= ($ticket['status'] ?? 'open') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
     <label>Category<select name="category"><?php foreach (TICKET_CATEGORIES as $category => $subcategories): ?><option<?= $ticket['category'] === $category ? ' selected' : '' ?>><?= e($category) ?></option><?php endforeach; ?></select></label>
     <label>Subcategory<input name="subcategory" value="<?= e($ticket['subcategory']) ?>"></label>
     <label>Current department<select name="department_id"><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= (int) $ticket['department_id'] === (int) $department['id'] ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select></label>
