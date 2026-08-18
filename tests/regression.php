@@ -90,6 +90,11 @@ check(source_contains('api/feed.php', 'hash(\'sha256\''), 'API feed validates ha
 check(source_contains('ticket.php', 'unlink(ROOT_PATH'), 'failed attachment metadata inserts remove orphaned files');
 check(source_contains('edit-ticket.php', "user_can('close_tickets')"), 'ticket edit close transitions require close_tickets');
 check(source_contains('ticket.php', '$_POST[\'status\']'), 'ticket workflow uses submitted status');
+check(source_contains('users.php', 'At least one active Super Admin must remain.'), 'user management protects the last active Super Admin');
+check(source_contains('users.php', 'Only a Super Admin can assign the Super Admin role.'), 'user management protects Super Admin role assignment');
+check(source_contains('leave-requests.php', 'DateTimeImmutable'), 'leave dates are calendar-valid, not only regex-valid');
+check(source_contains('leave-requests.php', 'unlink(ROOT_PATH'), 'failed leave attachment inserts remove orphaned files');
+check(source_contains('import.php', 'count($row)!==count($expected)'), 'CSV import rejects malformed column counts');
 
 echo "\n{$passed} passed, {$failed} failed\n";
 exit($failed === 0 ? 0 : 1);

@@ -19,8 +19,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $roleId = (int) ($_POST['role_id'] ?? 0);
             $departmentId = (int) ($_POST['department_id'] ?? 0) ?: null;
             if ($fullName === '' || !preg_match('/^[a-z0-9._-]{3,80}$/', $username) || !filter_var($email, FILTER_VALIDATE_EMAIL) || $roleId < 1) throw new InvalidArgumentException('Enter a name, valid username, email, and role.');
+            $roleQuery = $pdo->prepare('SELECT slug FROM roles WHERE id = ?');
+            $roleQuery->execute([$roleId]);
+            $roleSlug = (string) ($roleQuery->fetchColumn() ?: '');
+            if ($roleSlug === '') throw new InvalidArgumentException('Select a valid role.');
+            if ($roleSlug === 'super-admin' && ($admin['role_slug'] ?? '') !== 'super-admin') throw new InvalidArgumentException('Only a Super Admin can assign the Super Admin role.');
+            if ($departmentId !== null) {
+                $departmentQuery = $pdo->prepare('SELECT 1 FROM departments WHERE id = ?');
+                $departmentQuery->execute([$departmentId]);
+                if (!$departmentQuery->fetchColumn()) throw new InvalidArgumentException('Select a valid department.');
+            }
             if ($id > 0) {
                 $active = isset($_POST['is_active']) ? 1 : 0;
+                if ($id === (int) $admin['id'] && !$active) throw new InvalidArgumentException('You cannot deactivate your own account.');
+                $targetQuery = $pdo->prepare('SELECT u.id,r.slug FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?');
+                $targetQuery->execute([$id]);
+                $target = $targetQuery->fetch();
+                if (!$target) throw new InvalidArgumentException('User not found.');
+                if ($target['slug'] === 'super-admin' && (!$active || $roleSlug !== 'super-admin')) {
+                    $remaining = $pdo->prepare("SELECT COUNT(*) FROM users u JOIN roles r ON r.id=u.role_id WHERE r.slug='super-admin' AND u.is_active=1 AND u.id<>?");
+                    $remaining->execute([$id]);
+                    if ((int) $remaining->fetchColumn() < 1) throw new InvalidArgumentException('At least one active Super Admin must remain.');
+                }
                 $pdo->prepare("UPDATE users SET full_name=?, username=?, email=?, role_id=?, department_id=?, is_active=?, approval_status=CASE WHEN ?=1 THEN 'approved' ELSE approval_status END WHERE id=?")->execute([$fullName, $username, $email, $roleId, $departmentId, $active, $active, $id]);
                 $notice = 'User updated.';
             } else {
@@ -35,13 +55,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'delete') {
             $id = (int) ($_POST['id'] ?? 0);
             if ($id === (int) $admin['id']) throw new InvalidArgumentException('You cannot delete your own account.');
+            $targetQuery = $pdo->prepare('SELECT u.id,r.slug,u.is_active FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?');
+            $targetQuery->execute([$id]);
+            $target = $targetQuery->fetch();
+            if (!$target) throw new InvalidArgumentException('User not found.');
+            if ($target['slug'] === 'super-admin') {
+                $remaining = $pdo->prepare("SELECT COUNT(*) FROM users u JOIN roles r ON r.id=u.role_id WHERE r.slug='super-admin' AND u.is_active=1 AND u.id<>?");
+                $remaining->execute([$id]);
+                if ((int) $remaining->fetchColumn() < 1) throw new InvalidArgumentException('At least one active Super Admin must remain.');
+            }
             $pdo->prepare('DELETE FROM users WHERE id=?')->execute([$id]);
             $notice = 'User deleted.';
         } elseif ($action === 'overrides') {
             $id = (int) ($_POST['id'] ?? 0);
+            $targetQuery = $pdo->prepare('SELECT 1 FROM users WHERE id=?');
+            $targetQuery->execute([$id]);
+            if (!$targetQuery->fetchColumn()) throw new InvalidArgumentException('User not found.');
             $pdo->prepare('DELETE FROM user_permission_overrides WHERE user_id=?')->execute([$id]);
             $insert = $pdo->prepare('INSERT INTO user_permission_overrides(user_id,permission_id,granted) VALUES(?,?,?)');
-            foreach ($_POST['permission'] ?? [] as $permissionId => $granted) $insert->execute([$id, (int) $permissionId, (int) $granted === 1 ? 1 : 0]);
+            $validPermissions = array_map('intval', $pdo->query('SELECT id FROM permissions')->fetchAll(PDO::FETCH_COLUMN));
+            foreach ($_POST['permission'] ?? [] as $permissionId => $granted) if (in_array((int) $permissionId, $validPermissions, true)) $insert->execute([$id, (int) $permissionId, (int) $granted === 1 ? 1 : 0]);
             $notice = 'User permission overrides updated.';
         }
     } catch (Throwable $exception) {

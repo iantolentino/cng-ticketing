@@ -36,6 +36,8 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F011 | Day 1 admin authorization hardening | AUTH | Role permission mutation and user access updates accepted client-supplied IDs without a Super Admin boundary or safety validation. | inline | 2026-08-18 | FIXED |
 | F012 | Day 1 ticket workflow status enforcement | BACKEND | Ticket update routes derived status from resolution or ignored the submitted status, allowing unintended transitions and inconsistent UI behavior. | inline | 2026-08-18 | FIXED |
 | F013 | Day 1 API token and attachment hardening | SECURITY | API tokens were stored/scanned as plaintext and attachment metadata failure could leave orphaned files. | inline | 2026-08-18 | FIXED |
+| F014 | Day 2 account and import validation hardening | AUTH | User administration did not protect the last active Super Admin and CSV preview could fail on malformed row widths. | inline | 2026-08-18 | FIXED |
+| F015 | Day 3 leave attachment and date validation hardening | BACKEND | Leave dates were regex-only and failed attachment metadata could leave an orphaned uploaded file. | inline | 2026-08-18 | FIXED |
 
 ---
 

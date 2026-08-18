@@ -27,7 +27,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $endDate = trim((string) ($_POST['end_date'] ?? ''));
         $reason = trim((string) ($_POST['reason'] ?? ''));
         $file = $_FILES['supporting_file'] ?? null;
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate) || $endDate < $startDate || $reason === '') {
+        $start = DateTimeImmutable::createFromFormat('!Y-m-d', $startDate);
+        $end = DateTimeImmutable::createFromFormat('!Y-m-d', $endDate);
+        if (!$start || !$end || $start->format('Y-m-d') !== $startDate || $end->format('Y-m-d') !== $endDate || $endDate < $startDate || $reason === '') {
             $error = 'Enter a valid date range and reason.';
         } elseif (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
             $error = 'Upload a supporting screenshot, photo, or PDF.';
@@ -55,12 +57,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!move_uploaded_file((string) $file['tmp_name'], ROOT_PATH . '/' . $relativePath)) {
                         throw new RuntimeException('Upload failed.');
                     }
-                    $pdo->prepare('INSERT INTO leave_request_attachments(leave_request_id,uploaded_by,file_name,file_path,mime_type,file_size) VALUES(?,?,?,?,?,?)')->execute([$requestId, $user['id'], $originalName, $relativePath, $mime, (int) $file['size']]);
+                    try {
+                        $pdo->prepare('INSERT INTO leave_request_attachments(leave_request_id,uploaded_by,file_name,file_path,mime_type,file_size) VALUES(?,?,?,?,?,?)')->execute([$requestId, $user['id'], $originalName, $relativePath, $mime, (int) $file['size']]);
+                    } catch (Throwable $attachmentException) {
+                        if (is_file(ROOT_PATH . '/' . $relativePath)) unlink(ROOT_PATH . '/' . $relativePath);
+                        throw $attachmentException;
+                    }
                     notify_many(active_user_ids_by_role('team-leader'), (int) $user['id'], 'approval', 'Leave request needs TL approval', $user['full_name'] . ' requested leave from ' . $startDate . ' to ' . $endDate, 'leave-requests.php');
                     $pdo->commit();
                     redirect('leave-requests.php?notice=submitted');
                 } catch (Throwable $exception) {
-                    $pdo->rollBack();
+                    if (isset($relativePath) && is_file(ROOT_PATH . '/' . $relativePath)) unlink(ROOT_PATH . '/' . $relativePath);
+                    if ($pdo->inTransaction()) $pdo->rollBack();
                     $error = 'Leave request could not be submitted.';
                 }
             }
