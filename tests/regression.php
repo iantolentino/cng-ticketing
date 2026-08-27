@@ -95,6 +95,9 @@ check(source_contains('users.php', 'Only a Super Admin can assign the Super Admi
 check(source_contains('leave-requests.php', 'DateTimeImmutable'), 'leave dates are calendar-valid, not only regex-valid');
 check(source_contains('leave-requests.php', 'unlink(ROOT_PATH'), 'failed leave attachment inserts remove orphaned files');
 check(source_contains('import.php', 'count($row)!==count($expected)'), 'CSV import rejects malformed column counts');
+check(source_contains('app/security.php', 'function request_string'), 'authentication input rejects array-valued request fields');
+check(source_contains('app/bootstrap.php', "session.use_strict_mode"), 'sessions use strict mode');
+check(source_contains('login.php', "approval_status']!=='approved'"), 'login rejects non-approved account states');
 
 echo "\n{$passed} passed, {$failed} failed\n";
 exit($failed === 0 ? 0 : 1);

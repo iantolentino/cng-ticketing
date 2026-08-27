@@ -38,6 +38,7 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F013 | Day 1 API token and attachment hardening | SECURITY | API tokens were stored/scanned as plaintext and attachment metadata failure could leave orphaned files. | inline | 2026-08-18 | FIXED |
 | F014 | Day 2 account and import validation hardening | AUTH | User administration did not protect the last active Super Admin and CSV preview could fail on malformed row widths. | inline | 2026-08-18 | FIXED |
 | F015 | Day 3 leave attachment and date validation hardening | BACKEND | Leave dates were regex-only and failed attachment metadata could leave an orphaned uploaded file. | inline | 2026-08-18 | FIXED |
+| F016 | Day 5 authentication input hardening | AUTH | Array-valued credential fields could trigger PHP type errors, and login did not explicitly reject non-approved account states. | inline | 2026-08-25 | FIXED |
 
 ---
 

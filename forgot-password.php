@@ -4,7 +4,7 @@ require __DIR__ . '/app/bootstrap.php';
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
-    $email = strtolower(trim((string) ($_POST['email'] ?? '')));
+    $email = strtolower(trim(request_string($_POST, 'email')));
     if (filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $q = db()->prepare('SELECT id, full_name, email FROM users WHERE LOWER(email) = ? AND is_active = 1 LIMIT 1');
         $q->execute([$email]);

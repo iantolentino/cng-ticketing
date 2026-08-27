@@ -81,3 +81,14 @@ Deployment guide created locally: `_brain/deployment/cpanel_upgrade_local_change
 Upload manifest created locally: `_brain/deployment/cpanel_upload_manifest_2026-08-05.md` lists exact cPanel upload files and explicit do-not-upload local/private artifacts.
 
 Last updated: 2026-08-14
+
+## CITS Day 1 and Day 2 Deployment State (2026-08-20)
+
+- Day 1 CITS hardening is complete and must not be repeated: the Day 1 application/database changes and migration `021_day1_hardening.sql` were committed and pushed.
+- Day 2 production changes are all root-level PHP files: `users.php`, `import.php`, and `leave-requests.php`.
+- Day 2 local validation is complete: `tests/regression.php` passes 57 checks with 0 failures and PHP syntax lint passes across the application.
+- `tests/regression.php`, `_brain/`, fix logs, and DOCX reports are validation/documentation artifacts; they are not production web uploads.
+- Day 2 role-based, edge-case, and UI/browser tasks require deployed execution evidence before their QA status can be marked Done.
+- When asked what remains for Day 2, start with the three root PHP files above and do not re-open Day 1 unless deployment verification shows it was not applied.
+
+Last updated: 2026-08-20
