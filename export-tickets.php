@@ -7,22 +7,15 @@ require __DIR__ . '/app/tickets.php';
 $user = require_permission('export_tickets');
 $format = $_GET['format'] ?? 'csv';
 if (!in_array($format, ['csv', 'xlsx'], true)) { http_response_code(400); exit('Unsupported export format.'); }
+const MAX_EXPORT_ROWS = 10000;
 
 $statuses = ['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pending', 'closed' => 'Closed'];
 $departments = active_departments();
 $departmentIds = array_map('intval', array_column($departments, 'id'));
-$filters = [
-    'dashboard_range' => trim((string) ($_GET['dashboard_range'] ?? '7d')),
-    'dashboard_view' => trim((string) ($_GET['dashboard_view'] ?? '')),
-    'status' => trim((string) ($_GET['status'] ?? '')),
-    'priority' => trim((string) ($_GET['priority'] ?? '')),
-    'department' => trim((string) ($_GET['department'] ?? '')),
-    'category' => trim((string) ($_GET['category'] ?? '')),
-    'subcategory' => trim((string) ($_GET['subcategory'] ?? '')),
-    'search' => trim((string) ($_GET['search'] ?? '')),
-    'date_from' => trim((string) ($_GET['date_from'] ?? '')),
-    'date_to' => trim((string) ($_GET['date_to'] ?? '')),
-];
+$filters = [];
+foreach (['dashboard_range', 'dashboard_view', 'status', 'priority', 'department', 'category', 'subcategory', 'search', 'date_from', 'date_to'] as $key) {
+    $filters[$key] = trim(request_string($_GET, $key));
+}
 $dashboardRanges = [
     'today' => ['Today', 'Today'],
     '7d' => ['Last 7 days', '-6 days'],
@@ -38,7 +31,12 @@ if (!ctype_digit($filters['department']) || !in_array((int) $filters['department
 if (!array_key_exists($filters['category'], TICKET_CATEGORIES)) $filters['category'] = '';
 $subcategoryOptions = $filters['category'] ? TICKET_CATEGORIES[$filters['category']] : array_merge(...array_values(TICKET_CATEGORIES));
 if (!in_array($filters['subcategory'], $subcategoryOptions, true)) $filters['subcategory'] = '';
-foreach (['date_from', 'date_to'] as $dateKey) if ($filters[$dateKey] && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters[$dateKey])) $filters[$dateKey] = '';
+foreach (['date_from', 'date_to'] as $dateKey) {
+    if ($filters[$dateKey] === '') continue;
+    $parsedDate = DateTimeImmutable::createFromFormat('!Y-m-d', $filters[$dateKey]);
+    if (!$parsedDate || $parsedDate->format('Y-m-d') !== $filters[$dateKey]) { http_response_code(400); exit($dateKey . ' must use YYYY-MM-DD.'); }
+}
+if ($filters['date_from'] !== '' && $filters['date_to'] !== '' && $filters['date_from'] > $filters['date_to']) { http_response_code(400); exit('date_from cannot be after date_to.'); }
 $dashboardStart = $filters['dashboard_range'] === 'today'
     ? date('Y-m-d 00:00:00')
     : date('Y-m-d 00:00:00', strtotime($dashboardRanges[$filters['dashboard_range']][1]));
@@ -75,9 +73,10 @@ $stmt = db()->prepare("SELECT t.*, d.name department,
     JOIN departments d ON d.id = t.department_id
     LEFT JOIN users a ON a.id = t.assignee_id
     WHERE $whereSql
-    ORDER BY t.updated_at DESC");
+    ORDER BY t.updated_at DESC LIMIT " . (MAX_EXPORT_ROWS + 1));
 $stmt->execute($params);
 $tickets = $stmt->fetchAll();
+if (count($tickets) > MAX_EXPORT_ROWS) { http_response_code(413); exit('Export exceeds the 10,000-row limit. Narrow the filters and try again.'); }
 
 $headers = ['Status', 'Priority', 'Subject', 'Departments', 'Category', 'Subcategory', 'Date Created', 'Date Updated', 'Date Closed', 'Assignees', 'Employee'];
 $rows = [];

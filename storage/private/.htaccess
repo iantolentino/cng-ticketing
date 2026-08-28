@@ -1,1 +1,7 @@
-Deny from all
+Options -Indexes
+Require all denied
+
+# Apache 2.2 compatibility
+<IfModule !mod_authz_core.c>
+    Deny from all
+</IfModule>

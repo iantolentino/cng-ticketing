@@ -1,4 +1,6 @@
 /config/config.local.php
 /.local/
+/storage/private/*
+!/storage/private/.htaccess
 *.log
 /*.zip

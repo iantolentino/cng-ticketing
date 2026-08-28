@@ -92,3 +92,14 @@ Last updated: 2026-08-14
 - When asked what remains for Day 2, start with the three root PHP files above and do not re-open Day 1 unless deployment verification shows it was not applied.
 
 Last updated: 2026-08-20
+
+## CITS Day 7-10 Local Completion State (2026-08-28)
+
+- Day 7 local UI/accessibility hardening is complete: keyboard skip link, main-content landmark, reduced-motion support, and safe sessionStorage handling were added.
+- Day 8 local API/export/operations hardening is complete: scalar query validation, distinct API search placeholders, bounded API pagination, calendar-valid export dates, bounded exports, required-table health checks, and extension checks were added.
+- Day 9 local data-protection hardening is complete: `storage/private/.htaccess` denies direct web access and the health page verifies the protection marker.
+- Day 10 local release validation is complete: the regression harness passes 73 checks with 0 failures and all changed production PHP files pass syntax lint.
+- Browser/live execution was not independently completed in this environment because Apache was unavailable at `http://localhost/cng-ticketing/login.php`; live evidence must be recorded after deployment.
+- Day 7-10 DOCX reports were updated with distinct daily task packages and local completion wording; they are documentation artifacts, not production uploads.
+
+Last updated: 2026-08-28

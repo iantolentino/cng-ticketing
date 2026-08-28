@@ -85,6 +85,7 @@ function page_start(string $title, ?array $user = null): void
     <link rel="stylesheet" href="assets/css/app.css">
 </head>
 <body>
+<a class="skip-link" href="#main-content">Skip to main content</a>
 <aside class="topbar" aria-label="Primary navigation">
     <div class="brand">
         <img class="strata-logo" src="assets/stratastaff-logo.png" alt="Strata Staff Global">
@@ -102,7 +103,7 @@ function page_start(string $title, ?array $user = null): void
         <?php if ($user): ?><a href="logout.php">Sign out</a><?php endif; ?>
     </div>
 </aside>
-<main class="page"><div class="content-shell">
+<main id="main-content" class="page"><div class="content-shell">
 <?php
 }
 
@@ -111,13 +112,15 @@ function page_end(): void
     ?><div class="action-toast" role="status" aria-live="polite" hidden>Action completed.</div><script>
     (function(){
         var toast=document.querySelector('.action-toast');
-        if(sessionStorage.getItem('cng_action_success')==='1'){sessionStorage.removeItem('cng_action_success');toast.hidden=false;window.setTimeout(function(){toast.hidden=true;},3500);}
+        var storage=null;
+        try{storage=window.sessionStorage;}catch(error){}
+        if(storage&&storage.getItem('cng_action_success')==='1'){storage.removeItem('cng_action_success');toast.hidden=false;window.setTimeout(function(){toast.hidden=true;},3500);}
         document.querySelectorAll('form[method="post"]').forEach(function(form){form.addEventListener('submit',function(event){
             if(event.defaultPrevented)return;
             var button=event.submitter||form.querySelector('button[type="submit"],button');
             if(!button)return;
            if(!button.dataset.confirm&&!form.dataset.confirm&&!window.confirm('Are you sure you want to continue?')){event.preventDefault();return;}
-            sessionStorage.setItem('cng_action_success','1');
+            if(storage)storage.setItem('cng_action_success','1');
             button.disabled=true;button.classList.add('is-processing');button.textContent=button.dataset.processing||button.textContent;
         });});
     })();

@@ -39,6 +39,9 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F014 | Day 2 account and import validation hardening | AUTH | User administration did not protect the last active Super Admin and CSV preview could fail on malformed row widths. | inline | 2026-08-18 | FIXED |
 | F015 | Day 3 leave attachment and date validation hardening | BACKEND | Leave dates were regex-only and failed attachment metadata could leave an orphaned uploaded file. | inline | 2026-08-18 | FIXED |
 | F016 | Day 5 authentication input hardening | AUTH | Array-valued credential fields could trigger PHP type errors, and login did not explicitly reject non-approved account states. | inline | 2026-08-25 | FIXED |
+| F017 | Day 7 shared accessibility and feedback hardening | UI/ACCESSIBILITY | The shared layout had no keyboard skip link, no explicit main-content landmark, and could fail when sessionStorage was unavailable. | inline | 2026-08-28 | FIXED |
+| F018 | Day 8 API and export boundary hardening | SECURITY/PERFORMANCE | API and export query parameters were not consistently scalar-validated, API search reused one named placeholder, and exports had no row bound. | inline | 2026-08-28 | FIXED |
+| F019 | Day 9 private storage and health-readiness hardening | SECURITY/OPERATIONS | Private attachments had no tracked web-server deny rule and the health page did not verify required tables or private-storage protection. | inline | 2026-08-28 | FIXED |
 
 ---
 

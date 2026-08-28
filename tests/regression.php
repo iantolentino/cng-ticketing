@@ -98,6 +98,19 @@ check(source_contains('import.php', 'count($row)!==count($expected)'), 'CSV impo
 check(source_contains('app/security.php', 'function request_string'), 'authentication input rejects array-valued request fields');
 check(source_contains('app/bootstrap.php', "session.use_strict_mode"), 'sessions use strict mode');
 check(source_contains('login.php', "approval_status']!=='approved'"), 'login rejects non-approved account states');
+check(source_contains('app/layout.php', 'Skip to main content'), 'layout provides a keyboard skip link');
+check(source_contains('app/layout.php', 'id="main-content"'), 'layout exposes a main-content landmark');
+check(source_contains('app/layout.php', 'window.sessionStorage'), 'layout tolerates unavailable session storage');
+check(source_contains('assets/css/app.css', 'prefers-reduced-motion'), 'UI honors reduced-motion preferences');
+check(is_file($root . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'private' . DIRECTORY_SEPARATOR . '.htaccess'), 'private storage has a web-server guard');
+check(source_contains('storage/private/.htaccess', 'Require all denied'), 'private storage denies direct web access');
+check(source_contains('api/feed.php', "request_string(\$_GET, 'token')"), 'API rejects array-valued token input');
+check(source_contains('api/feed.php', ':ticket_search'), 'API search uses distinct prepared placeholders');
+check(source_contains('api/feed.php', 'offset must be between 0 and 100000'), 'API bounds pagination offset');
+check(source_contains('export-tickets.php', 'MAX_EXPORT_ROWS'), 'exports enforce a bounded row count');
+check(source_contains('export-tickets.php', 'date_from cannot be after date_to'), 'exports reject reversed date ranges');
+check(source_contains('health.php', 'Required database tables'), 'health page checks required database tables');
+check(source_contains('health.php', 'Private storage web protection'), 'health page checks private storage protection');
 
 echo "\n{$passed} passed, {$failed} failed\n";
 exit($failed === 0 ? 0 : 1);

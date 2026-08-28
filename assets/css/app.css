@@ -30,6 +30,8 @@ a{color:var(--blue)}
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid rgba(30,90,168,.28);outline-offset:2px}
+.skip-link{position:absolute;left:-9999px;top:16px;z-index:100;padding:10px 14px;background:var(--ink);color:#fff;font-weight:700;text-decoration:none}
+.skip-link:focus{left:16px}
 
 /* Navigation */
 body:not(.auth-page){padding-left:var(--rail-width)}
@@ -273,6 +275,10 @@ body.auth-page{min-height:100vh;padding:0;background:#EDF3FC}
 .pagination a,.pagination span{min-width:34px;padding:7px 9px;border:1px solid var(--border);border-radius:3px;background:var(--surface);color:var(--blue);font-weight:600;text-align:center;text-decoration:none}
 .pagination .current{border-color:#C9DBF0;background:var(--blue-soft);color:var(--blue)}
 .pagination .disabled{color:#9CA3AF;background:var(--surface-muted)}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
 
 @media(max-width:1000px) and (min-width:701px){
   .filter-grid{grid-template-columns:repeat(2,minmax(150px,1fr))}
