@@ -103,3 +103,15 @@ Last updated: 2026-08-20
 - Day 7-10 DOCX reports were updated with distinct daily task packages and local completion wording; they are documentation artifacts, not production uploads.
 
 Last updated: 2026-08-28
+
+## CITS Attendance and Ticket Form Updates (2026-08-29)
+
+- Issue escalator is now captured from the signed-in submitter on ticket creation and is read-only during edits.
+- Category mappings now drive the current department, involved-department options, and assignee options in create/edit ticket forms, with matching server-side department validation.
+- Migration `022_staff_leave_attendance_updates.sql` adds the 73-row staff directory from `CNG_Staff_List_updated.xlsx`, records the three TL and 70 employee email domains, and adds the attendance-to-staff leave relationship.
+- Registration accepts the existing `@stratastaff.com` domain plus `@stratastaffglobal.com` for TLs and `@jamesons.com.au` for Jamesons staff; the three matching local TL accounts were populated only when their email was previously blank.
+- Team Attendance now supports the requested Annual, Sick, Emergency, Half-day, Birthday, Bereavement, Paternity, Maternity, and Undertime statuses, editing existing records, and multiple staff-on-leave checkboxes.
+- Team Calendar includes the new attendance labels and staff-on-leave names in attendance details.
+- Local migration application and smoke test passed; cPanel must apply migration `022` before uploading the dependent PHP files.
+
+Last updated: 2026-08-29

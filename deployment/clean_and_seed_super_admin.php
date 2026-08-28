@@ -9,7 +9,7 @@ try {
     $pdo->beginTransaction();
     $roleId = (int) $pdo->query("SELECT id FROM roles WHERE slug='super-admin'")->fetchColumn();
     if (!$roleId) throw new RuntimeException('Super Admin role is missing. Apply schema and migrations first.');
-    foreach (['leave_request_attachments','leave_requests','team_attendance','calendar_events','company_holidays','ticket_comments','ticket_activity','ticket_activity_log','ticket_attachments','ticket_assignees','ticket_departments','notifications','api_feed_access_log','api_tokens'] as $table) $pdo->exec('DELETE FROM ' . $table);
+    foreach (['leave_request_attachments','leave_requests','team_attendance_leave','team_attendance','calendar_events','company_holidays','ticket_comments','ticket_activity','ticket_activity_log','ticket_attachments','ticket_assignees','ticket_departments','notifications','api_feed_access_log','api_tokens'] as $table) $pdo->exec('DELETE FROM ' . $table);
     $pdo->exec('DELETE FROM tickets');
     $pdo->exec('DELETE FROM user_permission_overrides');
     $pdo->prepare('DELETE FROM users WHERE username <> ?')->execute([$superAdminUsername]);

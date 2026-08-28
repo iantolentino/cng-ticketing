@@ -7,13 +7,28 @@ const TICKET_CATEGORIES = [
     'Attendance' => ['Tardiness','AWOL','Daily Attendance'], 'Behavioural Issues' => ['Workplace Etiquette','Dress Code'],
 ];
 const TICKET_PRIORITIES = ['low' => 'Low', 'normal' => 'Normal', 'high' => 'High', 'urgent' => 'Urgent'];
+const TICKET_CATEGORY_DEPARTMENT_CODES = [
+    'Performance' => ['rm', 'customer-care', 'admin', 'insurance', 'compliance'],
+    'Resignation' => ['admin'],
+    'Personal Requests' => ['admin'],
+    'Attendance' => ['rm', 'admin', 'compliance', 'customer-care', 'insurance'],
+    'Behavioural Issues' => ['admin', 'compliance'],
+];
 function activity(int $ticketId, ?int $actorId, string $action, array $details = []): void {
     $json = json_encode($details, JSON_THROW_ON_ERROR);
     db()->prepare('INSERT INTO ticket_activity(ticket_id,actor_id,action,details) VALUES(?,?,?,?)')->execute([$ticketId,$actorId,$action,$json]);
     db()->prepare('INSERT INTO ticket_activity_log(ticket_id,action,changed_fields,old_values,new_values,changed_by) VALUES(?,?,?,?,?,?)')->execute([$ticketId,$action,$json,null,$json,$actorId === null ? 'system' : (string) $actorId]);
 }
-function active_users(): array { return db()->query('SELECT id,full_name FROM users WHERE is_active=1 ORDER BY full_name')->fetchAll(); }
-function active_departments(): array { return db()->query('SELECT id,name FROM departments ORDER BY name')->fetchAll(); }
+function active_users(): array { return db()->query('SELECT u.id,u.full_name,u.department_id,r.slug AS role_slug FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 ORDER BY u.full_name')->fetchAll(); }
+function active_departments(): array { return db()->query('SELECT id,name,code FROM departments ORDER BY name')->fetchAll(); }
+function category_department_ids(string $category, array $departments): array {
+    $codes = TICKET_CATEGORY_DEPARTMENT_CODES[$category] ?? array_column($departments, 'code');
+    return array_values(array_map('intval', array_column(array_filter($departments, static fn(array $department): bool => in_array($department['code'], $codes, true)), 'id')));
+}
+function category_assignee_ids(string $category, array $departments, array $users): array {
+    $departmentIds = category_department_ids($category, $departments);
+    return array_values(array_map('intval', array_column(array_filter($users, static fn(array $member): bool => empty($member['department_id']) || ($member['role_slug'] ?? '') === 'team-leader' || in_array((int) $member['department_id'], $departmentIds, true)), 'id')));
+}
 function posted_text(string $key): string { return trim((string) ($_POST[$key] ?? '')); }
 function posted_ids(string $key): array {
     $values = $_POST[$key] ?? $_POST[$key . '[]'] ?? [];

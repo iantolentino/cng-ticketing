@@ -15,7 +15,7 @@ $monthStart = $month . '-01';
 $monthEnd = date('Y-m-t', strtotime($monthStart));
 $eventTypes = ['team_event' => 'Team event', 'coverage' => 'Coverage', 'reminder' => 'Reminder', 'other' => 'Other'];
 $holidayCountries = ['COMPANY' => 'Company', 'PH' => 'Philippines', 'AU' => 'Australia', 'CA' => 'Canada'];
-$attendanceStatuses = ['present' => 'Present', 'partial' => 'Partial coverage', 'absent' => 'Absent', 'training' => 'Training', 'work_from_home' => 'Work from home'];
+$attendanceStatuses = ['annual' => 'Annual', 'sick' => 'Sick', 'emergency' => 'Emergency', 'half_day' => 'Half-day', 'birthday' => 'Birthday', 'bereavement' => 'Bereavement', 'paternity' => 'Paternity', 'maternity' => 'Maternity', 'undertime' => 'Undertime', 'present' => 'Present', 'partial' => 'Partial coverage', 'absent' => 'Absent', 'training' => 'Training', 'work_from_home' => 'Work from home'];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -125,7 +125,7 @@ foreach ($eventRows as $event) {
     }
 }
 
-$attendance = $pdo->prepare('SELECT ta.*, d.name AS department, u.full_name AS logger FROM team_attendance ta JOIN departments d ON d.id = ta.department_id JOIN users u ON u.id = ta.logged_by WHERE ta.attendance_date BETWEEN ? AND ? ORDER BY ta.attendance_date, d.name');
+$attendance = $pdo->prepare('SELECT ta.*, d.name AS department, u.full_name AS logger, (SELECT GROUP_CONCAT(sd.full_name ORDER BY sd.full_name SEPARATOR ", ") FROM team_attendance_leave tal JOIN staff_directory sd ON sd.id = tal.staff_id WHERE tal.attendance_id = ta.id) AS leave_staff FROM team_attendance ta JOIN departments d ON d.id = ta.department_id JOIN users u ON u.id = ta.logged_by WHERE ta.attendance_date BETWEEN ? AND ? ORDER BY ta.attendance_date, d.name');
 $attendance->execute([$monthStart, $monthEnd]);
 $attendanceRows = $attendance->fetchAll();
 foreach ($attendanceRows as $row) {
@@ -133,7 +133,7 @@ foreach ($attendanceRows as $row) {
         'title' => $row['department'] . ' attendance',
         'type' => 'Team Attendance',
         'date' => $row['attendance_date'],
-        'body' => ($attendanceStatuses[$row['status']] ?? $row['status']) . ' - Headcount: ' . (int) $row['headcount'] . ($row['notes'] ? ' - ' . $row['notes'] : '') . ' - Logged by ' . $row['logger'],
+        'body' => ($attendanceStatuses[$row['status']] ?? $row['status']) . ' - Headcount: ' . (int) $row['headcount'] . ($row['leave_staff'] ? ' - Staff on leave: ' . $row['leave_staff'] : '') . ($row['notes'] ? ' - ' . $row['notes'] : '') . ' - Logged by ' . $row['logger'],
         'attachments' => [],
     ]);
     $addItem($itemsByDate, $row['attendance_date'], ['kind' => 'attendance', 'label' => 'Attendance: ' . $row['department'], 'detail_id' => $detailId]);

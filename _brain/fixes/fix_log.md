@@ -42,6 +42,8 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F017 | Day 7 shared accessibility and feedback hardening | UI/ACCESSIBILITY | The shared layout had no keyboard skip link, no explicit main-content landmark, and could fail when sessionStorage was unavailable. | inline | 2026-08-28 | FIXED |
 | F018 | Day 8 API and export boundary hardening | SECURITY/PERFORMANCE | API and export query parameters were not consistently scalar-validated, API search reused one named placeholder, and exports had no row bound. | inline | 2026-08-28 | FIXED |
 | F019 | Day 9 private storage and health-readiness hardening | SECURITY/OPERATIONS | Private attachments had no tracked web-server deny rule and the health page did not verify required tables or private-storage protection. | inline | 2026-08-28 | FIXED |
+| F020 | Ticket submitter and category-based routing | TICKETS | Issue escalator was manually editable and category changes did not constrain the current department, involved departments, or assignee options. | inline | 2026-08-29 | FIXED |
+| F021 | Attendance corrections and staff leave directory | ATTENDANCE | Attendance had no edit flow, used coverage statuses instead of the requested leave statuses, and had no persistent multi-staff leave selection. | inline | 2026-08-29 | FIXED |
 
 ---
 

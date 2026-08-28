@@ -191,6 +191,13 @@ input[type="checkbox"]{display:inline-block;width:16px;height:16px;margin:0;acce
 .ticket-detail form .button,.ticket-detail~section form .button{margin-top:18px}
 .compact-form{max-width:760px}
 .compact-form .button{align-self:end}
+.field-help{display:block;margin-top:6px;color:var(--muted);font-size:12px;font-weight:400}
+.staff-picker{margin-top:6px;border:1px solid #D6D9DE;border-radius:3px;background:var(--surface)}
+.staff-picker summary{padding:9px 10px;color:var(--ink);font-size:14px;font-weight:400;cursor:pointer;list-style-position:inside}
+.staff-picker-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:220px;overflow:auto;padding:10px;border-top:1px solid var(--border);background:var(--surface-muted)}
+.staff-picker-options label{display:grid;grid-template-columns:16px minmax(0,1fr);gap:6px;align-items:start;color:var(--ink);font-size:13px;font-weight:500}
+.staff-picker-options label small{grid-column:2;color:var(--muted);font-size:11px;font-weight:400}
+.staff-picker-options input{grid-row:1 / span 2}
 .attachment-list{display:grid;gap:8px;margin-bottom:14px}
 .attachment-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid var(--border);background:var(--surface-muted)}
 .notification-list{display:grid;gap:8px}
@@ -303,6 +310,7 @@ body.auth-page{min-height:100vh;padding:0;background:#EDF3FC}
   .page h1{font-size:25px}
   .ticket-form,.ticket-detail{grid-template-columns:1fr}
   .ticket-form{padding:16px}
+  .staff-picker-options{grid-template-columns:1fr}
   .filter-head{flex-direction:column}
   .filter-grid{grid-template-columns:1fr}
   .filter-search{grid-column:auto}

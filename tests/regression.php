@@ -42,8 +42,8 @@ foreach ($migrationFiles as $file) {
     $migrationNumbers[] = (int) basename($file, '.sql');
 }
 sort($migrationNumbers);
-$expectedNumbers = range(2, 21);
-check($migrationNumbers === $expectedNumbers, 'migrations 002 through 021 are present without gaps');
+$expectedNumbers = range(2, 22);
+check($migrationNumbers === $expectedNumbers, 'migrations 002 through 022 are present without gaps');
 
 $migrationMarkers = [
     '011' => 'password_reset_tokens',
@@ -57,6 +57,7 @@ $migrationMarkers = [
     '019' => 'api_tokens',
     '020' => 'resolution',
     '021' => 'token_hash',
+    '022' => 'staff_directory',
 ];
 foreach ($migrationMarkers as $number => $marker) {
     $matches = glob($root . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . $number . '_*.sql') ?: [];
@@ -111,6 +112,26 @@ check(source_contains('export-tickets.php', 'MAX_EXPORT_ROWS'), 'exports enforce
 check(source_contains('export-tickets.php', 'date_from cannot be after date_to'), 'exports reject reversed date ranges');
 check(source_contains('health.php', 'Required database tables'), 'health page checks required database tables');
 check(source_contains('health.php', 'Private storage web protection'), 'health page checks private storage protection');
+check(source_contains('create-ticket.php', "'issue_escalator' => \$user['full_name']"), 'ticket escalator is captured from submitter');
+check(!source_contains('create-ticket.php', 'name="issue_escalator"'), 'ticket escalator is not manually editable on create');
+check(source_contains('app/tickets.php', 'TICKET_CATEGORY_DEPARTMENT_CODES'), 'ticket categories define department mappings');
+check(source_contains('create-ticket.php', 'categoryDepartmentMap'), 'ticket create filters departments and assignees by category');
+check(source_contains('edit-ticket.php', 'categoryDepartmentMap'), 'ticket edit filters departments and assignees by category');
+check(source_contains('team-attendance.php', "'half_day' => 'Half-day'"), 'attendance uses requested leave statuses');
+check(source_contains('team-attendance.php', "action === 'update'"), 'attendance records support editing');
+check(source_contains('team-attendance.php', 'team_attendance_leave'), 'attendance saves multiple staff on leave');
+check(source_contains('team-attendance.php', 'staff-picker'), 'attendance provides a staff checkbox picker');
+check(source_contains('team-calendar.php', 'leave_staff'), 'calendar displays staff on leave with attendance');
+check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'stratastaffglobal.com'), 'staff directory records TL email domain');
+check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'jamesons.com.au'), 'staff directory records employee email domain');
+check(source_contains('register.php', 'jamesons\\.com\\.au'), 'registration accepts Jamesons staff email domain');
+check(source_contains('register.php', 'stratastaffglobal\\.com'), 'registration accepts Strata Staff Global TL email domain');
+require_once $root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'tickets.php';
+$testDepartments = [['id' => 1, 'name' => 'R&M', 'code' => 'rm'], ['id' => 2, 'name' => 'Admin', 'code' => 'admin'], ['id' => 3, 'name' => 'Compliance', 'code' => 'compliance'], ['id' => 4, 'name' => 'Customer Care', 'code' => 'customer-care'], ['id' => 5, 'name' => 'Insurance', 'code' => 'insurance']];
+check(count(category_department_ids('Attendance', $testDepartments)) === 5, 'Attendance category selects all departments');
+check(category_department_ids('Resignation', $testDepartments) === [2], 'Resignation category selects Admin');
+$testUsers = [['id' => 10, 'department_id' => 1, 'role_slug' => 'team-member'], ['id' => 11, 'department_id' => null, 'role_slug' => 'team-leader'], ['id' => 12, 'department_id' => 2, 'role_slug' => 'team-member']];
+check(category_assignee_ids('Resignation', $testDepartments, $testUsers) === [11, 12], 'category assignee mapping keeps TLs and matching department users');
 
 echo "\n{$passed} passed, {$failed} failed\n";
 exit($failed === 0 ? 0 : 1);
