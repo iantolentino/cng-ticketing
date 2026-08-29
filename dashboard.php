@@ -17,6 +17,8 @@ $dashboardRanges = [
     'today' => ['Today', 'Today'],
     '7d' => ['Last 7 days', '-6 days'],
     '30d' => ['Last 30 days', '-29 days'],
+    '3m' => ['Last 3 months', '-3 months'],
+    '6m' => ['Last 6 months', '-6 months'],
     '1y' => ['Last 1 year', '-1 year'],
 ];
 $dashboardViews = [
@@ -28,7 +30,7 @@ $dashboardViews = [
     'unassigned' => 'Unassigned',
 ];
 $trendGrains = ['daily' => 'Daily', 'weekly' => 'Weekly', 'monthly' => 'Monthly'];
-$trendRanges = ['3m' => ['Last 3 months', '-3 months'], '6m' => ['Last 6 months', '-6 months'], '9m' => ['Last 9 months', '-9 months'], '12m' => ['Last 12 months', '-12 months']];
+$trendRanges = ['7d' => ['Last 7 days', '-6 days'], '30d' => ['Last 30 days', '-29 days'], '3m' => ['Last 3 months', '-3 months'], '6m' => ['Last 6 months', '-6 months'], '9m' => ['Last 9 months', '-9 months'], '12m' => ['Last 12 months', '-12 months'], '1y' => ['Last 1 year', '-1 year']];
 if (!isset($dashboardRanges[$filters['dashboard_range']])) $filters['dashboard_range'] = '7d';
 if (!isset($dashboardViews[$filters['dashboard_view']])) $filters['dashboard_view'] = '';
 if (!isset($trendGrains[$filters['trend_grain']])) $filters['trend_grain'] = 'monthly';
@@ -94,6 +96,41 @@ while ($cursor <= $end) {
     $trendBuckets[$key] = ['label' => $label, 'count' => $trendRows[$key] ?? 0];
 }
 $trendMax = max(1, ...array_column($trendBuckets, 'count'));
+$trendChartCoordinates = [];
+$trendChartWidth = 1000;
+$trendChartTop = 24;
+$trendChartBaseline = 198;
+$trendChartPlotHeight = 154;
+$trendChartHorizontalPadding = 24;
+$trendChartStep = count($trendBuckets) > 1
+    ? ($trendChartWidth - ($trendChartHorizontalPadding * 2)) / (count($trendBuckets) - 1)
+    : 0;
+foreach (array_values($trendBuckets) as $index => $bucket) {
+    $trendChartCoordinates[] = [
+        'x' => round($trendChartHorizontalPadding + ($index * $trendChartStep), 2),
+        'y' => round($trendChartTop + (($trendMax - $bucket['count']) / $trendMax * $trendChartPlotHeight), 2),
+        'count' => (int) $bucket['count'],
+        'label' => (string) $bucket['label'],
+    ];
+}
+$trendChartPointString = implode(' ', array_map(static fn(array $point): string => $point['x'] . ',' . $point['y'], $trendChartCoordinates));
+$trendChartAreaPath = '';
+$trendChartLinePath = '';
+if ($trendChartCoordinates) {
+    $trendChartLinePath = 'M ' . $trendChartCoordinates[0]['x'] . ' ' . $trendChartCoordinates[0]['y'];
+    for ($index = 0, $coordinateCount = count($trendChartCoordinates); $index < $coordinateCount - 1; $index++) {
+        $currentPoint = $trendChartCoordinates[$index];
+        $nextPoint = $trendChartCoordinates[$index + 1];
+        $midpointX = round(($currentPoint['x'] + $nextPoint['x']) / 2, 2);
+        $midpointY = round(($currentPoint['y'] + $nextPoint['y']) / 2, 2);
+        $trendChartLinePath .= ' Q ' . $currentPoint['x'] . ' ' . $currentPoint['y'] . ' ' . $midpointX . ' ' . $midpointY;
+    }
+    $lastPoint = $trendChartCoordinates[count($trendChartCoordinates) - 1];
+    $trendChartLinePath .= ' Q ' . $lastPoint['x'] . ' ' . $lastPoint['y'] . ' ' . $lastPoint['x'] . ' ' . $lastPoint['y'];
+    $trendChartAreaPath = $trendChartLinePath
+        . ' L ' . $lastPoint['x'] . ' ' . $trendChartBaseline
+        . ' L ' . $trendChartCoordinates[0]['x'] . ' ' . $trendChartBaseline . ' Z';
+}
 
 $activityParams = [];
 $activityScopeSql = ticket_scope_sql($user, $activityParams);
@@ -132,31 +169,56 @@ function activity_excerpt(string $value, int $limit = 78): string
     return strlen($value) > $limit ? substr($value, 0, $limit - 3) . '...' : $value;
 }
 
+$statusDonutColors = ['open' => '#3B82F6', 'in_progress' => '#F59E0B', 'pending' => '#94A3B8', 'closed' => '#10B981'];
+$statusDonutTotal = max(1, $dashboardTotal);
+$statusDonutStops = [];
+$statusDonutPosition = 0.0;
+foreach ($statuses as $status => $label) {
+    $statusDonutShare = ((int) $dashboardStatusCounts[$status] / $statusDonutTotal) * 100;
+    $statusDonutEnd = $statusDonutPosition + $statusDonutShare;
+    $statusDonutStops[] = $statusDonutColors[$status] . ' ' . round($statusDonutPosition, 2) . '% ' . round($statusDonutEnd, 2) . '%';
+    $statusDonutPosition = $statusDonutEnd;
+}
+$statusDonutStyle = 'conic-gradient(' . implode(', ', $statusDonutStops) . ')';
+
 page_start('Dashboard', $user);
 ?>
-<div class="page-head"><div><p class="eyebrow">Overview</p><h1>Dashboard</h1><p class="page-subtitle">Ticket workload and recent activity for records you can access.</p></div></div>
-<section class="dashboard-panel" aria-labelledby="dashboard-title">
-    <div class="dashboard-head"><div><h2 id="dashboard-title">Ticket dashboard</h2><p class="muted">Created tickets counted from <?= e(date('M j, Y', strtotime($dashboardStart))) ?><?= $filters['dashboard_view'] ? ' - viewing ' . e($dashboardViews[$filters['dashboard_view']]) : '' ?>.</p></div><form method="get" class="range-form"><label>Range<select name="dashboard_range" onchange="this.form.submit()"><?php foreach ($dashboardRanges as $value => $range): ?><option value="<?= e($value) ?>"<?= $filters['dashboard_range'] === $value ? ' selected' : '' ?>><?= e($range[0]) ?></option><?php endforeach; ?></select></label><?php if ($filters['dashboard_view']): ?><input type="hidden" name="dashboard_view" value="<?= e($filters['dashboard_view']) ?>"><?php endif; ?></form></div>
-    <div class="metric-grid">
-        <a class="metric-card metric-link<?= $filters['dashboard_view'] === 'total' ? ' active' : '' ?>" href="<?= e(dashboard_card_url('total', $filters)) ?>"><span>Total created</span><strong><?= (int) $dashboardTotal ?></strong><small><?= e($dashboardRanges[$filters['dashboard_range']][0]) ?></small></a>
-        <a class="metric-card metric-link<?= $filters['dashboard_view'] === 'open_work' ? ' active' : '' ?>" href="<?= e(dashboard_card_url('open_work', $filters)) ?>"><span>Open work</span><strong><?= (int) $dashboardOpenWork ?></strong><small>Open, in progress, pending</small></a>
-        <a class="metric-card metric-card-alert metric-link<?= $filters['dashboard_view'] === 'urgent' ? ' active' : '' ?>" href="<?= e(dashboard_card_url('urgent', $filters)) ?>"><span>Urgent</span><strong><?= (int) $dashboardUrgent ?></strong><small>Open urgent tickets</small></a>
-        <a class="metric-card metric-card-alert metric-link<?= $filters['dashboard_view'] === 'overdue' ? ' active' : '' ?>" href="<?= e(dashboard_card_url('overdue', $filters)) ?>"><span>Overdue</span><strong><?= (int) $dashboardOverdue ?></strong><small>7+ days open</small></a>
-        <a class="metric-card metric-link<?= $filters['dashboard_view'] === 'idle' ? ' active' : '' ?>" href="<?= e(dashboard_card_url('idle', $filters)) ?>"><span>Idle watch</span><strong><?= (int) $dashboardIdle ?></strong><small>3+ days without update</small></a>
-        <a class="metric-card metric-link<?= $filters['dashboard_view'] === 'unassigned' ? ' active' : '' ?>" href="<?= e(dashboard_card_url('unassigned', $filters)) ?>"><span>Unassigned</span><strong><?= (int) $dashboardUnassigned ?></strong><small>Needs owner review</small></a>
+<div class="dashboard-canvas">
+    <section class="dashboard-panel dashboard-kpi-panel" aria-labelledby="dashboard-title">
+        <div class="dashboard-head dashboard-greeting-head"><div><h2 id="dashboard-title">Greetings, <?= e((string) ($user['username'] ?? 'there')) ?>!</h2><p class="dashboard-date">Your ticket workload at a glance</p></div><form method="get" class="dashboard-filter-form" data-filter-form><input type="hidden" name="dashboard_range" value="<?= e($filters['dashboard_range']) ?>"><?php if ($filters['dashboard_view']): ?><input type="hidden" name="dashboard_view" value="<?= e($filters['dashboard_view']) ?>"><?php endif; ?><div class="filter-picker" data-filter-picker><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/></svg></span><span class="filter-picker-copy"><small>Date range</small><strong data-filter-label><?= e($dashboardRanges[$filters['dashboard_range']][0]) ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Ticket window</p><?php foreach ($dashboardRanges as $value => $range): ?><button type="button" class="filter-option<?= $filters['dashboard_range'] === $value ? ' is-selected' : '' ?>" data-filter-target="dashboard_range" data-filter-value="<?= e($value) ?>" data-filter-label="<?= e($range[0]) ?>"><span><?= e($range[0]) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></form></div>
+        <div class="metric-grid metric-grid-reference">
+            <a class="metric-card metric-reference-card" href="index.php?status=open"><span>Open tickets</span><strong><?= (int) $dashboardStatusCounts['open'] ?></strong></a>
+            <a class="metric-card metric-reference-card" href="index.php?status=in_progress"><span>In progress</span><strong><?= (int) $dashboardStatusCounts['in_progress'] ?></strong></a>
+            <a class="metric-card metric-reference-card" href="index.php?status=closed"><span>Resolved</span><strong><?= (int) $dashboardStatusCounts['closed'] ?></strong></a>
+            <a class="metric-card metric-card-alert metric-reference-card" href="<?= e(dashboard_card_url('urgent', $filters)) ?>"><span>Critical</span><strong><?= (int) $dashboardUrgent ?></strong></a>
+            <a class="metric-card metric-reference-card" href="index.php?status=pending"><span>Pending</span><strong><?= (int) $dashboardStatusCounts['pending'] ?></strong></a>
+            <a class="metric-card metric-card-alert metric-reference-card" href="<?= e(dashboard_card_url('overdue', $filters)) ?>"><span>Overdue</span><strong><?= (int) $dashboardOverdue ?></strong></a>
+            <a class="metric-card metric-reference-card" href="<?= e(dashboard_card_url('idle', $filters)) ?>"><span>Idle watch</span><strong><?= (int) $dashboardIdle ?></strong></a>
+            <a class="metric-card metric-reference-card" href="<?= e(dashboard_card_url('unassigned', $filters)) ?>"><span>Unassigned</span><strong><?= (int) $dashboardUnassigned ?></strong></a>
+        </div>
+    </section>
+
+    <div class="dashboard-chart-grid">
+        <section class="dashboard-panel dashboard-trend-panel" aria-labelledby="trend-title">
+            <div class="dashboard-head"><div><h2 id="trend-title">Tickets created</h2><p class="muted"><?= e($trendRanges[$filters['trend_range']][0]) ?></p></div><form method="get" class="dashboard-filter-form trend-filter-form" data-filter-form><input type="hidden" name="trend_range" value="<?= e($filters['trend_range']) ?>"><input type="hidden" name="trend_grain" value="<?= e($filters['trend_grain']) ?>"><input type="hidden" name="dashboard_range" value="<?= e($filters['dashboard_range']) ?>"><?php if ($filters['dashboard_view']): ?><input type="hidden" name="dashboard_view" value="<?= e($filters['dashboard_view']) ?>"><?php endif; ?><div class="filter-picker" data-filter-picker><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><small>Range</small><strong data-filter-label><?= e($trendRanges[$filters['trend_range']][0]) ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Trend window</p><?php foreach ($trendRanges as $value => $range): ?><button type="button" class="filter-option<?= $filters['trend_range'] === $value ? ' is-selected' : '' ?>" data-filter-target="trend_range" data-filter-value="<?= e($value) ?>" data-filter-label="<?= e($range[0]) ?>"><span><?= e($range[0]) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div><div class="filter-picker" data-filter-picker><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><small>View</small><strong data-filter-label><?= e($trendGrains[$filters['trend_grain']]) ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Group by</p><?php foreach ($trendGrains as $value => $label): ?><button type="button" class="filter-option<?= $filters['trend_grain'] === $value ? ' is-selected' : '' ?>" data-filter-target="trend_grain" data-filter-value="<?= e($value) ?>" data-filter-label="<?= e($label) ?>"><span><?= e($label) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></form></div>
+            <div class="trend-chart" role="img" aria-label="Ticket trend chart"><div class="trend-chart-shell"><div class="trend-visual"><svg viewBox="0 0 1000 230" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="trend-area-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1E5AA8" stop-opacity=".22"/><stop offset="100%" stop-color="#1E5AA8" stop-opacity=".02"/></linearGradient></defs><g class="trend-grid-lines"><line x1="24" y1="24" x2="976" y2="24"/><line x1="24" y1="81" x2="976" y2="81"/><line x1="24" y1="138" x2="976" y2="138"/><line x1="24" y1="198" x2="976" y2="198"/></g><path class="trend-area" d="<?= e($trendChartAreaPath) ?>"/><path class="trend-line" d="<?= e($trendChartLinePath) ?>"/><?php foreach ($trendChartCoordinates as $point): ?><circle class="trend-point" cx="<?= e((string) $point['x']) ?>" cy="<?= e((string) $point['y']) ?>" r="5"><title><?= e($point['label']) ?>: <?= (int) $point['count'] ?> tickets</title></circle><?php endforeach; ?></svg><div class="trend-axis"><?php foreach ($trendChartCoordinates as $point): ?><span><?= e($point['label']) ?></span><?php endforeach; ?></div></div></div></div>
+        </section>
+        <section class="dashboard-panel dashboard-status-panel" aria-labelledby="status-title">
+            <div class="dashboard-head"><div><h2 id="status-title">By status</h2><p class="muted">Ticket distribution</p></div></div>
+            <div class="status-donut-wrap"><div class="status-donut" style="--status-donut:<?= e($statusDonutStyle) ?>"><span><?= (int) $dashboardTotal ?><small>Total</small></span></div></div>
+            <div class="status-legend"><?php foreach ($statuses as $status => $label): ?><div><span><i class="status-dot status-dot-<?= e(str_replace('_', '-', $status)) ?>"></i><?= e($label) ?></span><strong><?= (int) $dashboardStatusCounts[$status] ?></strong></div><?php endforeach; ?></div>
+        </section>
     </div>
-    <div class="status-strip"><?php foreach ($statuses as $status => $label): ?><div><span class="pill pill-<?= e(str_replace('_', '-', $status)) ?>"><?= e($label) ?></span><strong><?= (int) $dashboardStatusCounts[$status] ?></strong></div><?php endforeach; ?></div>
-</section>
-<section class="dashboard-panel" aria-labelledby="trend-title">
-    <div class="dashboard-head"><div><h2 id="trend-title">Ticket trend</h2><p class="muted">Created ticket volume by <?= e(strtolower($trendGrains[$filters['trend_grain']])) ?> bucket.</p></div><form method="get" class="range-form trend-form"><label>Range<select name="trend_range" onchange="this.form.submit()"><?php foreach ($trendRanges as $value => $range): ?><option value="<?= e($value) ?>"<?= $filters['trend_range'] === $value ? ' selected' : '' ?>><?= e($range[0]) ?></option><?php endforeach; ?></select></label><label>View<select name="trend_grain" onchange="this.form.submit()"><?php foreach ($trendGrains as $value => $label): ?><option value="<?= e($value) ?>"<?= $filters['trend_grain'] === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label><input type="hidden" name="dashboard_range" value="<?= e($filters['dashboard_range']) ?>"><?php if ($filters['dashboard_view']): ?><input type="hidden" name="dashboard_view" value="<?= e($filters['dashboard_view']) ?>"><?php endif; ?></form></div>
-    <div class="trend-chart" role="img" aria-label="Ticket trend chart"><?php foreach ($trendBuckets as $bucket): ?><div class="trend-bar-item"><div class="trend-bar-track"><span class="trend-bar" style="height:<?= max(4, (int) round(($bucket['count'] / $trendMax) * 100)) ?>%"></span></div><strong><?= (int) $bucket['count'] ?></strong><small><?= e($bucket['label']) ?></small></div><?php endforeach; ?></div>
-</section>
-<section class="activity-panel" aria-labelledby="activity-title">
-    <div class="section-head"><div><h2 id="activity-title">Recent activity</h2><p class="muted">Latest comments, updates, and closures across tickets you can access.</p></div></div>
-    <div class="activity-grid">
-        <div class="activity-card"><h3>New comments</h3><?php foreach ($recentComments as $comment): ?><a class="activity-item" href="ticket.php?id=<?= (int) $comment['ticket_id'] ?>"><strong><?= e($comment['ticket_number']) ?></strong><span><?= e($comment['subject']) ?></span><small><?= e($comment['full_name']) ?> - <?= e(date('M j, g:i A', strtotime($comment['created_at']))) ?></small><em><?= e(activity_excerpt((string) $comment['body'])) ?></em></a><?php endforeach; ?><?php if (!$recentComments): ?><p class="muted">No recent comments yet.</p><?php endif; ?></div>
-        <div class="activity-card"><h3>Recently updated</h3><?php foreach ($recentUpdates as $ticket): ?><a class="activity-item" href="ticket.php?id=<?= (int) $ticket['ticket_id'] ?>"><strong><?= e($ticket['ticket_number']) ?></strong><span><?= e($ticket['subject']) ?></span><small><span class="pill pill-<?= e(str_replace('_', '-', $ticket['status'])) ?>"><?= e($statuses[$ticket['status']] ?? $ticket['status']) ?></span> <?= e(date('M j, g:i A', strtotime($ticket['updated_at']))) ?></small></a><?php endforeach; ?><?php if (!$recentUpdates): ?><p class="muted">No ticket updates yet.</p><?php endif; ?></div>
-        <div class="activity-card"><h3>Recently closed</h3><?php foreach ($recentClosed as $ticket): ?><a class="activity-item" href="ticket.php?id=<?= (int) $ticket['ticket_id'] ?>"><strong><?= e($ticket['ticket_number']) ?></strong><span><?= e($ticket['subject']) ?></span><small><?= e(date('M j, g:i A', strtotime($ticket['closed_at']))) ?></small></a><?php endforeach; ?><?php if (!$recentClosed): ?><p class="muted">No closed tickets yet.</p><?php endif; ?></div>
+
+    <div class="dashboard-lower-grid">
+        <section class="dashboard-panel dashboard-signals-panel" aria-labelledby="signals-title">
+            <div class="dashboard-head"><div><h2 id="signals-title">Workload signals</h2><p class="muted">Where follow-up attention is needed.</p></div></div>
+            <div class="signal-list"><div class="signal-row"><span>Open work</span><strong><?= (int) $dashboardOpenWork ?></strong><span class="signal-track"><i style="width:<?= $dashboardTotal ? min(100, (int) round(($dashboardOpenWork / $dashboardTotal) * 100)) : 0 ?>%"></i></span></div><div class="signal-row"><span>Urgent</span><strong><?= (int) $dashboardUrgent ?></strong><span class="signal-track signal-track-alert"><i style="width:<?= $dashboardTotal ? min(100, (int) round(($dashboardUrgent / $dashboardTotal) * 100)) : 0 ?>%"></i></span></div><div class="signal-row"><span>Overdue</span><strong><?= (int) $dashboardOverdue ?></strong><span class="signal-track signal-track-alert"><i style="width:<?= $dashboardTotal ? min(100, (int) round(($dashboardOverdue / $dashboardTotal) * 100)) : 0 ?>%"></i></span></div><div class="signal-row"><span>Unassigned</span><strong><?= (int) $dashboardUnassigned ?></strong><span class="signal-track"><i style="width:<?= $dashboardTotal ? min(100, (int) round(($dashboardUnassigned / $dashboardTotal) * 100)) : 0 ?>%"></i></span></div></div>
+        </section>
+        <section class="dashboard-panel dashboard-recent-panel" aria-labelledby="recent-title">
+            <div class="dashboard-head"><div><h2 id="recent-title">Recent tickets</h2><p class="muted">Latest activity</p></div></div>
+            <div class="recent-ticket-list"><?php foreach (array_slice($recentUpdates, 0, 4) as $ticket): ?><a class="recent-ticket-item" href="ticket.php?id=<?= (int) $ticket['ticket_id'] ?>"><span class="recent-ticket-number"><?= e($ticket['ticket_number']) ?></span><span class="recent-ticket-status"><span class="pill pill-<?= e(str_replace('_', '-', $ticket['status'])) ?>"><?= e($statuses[$ticket['status']] ?? $ticket['status']) ?></span><small><?= e(date('M j, g:i A', strtotime($ticket['updated_at']))) ?></small></span></a><?php endforeach; ?><?php if (!$recentUpdates): ?><p class="muted">No recent tickets yet.</p><?php endif; ?></div>
+        </section>
     </div>
-</section>
+</div>
 <?php page_end();

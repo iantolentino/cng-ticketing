@@ -23,6 +23,16 @@ function sidebar_icon(string $name): string
 function page_start(string $title, ?array $user = null): void
 {
     $page = basename($_SERVER['PHP_SELF']);
+    $pageClasses = [
+        'dashboard.php' => 'dashboard-page', 'index.php' => 'tickets-page', 'my-work.php' => 'my-work-page',
+        'department-workload.php' => 'departments-page', 'team-calendar.php' => 'team-calendar-page',
+        'team-attendance.php' => 'team-attendance-page', 'leave-requests.php' => 'leave-requests-page',
+        'notifications.php' => 'notifications-page', 'admin.php' => 'roles-access-page',
+        'users.php' => 'users-page', 'reports.php' => 'reports-page', 'audit-log.php' => 'audit-page',
+        'calendar-admin.php' => 'calendar-admin-page', 'health.php' => 'health-page', 'import.php' => 'import-page',
+        'create-ticket.php' => 'ticket-form-page', 'edit-ticket.php' => 'ticket-form-page',
+        'ticket.php' => 'ticket-detail-page', 'reset-user-password.php' => 'account-action-page',
+    ];
     $items = [];
     $canViewCalendar = $user && user_can('view_all_tickets') && ($user['role_slug'] ?? '') !== 'cng-admin';
     $canViewWorkQueue = $user && user_can('view_all_tickets') && ($user['role_slug'] ?? '') !== 'cng-admin';
@@ -81,11 +91,20 @@ function page_start(string $title, ?array $user = null): void
     <link rel="icon" href="assets/favicon.svg">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/app.css">
+    <script src="assets/js/app.js" defer></script>
 </head>
-<body>
+<body class="<?= e($pageClasses[$page] ?? '') ?>">
 <a class="skip-link" href="#main-content">Skip to main content</a>
+<header class="app-header">
+    <div class="app-header-title"><h1><?= e($title) ?></h1><p class="app-header-date"><?= e(date('l, F j, Y')) ?></p></div>
+    <div class="app-header-actions">
+        <?php if ($page === 'dashboard.php'): ?><a class="button button-secondary" href="index.php"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.75h14v14.5H5zM8 9h8M8 13h8M8 17h5"/></svg>View tickets</a><?php endif; ?>
+        <?php if ($user && user_can('create_tickets') && in_array($page, ['dashboard.php', 'index.php', 'my-work.php', 'department-workload.php', 'team-calendar.php', 'team-attendance.php', 'leave-requests.php', 'notifications.php', 'admin.php', 'ticket.php', 'edit-ticket.php'], true)): ?><a class="button" href="create-ticket.php"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Create ticket</a><?php endif; ?>
+        <?php if ($user): ?><div class="app-header-account"><span class="app-header-avatar" aria-hidden="true"><?= e(strtoupper(substr((string) ($user['full_name'] ?? 'U'), 0, 1))) ?></span><span><strong><?= e($user['full_name']) ?></strong><small><?= e($user['role_name'] ?? '') ?></small></span></div><?php endif; ?>
+    </div>
+</header>
 <aside class="topbar" aria-label="Primary navigation">
     <div class="brand">
         <img class="strata-logo" src="assets/stratastaff-logo.png" alt="Strata Staff Global">

@@ -146,19 +146,46 @@ $nextMonth = date('Y-m', strtotime($monthStart . ' +1 month'));
 
 page_start('Team Calendar', $user);
 ?>
-<?php if ($notice): ?><p class="action-notice" role="status"><?= e($notice) ?></p><?php endif; ?>
-<?php if ($error): ?><p class="auth-error"><?= e($error) ?></p><?php endif; ?>
-<div class="page-head"><div><p class="eyebrow">Planning</p><h1>Team Calendar</h1><p class="page-subtitle">Click a day to add an event or holiday. Approved leave is added automatically after Team Leader and Department Head approval.</p></div><div class="page-head-actions"><a class="button button-secondary" href="team-calendar.php?month=<?= e($prevMonth) ?>">Previous</a><form method="get" class="month-form"><label>Month<input type="month" name="month" value="<?= e($month) ?>" onchange="this.form.submit()"></label></form><a class="button button-secondary" href="team-calendar.php?month=<?= e($nextMonth) ?>">Next</a></div></div>
-<section class="calendar-board" aria-label="<?= e(date('F Y', strtotime($monthStart))) ?> calendar">
-    <div class="calendar-weekdays"><?php foreach (['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $weekday): ?><span><?= e($weekday) ?></span><?php endforeach; ?></div>
-    <div class="calendar-month-grid"><?php for ($day = $calendarStart; $day <= $calendarEnd; $day = strtotime('+1 day', $day)): $date = date('Y-m-d', $day); $outside = substr($date, 0, 7) !== $month; $items = $itemsByDate[$date] ?? []; ?><div class="calendar-day<?= $outside ? ' is-outside' : '' ?><?= $date === date('Y-m-d') ? ' is-today' : '' ?>" data-date="<?= e($date) ?>"><button type="button" class="calendar-date-button" data-date="<?= e($date) ?>"><span class="calendar-date"><?= e(date('j', $day)) ?></span></button><?php foreach (array_slice($items, 0, 4) as $item): ?><button type="button" class="calendar-chip calendar-chip-<?= e($item['kind']) ?>" data-detail-id="<?= e($item['detail_id']) ?>"><?= e($item['label']) ?></button><?php endforeach; ?><?php if (count($items) > 4): ?><span class="calendar-more">+<?= count($items) - 4 ?> more</span><?php endif; ?></div><?php endfor; ?></div>
-</section>
-<div class="calendar-popover" id="calendar-popover" role="dialog" aria-live="polite" hidden><div class="calendar-popover-head"><div><p class="eyebrow" id="calendar-detail-type">Details</p><h2 id="calendar-detail-title">Calendar item</h2><p class="muted" id="calendar-detail-date"></p></div><button type="button" class="calendar-popover-close" id="calendar-detail-close" aria-label="Close details">&times;</button></div><p id="calendar-detail-body"></p><div id="calendar-detail-files" class="attachment-list"></div></div>
-<div class="calendar-grid">
-    <section><h2>Add calendar event</h2><form method="post" class="ticket-form compact-form" id="calendar-event-form"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="add_event"><label>Title<input name="title" required></label><label>Type<select name="event_type"><?php foreach ($eventTypes as $key => $label): ?><option value="<?= e($key) ?>"><?= e($label) ?></option><?php endforeach; ?></select></label><label>Start date<input type="date" name="event_date" required value="<?= e($monthStart) ?>"></label><label>End date<input type="date" name="end_date"></label><button class="button">Save event</button></form></section>
-    <section><h2>Add holiday</h2><form method="post" class="ticket-form compact-form" id="calendar-holiday-form"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="add_holiday"><label>Holiday label<input name="label" required></label><label>Country<select name="country_code"><?php foreach ($holidayCountries as $key => $label): ?><option value="<?= e($key) ?>"><?= e($label) ?></option><?php endforeach; ?></select></label><label>Date<input type="date" name="date" required value="<?= e($monthStart) ?>"></label><button class="button">Save holiday</button></form></section>
+<div class="team-calendar-screen">
+    <?php if ($notice): ?><p class="action-notice" role="status"><?= e($notice) ?></p><?php endif; ?>
+    <?php if ($error): ?><p class="auth-error" role="alert"><?= e($error) ?></p><?php endif; ?>
+    <section class="team-calendar-panel" aria-label="<?= e(date('F Y', strtotime($monthStart))) ?> calendar">
+        <div class="team-calendar-toolbar">
+            <nav class="calendar-month-nav" aria-label="Calendar month navigation">
+                <a class="calendar-nav-button" href="team-calendar.php?month=<?= e($prevMonth) ?>" aria-label="Previous month"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></a>
+                <div><h2><?= e(date('F Y', strtotime($monthStart))) ?></h2><p>Team schedule and availability</p></div>
+                <a class="calendar-nav-button" href="team-calendar.php?month=<?= e($nextMonth) ?>" aria-label="Next month"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></a>
+                <a class="calendar-today-link" href="team-calendar.php?month=<?= e(date('Y-m')) ?>">Today</a>
+            </nav>
+            <div class="calendar-summary-inline" aria-label="Month summary"><span><i class="calendar-legend-dot is-holiday"></i>Holidays <b><?= count($holidayRows) ?></b></span><span><i class="calendar-legend-dot is-leave"></i>Leave <b><?= count($approvedLeave) ?></b></span><span><i class="calendar-legend-dot is-event"></i>Events <b><?= count($eventRows) ?></b></span><span><i class="calendar-legend-dot is-attendance"></i>Attendance <b><?= count($attendanceRows) ?></b></span></div>
+        </div>
+        <div class="calendar-weekdays"><?php foreach (['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $weekday): ?><span><?= e($weekday) ?></span><?php endforeach; ?></div>
+        <div class="calendar-month-grid"><?php for ($day = $calendarStart; $day <= $calendarEnd; $day = strtotime('+1 day', $day)): $date = date('Y-m-d', $day); $outside = substr($date, 0, 7) !== $month; $items = $itemsByDate[$date] ?? []; ?><div class="calendar-day<?= $outside ? ' is-outside' : '' ?><?= $date === date('Y-m-d') ? ' is-today' : '' ?>" data-date="<?= e($date) ?>"><button type="button" class="calendar-date-button" data-date="<?= e($date) ?>" aria-label="Add item on <?= e(date('F j, Y', $day)) ?>"><span class="calendar-date"><?= e(date('j', $day)) ?></span></button><?php foreach (array_slice($items, 0, 3) as $item): ?><button type="button" class="calendar-chip calendar-chip-<?= e($item['kind']) ?>" data-detail-id="<?= e($item['detail_id']) ?>"><?= e($item['label']) ?></button><?php endforeach; ?><?php if (count($items) > 3): ?><span class="calendar-more">+<?= count($items) - 3 ?> more</span><?php endif; ?></div><?php endfor; ?></div>
+    </section>
+    <div class="calendar-popover" id="calendar-popover" role="dialog" aria-labelledby="calendar-detail-title" aria-live="polite" hidden><div class="calendar-popover-head"><div><p class="eyebrow" id="calendar-detail-type">Details</p><h2 id="calendar-detail-title">Calendar item</h2><p class="muted" id="calendar-detail-date"></p></div><button type="button" class="calendar-popover-close" id="calendar-detail-close" aria-label="Close details"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><p id="calendar-detail-body"></p><div id="calendar-detail-files" class="attachment-list"></div></div>
+    <div class="team-calendar-lower-grid">
+        <section class="calendar-form-panel" aria-labelledby="calendar-event-title">
+            <div class="calendar-form-head"><div><h2 id="calendar-event-title">Add calendar event</h2><p>Create a team event, coverage entry, or reminder.</p></div><span class="calendar-form-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span></div>
+            <form method="post" class="calendar-compact-form" id="calendar-event-form" data-submit-on-change="false"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="add_event">
+                <label class="calendar-form-field is-wide">Title<input name="title" required placeholder="Event title"></label>
+                <div class="calendar-form-field"><span class="calendar-field-label">Type</span><div class="filter-picker calendar-select-picker" data-filter-picker><input type="hidden" name="event_type" value="team_event"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label>Team event</strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Event type</p><?php foreach ($eventTypes as $key => $label): ?><button type="button" class="filter-option<?= $key === 'team_event' ? ' is-selected' : '' ?>" data-filter-target="event_type" data-filter-value="<?= e($key) ?>" data-filter-label="<?= e($label) ?>"><span><?= e($label) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
+                <div class="calendar-form-field calendar-date-picker" data-date-picker><span class="calendar-field-label">Start date</span><input type="hidden" name="event_date" value="<?= e($monthStart) ?>" data-date-input><button type="button" class="filter-picker-trigger" data-date-trigger aria-expanded="false"><span class="filter-picker-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M8 3.5v3M16 3.5v3M3.5 9.5h17"/></svg></span><span class="filter-picker-copy"><strong data-date-label><?= e(date('M j, Y', strtotime($monthStart))) ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu date-picker-menu" data-date-menu hidden></div></div>
+                <div class="calendar-form-field calendar-date-picker" data-date-picker data-empty-date-label="Optional"><span class="calendar-field-label">End date</span><input type="hidden" name="end_date" value="" data-date-input><button type="button" class="filter-picker-trigger" data-date-trigger aria-expanded="false"><span class="filter-picker-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M8 3.5v3M16 3.5v3M3.5 9.5h17"/></svg></span><span class="filter-picker-copy"><strong data-date-label>Optional</strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu date-picker-menu" data-date-menu hidden></div></div>
+                <div class="calendar-form-submit"><button class="button">Save event</button></div>
+            </form>
+        </section>
+        <section class="calendar-form-panel" aria-labelledby="calendar-holiday-title">
+            <div class="calendar-form-head"><div><h2 id="calendar-holiday-title">Add holiday</h2><p>Add a company or regional public holiday.</p></div><span class="calendar-form-icon is-holiday" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.5 1.5M16.5 16.5 18 18M18 6l-1.5 1.5M7.5 16.5 6 18"/><circle cx="12" cy="12" r="4"/></svg></span></div>
+            <form method="post" class="calendar-compact-form" id="calendar-holiday-form" data-submit-on-change="false"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="add_holiday">
+                <label class="calendar-form-field is-wide">Holiday label<input name="label" required placeholder="Holiday name"></label>
+                <div class="calendar-form-field"><span class="calendar-field-label">Country</span><div class="filter-picker calendar-select-picker" data-filter-picker><input type="hidden" name="country_code" value="COMPANY"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label>Company</strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Country</p><?php foreach ($holidayCountries as $key => $label): ?><button type="button" class="filter-option<?= $key === 'COMPANY' ? ' is-selected' : '' ?>" data-filter-target="country_code" data-filter-value="<?= e($key) ?>" data-filter-label="<?= e($label) ?>"><span><?= e($label) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
+                <div class="calendar-form-field calendar-date-picker" data-date-picker><span class="calendar-field-label">Date</span><input type="hidden" name="date" value="<?= e($monthStart) ?>" data-date-input><button type="button" class="filter-picker-trigger" data-date-trigger aria-expanded="false"><span class="filter-picker-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M8 3.5v3M16 3.5v3M3.5 9.5h17"/></svg></span><span class="filter-picker-copy"><strong data-date-label><?= e(date('M j, Y', strtotime($monthStart))) ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu date-picker-menu" data-date-menu hidden></div></div>
+                <div class="calendar-form-submit"><button class="button">Save holiday</button></div>
+            </form>
+        </section>
+        <aside class="calendar-month-summary" aria-labelledby="calendar-summary-title"><div class="calendar-form-head"><div><h2 id="calendar-summary-title">Month summary</h2><p>Automatically includes approved leave and attendance.</p></div></div><div class="calendar-summary-list"><div><span><i class="calendar-legend-dot is-holiday"></i>Holidays</span><strong><?= count($holidayRows) ?></strong></div><div><span><i class="calendar-legend-dot is-leave"></i>Approved leave</span><strong><?= count($approvedLeave) ?></strong></div><div><span><i class="calendar-legend-dot is-event"></i>Team events</span><strong><?= count($eventRows) ?></strong></div><div><span><i class="calendar-legend-dot is-attendance"></i>Attendance</span><strong><?= count($attendanceRows) ?></strong></div></div></aside>
+    </div>
 </div>
-<section><div class="section-head"><div><h2>Month summary</h2><p class="muted">PH, AU, and CA public holidays are seeded for 2026. Approved leave and Team Attendance records are pulled into this calendar automatically.</p></div></div><div class="status-strip"><div><span>Holidays</span><strong><?= count($holidayRows) ?></strong></div><div><span>Approved leave</span><strong><?= count($approvedLeave) ?></strong></div><div><span>Team events</span><strong><?= count($eventRows) ?></strong></div><div><span>Attendance</span><strong><?= count($attendanceRows) ?></strong></div></div></section>
 <script>
 document.querySelectorAll('.calendar-day').forEach(function(day){
   day.addEventListener('click', function(event){
@@ -167,12 +194,16 @@ document.querySelectorAll('.calendar-day').forEach(function(day){
   });
 });
 function setCalendarDate(date) {
-  document.querySelector('#calendar-event-form input[name="event_date"]').value = date;
-  document.querySelector('#calendar-holiday-form input[name="date"]').value = date;
+  ['#calendar-event-form input[name="event_date"]', '#calendar-holiday-form input[name="date"]'].forEach(function(selector){
+    var input = document.querySelector(selector);
+    input.value = date;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
   document.querySelector('#calendar-event-form input[name="title"]').focus();
 }
 var calendarDetails = <?= json_encode($details, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
 var detailPanel = document.querySelector('#calendar-popover');
+var lastCalendarTrigger = null;
 document.querySelectorAll('.calendar-chip').forEach(function(chip){
   chip.addEventListener('click', function(event){
     event.stopPropagation();
@@ -202,22 +233,28 @@ document.querySelectorAll('.calendar-chip').forEach(function(chip){
       empty.textContent = 'No attachment for this item.';
       files.appendChild(empty);
     }
+    lastCalendarTrigger = chip;
     detailPanel.hidden = false;
     var rect = chip.getBoundingClientRect();
     var top = Math.min(rect.bottom + 8, window.innerHeight - detailPanel.offsetHeight - 12);
     var left = Math.min(rect.left, window.innerWidth - detailPanel.offsetWidth - 12);
     detailPanel.style.top = Math.max(12, top) + 'px';
     detailPanel.style.left = Math.max(12, left) + 'px';
+    document.querySelector('#calendar-detail-close').focus();
   });
 });
-document.querySelector('#calendar-detail-close').addEventListener('click', function(){ detailPanel.hidden = true; });
+function closeCalendarDetail(returnFocus) {
+  detailPanel.hidden = true;
+  if (returnFocus && lastCalendarTrigger) lastCalendarTrigger.focus();
+}
+document.querySelector('#calendar-detail-close').addEventListener('click', function(){ closeCalendarDetail(true); });
 document.addEventListener('click', function(event){
   if (detailPanel.hidden) return;
   if (event.target.closest('#calendar-popover') || event.target.closest('.calendar-chip')) return;
-  detailPanel.hidden = true;
+  closeCalendarDetail(false);
 });
 document.addEventListener('keydown', function(event){
-  if (event.key === 'Escape') detailPanel.hidden = true;
+  if (event.key === 'Escape' && !detailPanel.hidden) closeCalendarDetail(true);
 });
 </script>
 <?php page_end();

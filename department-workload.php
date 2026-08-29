@@ -66,17 +66,57 @@ $ticketQuery = db()->prepare("SELECT t.id, t.ticket_number, t.subject, t.status,
 $ticketQuery->execute($ticketParams);
 $tickets = $ticketQuery->fetchAll();
 
-page_start('Department workload', $user);
+page_start('Departments', $user);
 ?>
-<?php if ($notice): ?><p class="action-notice" role="status"><?= e($notice) ?></p><?php endif; ?>
-<?php if ($error): ?><p class="auth-error"><?= e($error) ?></p><?php endif; ?>
-<div class="page-head"><div><p class="eyebrow">Department tracking</p><h1>Department workload</h1><p class="page-subtitle">Track current and involved departments for tickets you can access.</p></div></div>
-<section class="dashboard-panel">
-    <div class="section-head"><div><h2>Workload by department</h2><p class="muted">Counts include current department and logged involved departments.</p></div></div>
-    <div class="workload-grid"><?php foreach ($departmentSummary as $department): ?><div class="workload-card"><span><?= e($department['name']) ?></span><strong><?= (int) $department['open_count'] ?></strong><small><?= (int) $department['involved_count'] ?> involved, <?= (int) $department['current_count'] ?> current, <?= (int) $department['overdue_count'] ?> overdue</small></div><?php endforeach; ?></div>
-</section>
-<section>
-    <div class="section-head"><div><h2>Log involved departments</h2><p class="muted">Team Leaders can update department involvement for their assigned tickets.</p></div></div>
-    <div class="table-wrap"><table class="ticket-table department-log-table"><thead><tr><?php foreach (['Status', 'Ticket', 'Current department', 'Departments involved', 'Assignees', 'Log departments'] as $heading): ?><th><?= e($heading) ?></th><?php endforeach; ?></tr></thead><tbody><?php foreach ($tickets as $ticket): $selected = array_map('intval', array_filter(explode(',', (string) $ticket['department_ids']))); ?><tr><td><span class="pill pill-<?= e(str_replace('_', '-', $ticket['status'])) ?>"><?= e(ucwords(str_replace('_', ' ', $ticket['status']))) ?></span></td><td class="subject"><a href="ticket.php?id=<?= (int) $ticket['id'] ?>"><?= e($ticket['subject']) ?></a><br><span class="muted"><?= e($ticket['ticket_number']) ?></span></td><td><?= e($ticket['current_department']) ?></td><td><?= e($ticket['departments']) ?></td><td><?= e($ticket['assignees'] ?? 'Unassigned') ?></td><td><form method="post" class="department-log-form"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="ticket_id" value="<?= (int) $ticket['id'] ?>"><select name="department_ids[]" multiple size="4"><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= in_array((int) $department['id'], $selected, true) || (int) $ticket['department_id'] === (int) $department['id'] ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select><button class="button button-secondary">Save</button></form></td></tr><?php endforeach; ?><?php if (!$tickets): ?><tr><td colspan="6" class="muted">No tickets are available for department logging.</td></tr><?php endif; ?></tbody></table></div>
-</section>
+<div class="departments-screen">
+    <?php if ($notice): ?><p class="action-notice" role="status"><?= e($notice) ?></p><?php endif; ?>
+    <?php if ($error): ?><p class="auth-error" role="alert"><?= e($error) ?></p><?php endif; ?>
+    <section class="department-summary-panel" aria-labelledby="department-summary-title">
+        <div class="department-section-head"><div><h2 id="department-summary-title">Department workload</h2><p>Open ticket activity across departments.</p></div><span class="department-section-count"><?= count($departmentSummary) ?> departments</span></div>
+        <div class="department-metric-grid">
+            <?php foreach ($departmentSummary as $department): ?>
+                <article class="department-metric-card<?= (int) $department['overdue_count'] > 0 ? ' is-alert' : '' ?>">
+                    <span class="department-metric-name"><?= e($department['name']) ?></span>
+                    <strong><?= (int) $department['open_count'] ?></strong>
+                    <small>Open tickets</small>
+                    <div class="department-metric-meta"><span><b><?= (int) $department['involved_count'] ?></b> involved</span><span><b><?= (int) $department['current_count'] ?></b> current</span><span class="<?= (int) $department['overdue_count'] > 0 ? 'is-overdue' : '' ?>"><b><?= (int) $department['overdue_count'] ?></b> overdue</span></div>
+                </article>
+            <?php endforeach; ?>
+            <?php if (!$departmentSummary): ?><p class="muted department-empty-state">No departments are available.</p><?php endif; ?>
+        </div>
+    </section>
+    <section class="department-ticket-panel" aria-labelledby="department-ticket-title">
+        <div class="department-section-head"><div><h2 id="department-ticket-title">Ticket involvement</h2><p>Review routing and update supporting departments.</p></div><span class="department-section-count"><?= count($tickets) ?> tickets</span></div>
+        <div class="table-wrap department-table-wrap"><table class="ticket-table department-table"><thead><tr><?php foreach (['ID', 'Title', 'Status', 'Current department', 'Departments involved', 'Assignees', 'Manage'] as $heading): ?><th><?= e($heading) ?></th><?php endforeach; ?></tr></thead><tbody>
+        <?php foreach ($tickets as $ticket): $selected = array_values(array_unique(array_map('intval', array_filter(explode(',', (string) $ticket['department_ids']))))); if (!in_array((int) $ticket['department_id'], $selected, true)) $selected[] = (int) $ticket['department_id']; $involvedNames = array_filter(array_map('trim', explode(',', (string) $ticket['departments']))); ?>
+            <tr data-ticket-href="ticket.php?id=<?= (int) $ticket['id'] ?>" tabindex="0" aria-label="Open <?= e($ticket['ticket_number']) ?>: <?= e($ticket['subject']) ?>">
+                <td class="ticket-id"><a href="ticket.php?id=<?= (int) $ticket['id'] ?>"><?= e($ticket['ticket_number']) ?></a></td>
+                <td class="subject"><a href="ticket.php?id=<?= (int) $ticket['id'] ?>"><?= e($ticket['subject']) ?></a><span class="ticket-row-meta"><?= e($ticket['current_department']) ?> · <?= e($ticket['assignees'] ?? 'Unassigned') ?></span></td>
+                <td><span class="pill pill-<?= e(str_replace('_', '-', $ticket['status'])) ?>"><?= e(ucwords(str_replace('_', ' ', $ticket['status']))) ?></span></td>
+                <td><span class="department-primary-chip"><?= e($ticket['current_department']) ?></span></td>
+                <td><div class="department-chip-list"><?php foreach ($involvedNames as $departmentName): ?><span><?= e($departmentName) ?></span><?php endforeach; ?></div></td>
+                <td class="department-assignee"><?= e($ticket['assignees'] ?? 'Unassigned') ?></td>
+                <td class="department-manage-cell">
+                    <form method="post" class="department-log-form" data-department-form>
+                        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+                        <input type="hidden" name="ticket_id" value="<?= (int) $ticket['id'] ?>">
+                        <span data-department-inputs><?php foreach ($selected as $departmentId): ?><input type="hidden" name="department_ids[]" value="<?= (int) $departmentId ?>"><?php endforeach; ?></span>
+                        <div class="department-picker" data-department-picker data-current-department="<?= (int) $ticket['department_id'] ?>">
+                            <button type="button" class="department-picker-trigger" data-department-trigger aria-expanded="false" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.75 19.25V8.75h6.5v10.5M12.75 19.25V4.75h6.5v14.5M3.75 19.25h16.5"/></svg><span data-department-trigger-label><?= count($selected) ?> selected</span><svg class="department-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button>
+                            <div class="department-picker-menu" data-department-menu role="dialog" aria-label="Departments for <?= e($ticket['ticket_number']) ?>" hidden>
+                                <div class="department-picker-head"><div><strong>Manage departments</strong><small><?= e($ticket['ticket_number']) ?></small></div><button type="button" class="department-picker-close" data-department-close aria-label="Close department selector"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+                                <div class="department-option-list" role="group" aria-label="Available departments">
+                                    <?php foreach ($departments as $department): $departmentId = (int) $department['id']; $isCurrent = $departmentId === (int) $ticket['department_id']; $isSelected = in_array($departmentId, $selected, true) || $isCurrent; ?><button type="button" class="department-option<?= $isSelected ? ' is-selected' : '' ?><?= $isCurrent ? ' is-locked' : '' ?>" data-department-option data-department-id="<?= $departmentId ?>" data-department-name="<?= e($department['name']) ?>" aria-pressed="<?= $isSelected ? 'true' : 'false' ?>"<?= $isCurrent ? ' aria-disabled="true" data-department-locked' : '' ?>><span class="department-option-check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m6 12 4 4 8-8"/></svg></span><span><strong><?= e($department['name']) ?></strong><?= $isCurrent ? '<small>Current department</small>' : '' ?></span></button><?php endforeach; ?>
+                                </div>
+                                <div class="department-picker-foot"><span data-department-selection-summary aria-live="polite"><?= count($selected) ?> selected</span><button class="button department-save-button" data-department-save>Save changes</button></div>
+                            </div>
+                        </div>
+                    </form>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        <?php if (!$tickets): ?><tr><td colspan="7" class="muted department-empty-row">No tickets are available for department logging.</td></tr><?php endif; ?>
+        </tbody></table></div>
+    </section>
+</div>
 <?php page_end();

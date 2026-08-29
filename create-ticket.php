@@ -94,23 +94,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 page_start('Create ticket', $user);
 ?>
-<div class="page-head"><div><p class="eyebrow">New record</p><h1>Create ticket</h1></div></div>
+<div class="record-form-screen">
 <?php if ($error): ?><p class="auth-error"><?= e($error) ?></p><?php endif; ?>
-<form method="post" class="ticket-form">
+<form method="post" class="ticket-form record-form-panel">
     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+    <div class="record-form-head"><div><h2>Ticket details</h2><p>Record the issue, routing, and responsible team.</p></div><span>Required fields</span></div><div class="record-form-grid">
     <label>Issue Escalator<input value="<?= e($user['full_name']) ?>" readonly aria-describedby="issue-escalator-help"><small id="issue-escalator-help" class="field-help">Automatically recorded from the signed-in account.</small></label>
     <label>Subject<input name="subject" required></label>
     <label>Issue<textarea name="issue" required rows="4"></textarea></label>
-    <label>Priority<select name="priority" required><?php foreach (TICKET_PRIORITIES as $value => $label): ?><option value="<?= e($value) ?>"<?= $value === 'normal' ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
-    <label>Category<select name="category" id="category" required><option value="">Select category</option><?php foreach (TICKET_CATEGORIES as $category => $subcategories): ?><option><?= e($category) ?></option><?php endforeach; ?></select></label>
-    <label>Subcategory<select name="subcategory" id="subcategory"><option value="">Select category first</option></select></label>
-    <label>Current department<select name="department_id" id="department-id" required><option value="">Select category first</option><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"><?= e($department['name']) ?></option><?php endforeach; ?></select></label>
+    <label>Priority<select name="priority" required data-ui-select><?php foreach (TICKET_PRIORITIES as $value => $label): ?><option value="<?= e($value) ?>"<?= $value === 'normal' ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
+    <label>Category<select name="category" id="category" required data-ui-select><option value="">Select category</option><?php foreach (TICKET_CATEGORIES as $category => $subcategories): ?><option><?= e($category) ?></option><?php endforeach; ?></select></label>
+    <label>Subcategory<select name="subcategory" id="subcategory" data-ui-select><option value="">Select category first</option></select></label>
+    <label>Current department<select name="department_id" id="department-id" required data-ui-select><option value="">Select category first</option><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"><?= e($department['name']) ?></option><?php endforeach; ?></select></label>
     <label>Departments involved<select name="department_ids[]" id="department-ids" multiple size="5"><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"><?= e($department['name']) ?></option><?php endforeach; ?></select><small class="field-help">Options are selected from the category’s department group.</small></label>
     <label>Employee<input name="employee_name" required></label>
     <?php if (user_can('assign_tickets')): ?><label>Assignees<select name="assignee_ids[]" id="assignee-ids" multiple size="6"><?php foreach ($users as $member): ?><option value="<?= (int) $member['id'] ?>" data-department-id="<?= (int) ($member['department_id'] ?? 0) ?>" data-role="<?= e($member['role_slug'] ?? '') ?>"><?= e($member['full_name']) ?></option><?php endforeach; ?></select><small class="field-help">Assignees are filtered to the selected category’s department group.</small></label><?php endif; ?>
     <label>Description<textarea name="description" required rows="6"></textarea></label>
-    <button class="button">Create ticket</button>
-</form>
+    </div><div class="record-form-actions"><a class="button button-secondary" href="index.php">Cancel</a><button class="button">Create ticket</button></div>
+</form></div>
 <script>
 const map = <?= json_encode(TICKET_CATEGORIES) ?>;
 const categoryDepartmentMap = <?= json_encode($categoryDepartmentMap) ?>;

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dashboard preview | CNG Ticketing</title>
+    <link rel="icon" href="assets/favicon.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="assets/css/app.css">
+    <script src="assets/js/app.js" defer></script>
+</head>
+<body class="dashboard-page">
+<header class="app-header">
+    <div class="app-header-title"><h1>Dashboard</h1><p class="app-header-date">Saturday, August 29, 2026</p></div>
+    <div class="app-header-actions"><a class="button button-secondary" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.75h14v14.5H5zM8 9h8M8 13h8M8 17h5"/></svg>View tickets</a><a class="button" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Create ticket</a><div class="app-header-account"><span class="app-header-avatar" aria-hidden="true">A</span><span><strong>Alex</strong><small>Support team</small></span></div></div>
+</header>
+<aside class="topbar" aria-label="Primary navigation">
+    <div class="brand">
+        <img class="strata-logo" src="assets/stratastaff-logo.png" alt="Strata Staff Global">
+        <span class="brand-divider"></span>
+        <img class="jamesons-logo" src="assets/jamesons-logo.svg" alt="Jamesons Strata Management">
+    </div>
+    <nav class="nav">
+        <p class="nav-label">Workspace</p>
+        <a class="nav-link active" href="#" aria-current="page"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.75 13.25h5.5v6h-5.5zM13.75 4.75h5.5v14.5h-5.5zM4.75 4.75h5.5v5.5h-5.5z"/></svg><span>Dashboard</span></a>
+        <a class="nav-link" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.75h14v14.5H5zM8 9h8M8 13h8M8 17h5"/></svg><span>Tickets</span></a>
+        <a class="nav-link" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.75h16v10.5H4zM8 6.75v-2h8v2M4 13h5l1.5 2h3l1.5-2h5"/></svg><span>My Work</span></a>
+        <a class="nav-link" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" rx="1"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/></svg><span>Team Calendar</span></a>
+        <a class="nav-link" href="#"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.75 10.75a5.25 5.25 0 0 1 10.5 0c0 3 1.25 4.5 2 5.5H4.75c.75-1 2-2.5 2-5.5M9.75 18.25a2.25 2.25 0 0 0 4.5 0"/></svg><span>Notifications</span></a>
+    </nav>
+    <div class="sidebar-footer"><span class="account">Dashboard preview</span><a href="#">Sign out</a></div>
+</aside>
+
+<main class="page"><div class="content-shell"><div class="dashboard-canvas">
+    <section class="dashboard-panel dashboard-kpi-panel" aria-labelledby="dashboard-title">
+        <div class="dashboard-head dashboard-greeting-head"><div><h2 id="dashboard-title">Greetings, Alex!</h2><p class="dashboard-date">Your ticket workload at a glance</p></div><form method="get" class="dashboard-filter-form" data-preview="true"><div class="filter-picker" data-filter-picker><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/></svg></span><span class="filter-picker-copy"><small>Date range</small><strong data-filter-label>Last 7 days</strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Ticket window</p><button type="button" class="filter-option" data-filter-label="Today"><span>Today</span><span class="filter-option-check" aria-hidden="true">✓</span></button><button type="button" class="filter-option is-selected" data-filter-label="Last 7 days"><span>Last 7 days</span><span class="filter-option-check" aria-hidden="true">✓</span></button><button type="button" class="filter-option" data-filter-label="Last 30 days"><span>Last 30 days</span><span class="filter-option-check" aria-hidden="true">✓</span></button><button type="button" class="filter-option" data-filter-label="Last 1 year"><span>Last 1 year</span><span class="filter-option-check" aria-hidden="true">✓</span></button></div></div></form></div>
+        <div class="metric-grid metric-grid-reference">
+            <a class="metric-card metric-reference-card" href="#"><span>Open tickets</span><strong>18</strong></a>
+            <a class="metric-card metric-reference-card" href="#"><span>In progress</span><strong>9</strong></a>
+            <a class="metric-card metric-reference-card" href="#"><span>Resolved</span><strong>111</strong></a>
+            <a class="metric-card metric-card-alert metric-reference-card" href="#"><span>Critical</span><strong>8</strong></a>
+            <a class="metric-card metric-reference-card" href="#"><span>Pending</span><strong>4</strong></a>
+            <a class="metric-card metric-card-alert metric-reference-card" href="#"><span>Overdue</span><strong>5</strong></a>
+            <a class="metric-card metric-reference-card" href="#"><span>Idle watch</span><strong>12</strong></a>
+            <a class="metric-card metric-reference-card" href="#"><span>Unassigned</span><strong>4</strong></a>
+        </div>
+    </section>
+
+    <div class="dashboard-chart-grid">
+        <section class="dashboard-panel dashboard-trend-panel" aria-labelledby="trend-title">
+            <div class="dashboard-head"><div><h2 id="trend-title">Tickets created</h2><p class="muted">Last 7 days</p></div><form method="get" class="dashboard-filter-form trend-filter-form" data-preview="true"><div class="filter-picker" data-filter-picker><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><small>Range</small><strong data-filter-label>Last 7 days</strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Trend window</p><button type="button" class="filter-option is-selected" data-filter-label="Last 7 days"><span>Last 7 days</span><span class="filter-option-check" aria-hidden="true">✓</span></button><button type="button" class="filter-option" data-filter-label="Last 30 days"><span>Last 30 days</span><span class="filter-option-check" aria-hidden="true">✓</span></button><button type="button" class="filter-option" data-filter-label="Last 6 months"><span>Last 6 months</span><span class="filter-option-check" aria-hidden="true">✓</span></button></div></div><div class="filter-picker" data-filter-picker><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><small>View</small><strong data-filter-label>Daily</strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Group by</p><button type="button" class="filter-option is-selected" data-filter-label="Daily"><span>Daily</span><span class="filter-option-check" aria-hidden="true">✓</span></button><button type="button" class="filter-option" data-filter-label="Weekly"><span>Weekly</span><span class="filter-option-check" aria-hidden="true">✓</span></button><button type="button" class="filter-option" data-filter-label="Monthly"><span>Monthly</span><span class="filter-option-check" aria-hidden="true">✓</span></button></div></div></form></div>
+            <div class="trend-chart" role="img" aria-label="Sample ticket trend chart"><div class="trend-chart-shell"><div class="trend-visual"><svg viewBox="0 0 1000 230" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="trend-area-fill-preview" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1E5AA8" stop-opacity=".22"/><stop offset="100%" stop-color="#1E5AA8" stop-opacity=".02"/></linearGradient></defs><g class="trend-grid-lines"><line x1="24" y1="24" x2="976" y2="24"/><line x1="24" y1="81" x2="976" y2="81"/><line x1="24" y1="138" x2="976" y2="138"/><line x1="24" y1="198" x2="976" y2="198"/></g><path class="trend-area" d="M 24 127.3 Q 24 127.3 119.2 110.75 Q 214.4 94.2 309.6 103.4 Q 404.8 112.6 500 91.05 Q 595.2 69.5 690.4 82.85 Q 785.6 96.2 880.8 60.1 Q 976 24 976 24 L 976 198 L 24 198 Z" style="fill:url(#trend-area-fill-preview)"/><path class="trend-line" d="M 24 127.3 Q 24 127.3 119.2 110.75 Q 214.4 94.2 309.6 103.4 Q 404.8 112.6 500 91.05 Q 595.2 69.5 690.4 82.85 Q 785.6 96.2 880.8 60.1 Q 976 24 976 24"/><circle class="trend-point" cx="24" cy="127.3" r="5"><title>Aug 23: 18 tickets</title></circle><circle class="trend-point" cx="214.4" cy="94.2" r="5"><title>Aug 24: 27 tickets</title></circle><circle class="trend-point" cx="404.8" cy="112.6" r="5"><title>Aug 25: 22 tickets</title></circle><circle class="trend-point" cx="595.2" cy="69.5" r="5"><title>Aug 26: 33 tickets</title></circle><circle class="trend-point" cx="785.6" cy="96.2" r="5"><title>Aug 27: 26 tickets</title></circle><circle class="trend-point" cx="976" cy="24" r="5"><title>Aug 29: 40 tickets</title></circle></svg><div class="trend-axis"><span>Aug 23</span><span>Aug 24</span><span>Aug 25</span><span>Aug 26</span><span>Aug 27</span><span>Aug 29</span></div></div></div></div>
+        </section>
+        <section class="dashboard-panel dashboard-status-panel" aria-labelledby="status-title"><div class="dashboard-head"><div><h2 id="status-title">By status</h2><p class="muted">Ticket distribution</p></div></div><div class="status-donut-wrap"><div class="status-donut" style="--status-donut:conic-gradient(#3B82F6 0% 12.68%, #F59E0B 12.68% 19.01%, #94A3B8 19.01% 21.83%, #10B981 21.83% 100%)"><span>142<small>Total</small></span></div></div><div class="status-legend"><div><span><i class="status-dot status-dot-open"></i>Open</span><strong>18</strong></div><div><span><i class="status-dot status-dot-in-progress"></i>In progress</span><strong>9</strong></div><div><span><i class="status-dot status-dot-pending"></i>Pending</span><strong>4</strong></div><div><span><i class="status-dot status-dot-closed"></i>Closed</span><strong>111</strong></div></div></section>
+    </div>
+
+    <div class="dashboard-lower-grid">
+        <section class="dashboard-panel dashboard-signals-panel" aria-labelledby="signals-title"><div class="dashboard-head"><div><h2 id="signals-title">Workload signals</h2><p class="muted">Where follow-up attention is needed.</p></div></div><div class="signal-list"><div class="signal-row"><span>Open work</span><strong>31</strong><span class="signal-track"><i style="width:22%"></i></span></div><div class="signal-row"><span>Urgent</span><strong>8</strong><span class="signal-track signal-track-alert"><i style="width:6%"></i></span></div><div class="signal-row"><span>Overdue</span><strong>5</strong><span class="signal-track signal-track-alert"><i style="width:4%"></i></span></div><div class="signal-row"><span>Unassigned</span><strong>4</strong><span class="signal-track"><i style="width:3%"></i></span></div></div></section>
+        <section class="dashboard-panel dashboard-recent-panel" aria-labelledby="recent-title"><div class="dashboard-head"><div><h2 id="recent-title">Recent tickets</h2><p class="muted">Latest activity</p></div></div><div class="recent-ticket-list"><a class="recent-ticket-item" href="#"><span class="recent-ticket-number">#1045</span><span class="recent-ticket-status"><span class="pill pill-open">Open</span><small>9:42 AM</small></span></a><a class="recent-ticket-item" href="#"><span class="recent-ticket-number">#1044</span><span class="recent-ticket-status"><span class="pill pill-in-progress">In Progress</span><small>9:05 AM</small></span></a><a class="recent-ticket-item" href="#"><span class="recent-ticket-number">#1043</span><span class="recent-ticket-status"><span class="pill pill-pending">Pending</span><small>8:44 AM</small></span></a></div></section>
+    </div>
+</div></div></main>
+</body>
+</html>
