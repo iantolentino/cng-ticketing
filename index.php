@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/tickets.php';
+require __DIR__ . '/app/external_tickets.php';
 require __DIR__ . '/app/layout.php';
 
 $user = require_permission('view_all_tickets');
@@ -80,14 +81,6 @@ $whereSql = implode(' AND ', $where) . $scopeSql;
 
 $perPage = 15;
 $requestedPage = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 1;
-$count = db()->prepare('SELECT COUNT(*) FROM tickets t WHERE ' . $whereSql);
-$count->execute($params);
-$totalTickets = (int) $count->fetchColumn();
-$totalPages = max(1, (int) ceil($totalTickets / $perPage));
-$currentPage = min($requestedPage, $totalPages);
-$offset = ($currentPage - 1) * $perPage;
-$pageStart = max(1, $currentPage - 2);
-$pageEnd = min($totalPages, $currentPage + 2);
 $notice = match ($_GET['notice'] ?? '') { 'ticket_deleted' => 'Ticket deleted.', 'bulk_updated' => 'Selected tickets updated.', 'bulk_empty' => 'No active tickets were selected.', default => null };
 
 $query = db()->prepare("SELECT t.*, d.name AS department,
@@ -97,13 +90,25 @@ $query = db()->prepare("SELECT t.*, d.name AS department,
     JOIN departments d ON d.id = t.department_id
     LEFT JOIN users a ON a.id = t.assignee_id
     WHERE $whereSql
-    ORDER BY t.updated_at DESC, t.id DESC
-    LIMIT :limit OFFSET :offset");
+    ORDER BY t.updated_at DESC, t.id DESC");
 foreach ($params as $key => $value) $query->bindValue(':' . $key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
-$query->bindValue(':limit', $perPage, PDO::PARAM_INT);
-$query->bindValue(':offset', $offset, PDO::PARAM_INT);
 $query->execute();
-$tickets = $query->fetchAll();
+$nativeTickets = $query->fetchAll();
+$externalResult = external_ticket_load_all($user);
+$externalTickets = array_values(array_filter($externalResult['tickets'], static fn(array $ticket): bool => external_ticket_matches_filters($ticket, $filters, $dashboardStart)));
+$tickets = array_merge($nativeTickets, $externalTickets);
+usort($tickets, static function (array $left, array $right): int {
+    $leftTime = strtotime((string) ($left['sort_at'] ?? $left['updated_at'] ?? $left['created_at'] ?? '')) ?: 0;
+    $rightTime = strtotime((string) ($right['sort_at'] ?? $right['updated_at'] ?? $right['created_at'] ?? '')) ?: 0;
+    return ($rightTime <=> $leftTime) ?: ((int) ($right['id'] ?? 0) <=> (int) ($left['id'] ?? 0));
+});
+$totalTickets = count($tickets);
+$totalPages = max(1, (int) ceil($totalTickets / $perPage));
+$currentPage = min($requestedPage, $totalPages);
+$offset = ($currentPage - 1) * $perPage;
+$pageStart = max(1, $currentPage - 2);
+$pageEnd = min($totalPages, $currentPage + 2);
+$tickets = array_slice($tickets, $offset, $perPage);
 
 function ticket_filter_query(array $filters): string
 {
@@ -126,6 +131,7 @@ $exportXlsx = 'export-tickets.php?format=xlsx' . ($exportQuery ? '&' . $exportQu
 page_start('Issues register', $user);
 ?>
 <?php if ($notice): ?><p class="action-notice" role="status"><?= e($notice) ?></p><?php endif; ?>
+<?php if ($externalResult['errors']): ?><p class="external-source-notice" role="status">Some external ticket sources are temporarily unavailable. Available native and external tickets are still shown.</p><?php endif; ?>
 <div class="page-head"><div><p class="eyebrow">CNG / Jamesons Ticketing System</p><h1>Issues register</h1><p class="page-subtitle"><?= (int) $totalTickets ?> active ticket<?= $totalTickets === 1 ? '' : 's' ?> in this view.</p></div><div class="page-head-actions"><?php if (user_can('export_tickets')): ?><a class="button button-secondary" href="<?= e($exportCsv) ?>">Export CSV</a><a class="button button-secondary" href="<?= e($exportXlsx) ?>">Export Excel</a><?php endif; ?><?php if (user_can('create_tickets')): ?><a class="button" href="create-ticket.php">Create ticket</a><?php endif; ?></div></div>
 <form method="get" class="filter-panel">
     <input type="hidden" name="dashboard_range" value="<?= e($filters['dashboard_range']) ?>">
@@ -142,6 +148,6 @@ page_start('Issues register', $user);
         <label>Created to<input type="date" name="date_to" value="<?= e($filters['date_to']) ?>"></label>
     </div>
 </form>
-<div class="table-wrap"><table class="ticket-table"><thead><tr><?php foreach (['Status', 'Priority', 'SLA', 'Subject', 'Departments', 'Category', 'Subcategory', 'Age', 'Idle', 'Date Closed', 'Assignees', 'Employee'] as $heading): ?><th><?= e($heading) ?></th><?php endforeach; ?><th aria-label="Open ticket"></th></tr></thead><tbody><?php foreach ($tickets as $ticket): $sla = ticket_sla_state($ticket); $priority = $ticket['priority'] ?? 'normal'; ?><tr class="ticket-row-<?= e($sla[0]) ?>"><td><span class="pill pill-<?= e(str_replace('_', '-', $ticket['status'])) ?>"><?= e($statuses[$ticket['status']] ?? $ticket['status']) ?></span></td><td><span class="pill pill-priority-<?= e($priority) ?>"><?= e(TICKET_PRIORITIES[$priority] ?? ucfirst($priority)) ?></span></td><td><span class="sla-badge sla-<?= e($sla[0]) ?>"><?= e($sla[1]) ?></span><br><span class="muted"><?= e($sla[2]) ?></span></td><td class="subject"><a href="ticket.php?id=<?= (int) $ticket['id'] ?>"><?= e($ticket['subject']) ?></a><br><span class="muted"><?= e($ticket['ticket_number']) ?></span></td><td><?= e($ticket['departments']) ?></td><td><?= e($ticket['category']) ?></td><td><?= e($ticket['subcategory'] ?? '-') ?></td><td class="muted"><?= ticket_age_days($ticket, 'created_at') ?>d</td><td class="muted"><?= ticket_age_days($ticket, 'updated_at') ?>d</td><td class="muted"><?= e($ticket['closed_at'] ?? '-') ?></td><td><?= e($ticket['assignees'] ?? 'Unassigned') ?></td><td><?= e($ticket['employee_name']) ?></td><td class="row-arrow"><a href="ticket.php?id=<?= (int) $ticket['id'] ?>" aria-label="Open <?= e($ticket['ticket_number']) ?>">&rsaquo;</a></td></tr><?php endforeach; ?><?php if (!$tickets): ?><tr><td colspan="13" class="muted">No tickets match the selected filters.</td></tr><?php endif; ?></tbody></table></div>
+<div class="table-wrap"><table class="ticket-table"><thead><tr><?php foreach (['Status', 'Priority', 'SLA', 'Subject', 'Departments', 'Category', 'Subcategory', 'Age', 'Idle', 'Date Closed', 'Assignees', 'Employee'] as $heading): ?><th><?= e($heading) ?></th><?php endforeach; ?><th aria-label="Open ticket"></th></tr></thead><tbody><?php foreach ($tickets as $ticket): $sla = ticket_sla_state($ticket); $priority = $ticket['priority'] ?? 'normal'; $statusLabel = $ticket['status_label'] ?? ($statuses[$ticket['status']] ?? $ticket['status']); $priorityLabel = $ticket['priority_label'] ?? (TICKET_PRIORITIES[$priority] ?? ucfirst($priority)); $ticketUrl = !empty($ticket['is_external']) ? 'ticket.php?external=' . rawurlencode($ticket['external_key'] . ':' . $ticket['external_id']) : 'ticket.php?id=' . (int) $ticket['id']; ?><tr class="ticket-row-<?= e($sla[0]) ?>"><td><span class="pill pill-<?= e(str_replace('_', '-', $ticket['status'])) ?>"><?= e($statusLabel) ?></span></td><td><span class="pill pill-priority-<?= e($priority) ?>"><?= e($priorityLabel) ?></span></td><td><span class="sla-badge sla-<?= e($sla[0]) ?>"><?= e($sla[1]) ?></span><br><span class="muted"><?= e($sla[2]) ?></span></td><td class="subject"><a href="<?= e($ticketUrl) ?>"><?= e($ticket['subject']) ?></a><br><?php if (!empty($ticket['is_external'])): ?><span class="source-badge"><?= e($ticket['source']) ?></span> <?php endif; ?><span class="muted"><?= e($ticket['ticket_number']) ?></span></td><td><?= e($ticket['departments']) ?></td><td><?= e($ticket['category']) ?></td><td><?= e($ticket['subcategory'] ?? '-') ?></td><td class="muted"><?= ticket_age_days($ticket, 'created_at') ?>d</td><td class="muted"><?= !empty($ticket['is_external']) ? '—' : ticket_age_days($ticket, 'updated_at') . 'd' ?></td><td class="muted"><?= e($ticket['closed_at'] ?? '-') ?></td><td><?= e($ticket['assignees'] ?? 'Unassigned') ?></td><td><?= e($ticket['employee_name']) ?></td><td class="row-arrow"><a href="<?= e($ticketUrl) ?>" aria-label="Open <?= e($ticket['ticket_number']) ?>">&rsaquo;</a></td></tr><?php endforeach; ?><?php if (!$tickets): ?><tr><td colspan="13" class="muted">No tickets match the selected filters.</td></tr><?php endif; ?></tbody></table></div>
 <?php if ($totalTickets > 0): ?><nav class="pagination" aria-label="Ticket pages"><?php if ($currentPage > 1): ?><a href="<?= e(ticket_page_url($currentPage - 1, $filters)) ?>">Previous</a><?php else: ?><span class="disabled">Previous</span><?php endif; ?><?php if ($pageStart > 1): ?><?= pagination_link(1, '1', false, $filters) ?><?php if ($pageStart > 2): ?><span class="disabled">...</span><?php endif; ?><?php endif; ?><?php for ($page = $pageStart; $page <= $pageEnd; $page++): ?><?= pagination_link($page, (string) $page, $page === $currentPage, $filters) ?><?php endfor; ?><?php if ($pageEnd < $totalPages): ?><?php if ($pageEnd < $totalPages - 1): ?><span class="disabled">...</span><?php endif; ?><?= pagination_link($totalPages, (string) $totalPages, false, $filters) ?><?php endif; ?><?php if ($currentPage < $totalPages): ?><a href="<?= e(ticket_page_url($currentPage + 1, $filters)) ?>">Next</a><?php else: ?><span class="disabled">Next</span><?php endif; ?></nav><?php endif; ?>
 <?php if (user_can('bulk_ticket_actions')): ?><section><h2>Bulk actions</h2><form method="post" action="bulk-tickets.php" data-feedback data-confirm="Apply this action to the selected ticket IDs?"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><label>Ticket IDs<input name="ticket_ids[]" placeholder="Select ticket IDs manually, one at a time"></label><label>Action<select name="bulk_action"><option value="status">Set status</option><option value="priority">Set priority</option><option value="delete">Soft-delete</option></select></label><label>Status<select name="status"><option value="open">Open</option><option value="in_progress">In Progress</option><option value="pending">Pending</option><option value="closed">Closed</option></select></label><label>Priority<select name="priority"><option value="normal">Normal</option><option value="low">Low</option><option value="high">High</option><option value="urgent">Urgent</option></select></label><button class="button">Apply</button></form></section><?php endif; ?><?php page_end();

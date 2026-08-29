@@ -7,6 +7,11 @@ if (!is_file($configFile)) {
     $configFile = ROOT_PATH . '/config/config.example.php';
 }
 $config = require $configFile;
+$externalConfigFile = ROOT_PATH . '/config/config.external.php';
+if (is_file($externalConfigFile)) {
+    $externalConfig = require $externalConfigFile;
+    if (is_array($externalConfig)) $config = array_replace_recursive($config, $externalConfig);
+}
 $sessionPath = ROOT_PATH . '/.local/sessions';
 if (!is_dir($sessionPath)) {
     mkdir($sessionPath, 0775, true);

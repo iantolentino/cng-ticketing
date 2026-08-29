@@ -66,9 +66,12 @@ function require_ticket_visible(array $user, int $ticketId): void {
 function ticket_age_days(array $ticket, string $field): int {
     $date = $ticket[$field] ?? null;
     if (!$date) return 0;
-    return max(0, (int) floor((time() - strtotime((string) $date)) / 86400));
+    $timestamp = strtotime((string) $date);
+    if ($timestamp === false) return 0;
+    return max(0, (int) floor((time() - $timestamp) / 86400));
 }
 function ticket_sla_state(array $ticket): array {
+    if (!empty($ticket['is_external'])) return ['external', 'N/A', 'SLA is not available from the external source.'];
     if (($ticket['status'] ?? '') === 'closed') return ['closed', 'Closed', 'Closed tickets are excluded from aging warnings.'];
     $ageDays = ticket_age_days($ticket, 'created_at');
     $idleDays = ticket_age_days($ticket, 'updated_at');

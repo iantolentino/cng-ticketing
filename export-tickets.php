@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/tickets.php';
+require __DIR__ . '/app/external_tickets.php';
 
 $user = require_permission('export_tickets');
 $format = $_GET['format'] ?? 'csv';
@@ -73,16 +74,25 @@ $stmt = db()->prepare("SELECT t.*, d.name department,
     JOIN departments d ON d.id = t.department_id
     LEFT JOIN users a ON a.id = t.assignee_id
     WHERE $whereSql
-    ORDER BY t.updated_at DESC LIMIT " . (MAX_EXPORT_ROWS + 1));
+    ORDER BY t.updated_at DESC");
 $stmt->execute($params);
-$tickets = $stmt->fetchAll();
+$nativeTickets = $stmt->fetchAll();
+$externalResult = external_ticket_load_all($user);
+$externalTickets = array_values(array_filter($externalResult['tickets'], static fn(array $ticket): bool => external_ticket_matches_filters($ticket, $filters, $dashboardStart)));
+$tickets = array_merge($nativeTickets, $externalTickets);
+usort($tickets, static function (array $left, array $right): int {
+    $leftTime = strtotime((string) ($left['sort_at'] ?? $left['updated_at'] ?? $left['created_at'] ?? '')) ?: 0;
+    $rightTime = strtotime((string) ($right['sort_at'] ?? $right['updated_at'] ?? $right['created_at'] ?? '')) ?: 0;
+    return ($rightTime <=> $leftTime) ?: ((int) ($right['id'] ?? 0) <=> (int) ($left['id'] ?? 0));
+});
+$tickets = array_slice($tickets, 0, MAX_EXPORT_ROWS + 1);
 if (count($tickets) > MAX_EXPORT_ROWS) { http_response_code(413); exit('Export exceeds the 10,000-row limit. Narrow the filters and try again.'); }
 
 $headers = ['Status', 'Priority', 'Subject', 'Departments', 'Category', 'Subcategory', 'Date Created', 'Date Updated', 'Date Closed', 'Assignees', 'Employee'];
 $rows = [];
 foreach ($tickets as $ticket) $rows[] = [
-    $statuses[$ticket['status']] ?? $ticket['status'], TICKET_PRIORITIES[$ticket['priority'] ?? 'normal'] ?? 'Normal', $ticket['subject'], $ticket['departments'], $ticket['category'], $ticket['subcategory'] ?? '',
-    $ticket['created_at'], $ticket['updated_at'], $ticket['closed_at'] ?? '', $ticket['assignees'] ?? 'Unassigned', $ticket['employee_name'],
+    $ticket['status_label'] ?? ($statuses[$ticket['status']] ?? $ticket['status']), $ticket['priority_label'] ?? (TICKET_PRIORITIES[$ticket['priority'] ?? 'normal'] ?? 'Normal'), $ticket['subject'], $ticket['departments'], $ticket['category'], $ticket['subcategory'] ?? '',
+    $ticket['created_at'], $ticket['updated_at'] ?? '', $ticket['closed_at'] ?? '', $ticket['assignees'] ?? 'Unassigned', $ticket['employee_name'],
 ];
 function export_csv_value(string $value): string { return preg_match('/^[=+\-@]/', $value) ? "'" . $value : $value; }
 function xlsx_xml(string $value): string { return htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8'); }

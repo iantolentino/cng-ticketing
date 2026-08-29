@@ -115,3 +115,14 @@ Last updated: 2026-08-28
 - Local migration application and smoke test passed; cPanel must apply migration `022` before uploading the dependent PHP files.
 
 Last updated: 2026-08-29
+
+## External CNG Ticket Sources (2026-08-29)
+
+- Added `app/external_tickets.php` with four read-only list/thread adapters based on the supplied proof-of-concept schemas.
+- Added optional ignored `config/config.external.php` loading and credential-free template `config/config.external.example.php`; supplied password-like values were not copied.
+- The Issues register and ticket exports merge normalized external records with native tickets, preserve filtering/sorting/pagination, and namespace external links to prevent native ID collisions.
+- External detail pages display the source and escaped conversation thread, expose unavailable SLA/Idle/department/subcategory fields as unavailable, and reject POST writes.
+- Team Leaders see only external tickets assigned to their matching full name; one source failure is logged and skipped without hiding other records.
+- Verification passed: PHP lint, `tests/regression.php` (99 checks), diff whitespace check, and normalization/filter/failure-isolation smoke test.
+
+Last updated: 2026-08-29

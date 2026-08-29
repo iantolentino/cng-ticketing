@@ -3,10 +3,53 @@ declare(strict_types=1);
 
 require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/tickets.php';
+require __DIR__ . '/app/external_tickets.php';
 require __DIR__ . '/app/notifications.php';
 require __DIR__ . '/app/layout.php';
 
 $user = require_permission('view_all_tickets');
+$externalReference = trim((string) ($_GET['external'] ?? ''));
+if ($externalReference !== '') {
+    [$externalSourceKey, $externalTicketId] = array_pad(explode(':', $externalReference, 2), 2, '');
+    if (!preg_match('/\A[a-z0-9_]+\z/', $externalSourceKey) || !ctype_digit($externalTicketId) || (int) $externalTicketId < 1) {
+        http_response_code(404);
+        exit('Ticket not found.');
+    }
+    try {
+        $externalTicket = external_ticket_find($externalSourceKey, (int) $externalTicketId, $user);
+    } catch (Throwable $exception) {
+        error_log('CITS external ticket lookup failed: ' . $externalSourceKey . ' (' . $exception::class . ')');
+        $externalTicket = null;
+    }
+    if (!$externalTicket) {
+        http_response_code(404);
+        exit('Ticket not found.');
+    }
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        http_response_code(405);
+        exit('External tickets are read-only.');
+    }
+    try {
+        $externalThread = external_ticket_thread($externalSourceKey, (int) $externalTicketId);
+        $externalThreadError = false;
+    } catch (Throwable $exception) {
+        error_log('CITS external thread lookup failed: ' . $externalSourceKey . ' (' . $exception::class . ')');
+        $externalThread = [];
+        $externalThreadError = true;
+    }
+    page_start($externalTicket['subject'], $user);
+    ?>
+    <p class="eyebrow"><?= e($externalTicket['ticket_number']) ?></p>
+    <h1><?= e($externalTicket['subject']) ?></h1>
+    <p class="page-subtitle"><span class="source-badge"><?= e($externalTicket['source']) ?></span> External ticket (read-only)</p>
+    <div class="sla-summary sla-summary-external"><span class="sla-badge sla-external">N/A</span><span>SLA is not available from the external source.</span><span><?= ticket_age_days($externalTicket, 'created_at') ?> days old</span><span>Idle: —</span></div>
+    <div class="ticket-detail">
+        <section><h2>Ticket details</h2><dl><dt>Source</dt><dd><?= e($externalTicket['source']) ?></dd><dt>External ID</dt><dd>#<?= (int) $externalTicket['external_id'] ?></dd><dt>Requester</dt><dd><?= e($externalTicket['requester'] ?: '—') ?><?= $externalTicket['email'] ? ' (' . e($externalTicket['email']) . ')' : '' ?></dd><dt>Status</dt><dd><?= e($externalTicket['status_label']) ?></dd><dt>Priority</dt><dd><?= e($externalTicket['priority_label']) ?></dd><dt>Category</dt><dd><?= e($externalTicket['category']) ?></dd><dt>Departments</dt><dd>—</dd><dt>Subcategory</dt><dd>—</dd><dt>Assignee</dt><dd><?= e($externalTicket['agent'] ?: 'Unassigned') ?></dd><dt>Created</dt><dd><?= e($externalTicket['created_at'] ?: '—') ?></dd><dt>Date closed</dt><dd><?= e($externalTicket['closed_at'] ?: '—') ?></dd></dl></section>
+        <section><h2>Conversation</h2><?php if ($externalThreadError): ?><p class="auth-error">The conversation could not be loaded right now.</p><?php elseif ($externalThread): ?><div class="external-thread"><?php foreach ($externalThread as $message): ?><article class="external-thread-message"><small><?= e($message['date']) ?></small><div><?= nl2br(e($message['body'])) ?></div></article><?php endforeach; ?></div><?php else: ?><p class="muted">No messages found for this ticket.</p><?php endif; ?></section>
+    </div>
+    <?php page_end();
+    exit;
+}
 $id = (int) ($_GET['id'] ?? 0);
 $stmt = db()->prepare("SELECT t.*, d.name department,
     COALESCE((SELECT GROUP_CONCAT(DISTINCT u.full_name ORDER BY u.full_name SEPARATOR ', ') FROM ticket_assignees ta JOIN users u ON u.id = ta.user_id WHERE ta.ticket_id = t.id), a.full_name) AS assignees,

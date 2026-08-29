@@ -126,6 +126,14 @@ check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'stra
 check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'jamesons.com.au'), 'staff directory records employee email domain');
 check(source_contains('register.php', 'jamesons\\.com\\.au'), 'registration accepts Jamesons staff email domain');
 check(source_contains('register.php', 'stratastaffglobal\\.com'), 'registration accepts Strata Staff Global TL email domain');
+check(is_file($root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'external_tickets.php'), 'external ticket adapters are present');
+check(is_file($root . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.external.example.php'), 'external credential template is present');
+check(source_contains('app/external_tickets.php', 'PDO::ATTR_EMULATE_PREPARES'), 'external connections disable emulated prepares');
+check(!preg_match('/\\b(?:INSERT|UPDATE|DELETE)\\b/i', (string) file_get_contents($root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'external_tickets.php')), 'external adapters contain no write SQL');
+check(source_contains('index.php', 'external_ticket_load_all'), 'ticket register merges external sources');
+check(source_contains('ticket.php', 'External tickets are read-only.'), 'external ticket detail blocks writes');
+check(source_contains('export-tickets.php', 'external_ticket_matches_filters'), 'ticket exports include external source filtering');
+check(source_contains('.gitignore', 'config.external.php'), 'external credentials are ignored by Git');
 require_once $root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'tickets.php';
 $testDepartments = [['id' => 1, 'name' => 'R&M', 'code' => 'rm'], ['id' => 2, 'name' => 'Admin', 'code' => 'admin'], ['id' => 3, 'name' => 'Compliance', 'code' => 'compliance'], ['id' => 4, 'name' => 'Customer Care', 'code' => 'customer-care'], ['id' => 5, 'name' => 'Insurance', 'code' => 'insurance']];
 check(count(category_department_ids('Attendance', $testDepartments)) === 5, 'Attendance category selects all departments');
