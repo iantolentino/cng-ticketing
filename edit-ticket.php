@@ -108,24 +108,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 page_start('Edit ticket', $user);
 ?>
-<h1>Edit ticket</h1>
-<form method="post" class="ticket-form">
+<div class="record-form-screen">
+<form method="post" class="ticket-form record-form-panel">
     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+    <div class="record-form-head"><div><h2>Ticket details</h2><p>Update the issue record without changing its workflow history.</p></div><span><?= e($ticket['ticket_number']) ?></span></div><div class="record-form-grid">
     <label>Issue Escalator<input value="<?= e($ticket['issue_escalator']) ?>" readonly aria-describedby="issue-escalator-help"><small id="issue-escalator-help" class="field-help">Recorded from the account that submitted the ticket and cannot be changed here.</small></label>
     <label>Subject<input name="subject" value="<?= e($ticket['subject']) ?>" required></label>
     <label>Issue<textarea name="issue" required rows="4"><?= e($ticket['issue'] ?? '') ?></textarea></label>
-    <label>Priority<select name="priority" required><?php foreach (TICKET_PRIORITIES as $value => $label): ?><option value="<?= e($value) ?>"<?= ($ticket['priority'] ?? 'normal') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
-    <label>Status<select name="status" required><?php foreach (['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pending', 'closed' => 'Closed'] as $value => $label): ?><option value="<?= e($value) ?>"<?= ($ticket['status'] ?? 'open') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
-    <label>Category<select name="category" id="category" required><?php foreach (TICKET_CATEGORIES as $category => $subcategories): ?><option<?= $ticket['category'] === $category ? ' selected' : '' ?>><?= e($category) ?></option><?php endforeach; ?></select></label>
-    <label>Subcategory<select name="subcategory" id="subcategory"><?php if ($ticket['subcategory']): ?><option value="<?= e($ticket['subcategory']) ?>" selected><?= e($ticket['subcategory']) ?></option><?php else: ?><option value="">Select category first</option><?php endif; ?></select></label>
-    <label>Current department<select name="department_id" id="department-id" required><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= (int) $ticket['department_id'] === (int) $department['id'] ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select></label>
+    <label>Priority<select name="priority" required data-ui-select><?php foreach (TICKET_PRIORITIES as $value => $label): ?><option value="<?= e($value) ?>"<?= ($ticket['priority'] ?? 'normal') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
+    <label>Status<select name="status" required data-ui-select><?php foreach (['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pending', 'closed' => 'Closed'] as $value => $label): ?><option value="<?= e($value) ?>"<?= ($ticket['status'] ?? 'open') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
+    <label>Category<select name="category" id="category" required data-ui-select><?php foreach (TICKET_CATEGORIES as $category => $subcategories): ?><option<?= $ticket['category'] === $category ? ' selected' : '' ?>><?= e($category) ?></option><?php endforeach; ?></select></label>
+    <label>Subcategory<select name="subcategory" id="subcategory" data-ui-select><?php if ($ticket['subcategory']): ?><option value="<?= e($ticket['subcategory']) ?>" selected><?= e($ticket['subcategory']) ?></option><?php else: ?><option value="">Select category first</option><?php endif; ?></select></label>
+    <label>Current department<select name="department_id" id="department-id" required data-ui-select><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= (int) $ticket['department_id'] === (int) $department['id'] ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select></label>
     <label>Departments involved<select name="department_ids[]" id="department-ids" multiple size="5"><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= in_array((int) $department['id'], $selectedDepartments, true) ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select><small class="field-help">Options are selected from the category’s department group.</small></label>
     <label>Employee<input name="employee_name" value="<?= e($ticket['employee_name']) ?>" required></label>
     <?php if (user_can('assign_tickets')): ?><label>Assignees<select name="assignee_ids[]" id="assignee-ids" multiple size="6"><?php foreach ($users as $member): ?><option value="<?= (int) $member['id'] ?>" data-department-id="<?= (int) ($member['department_id'] ?? 0) ?>" data-role="<?= e($member['role_slug'] ?? '') ?>"<?= in_array((int) $member['id'], $selectedAssignees, true) ? ' selected' : '' ?>><?= e($member['full_name']) ?></option><?php endforeach; ?></select><small class="field-help">Assignees are filtered to the selected category’s department group.</small></label><?php endif; ?>
     <label>Description<textarea name="description" rows="6" required><?= e($ticket['description']) ?></textarea></label>
     <label>Resolution<textarea name="resolution" rows="5"><?= e($ticket['resolution'] ?? '') ?></textarea></label>
-    <button class="button">Save ticket details</button>
-</form>
+    </div><div class="record-form-actions"><a class="button button-secondary" href="ticket.php?id=<?= $id ?>">Cancel</a><button class="button">Save ticket details</button></div>
+</form></div>
 <script>
 const map = <?= json_encode(TICKET_CATEGORIES) ?>;
 const categoryDepartmentMap = <?= json_encode($categoryDepartmentMap) ?>;
