@@ -116,6 +116,51 @@ Last updated: 2026-08-28
 
 Last updated: 2026-08-29
 
+## External Ticket Diagnostic Result (2026-08-29)
+
+- Production diagnostic completed as Super Admin on the deployed CITS site.
+- Live runtime is PHP `8.2.33` with PDO MySQL enabled; the external adapter file and server-local external configuration were found.
+- Native database connection succeeded but reported `0` active native tickets.
+- Four external source entries were found, but `0` were enabled, so `0` external tickets were fetched.
+- Root cause of the empty ticket list is deployment configuration/data availability, not a source adapter runtime failure: enable the four intended external sources and verify the production database contains native tickets.
+- Diagnostic script was designed to self-delete; confirm it is no longer accessible after troubleshooting.
+
+Last updated: 2026-08-29
+
+## External Ticket Live Troubleshooting (2026-08-29)
+
+- User reports that the ticket list is not showing external tickets after the cPanel upload.
+- The live URL responds with the CITS login page, so the domain/server is reachable; authenticated production behavior remains unverified.
+- Created a temporary root-level `external-ticket-diagnostics.php` for one-run Super Admin checks of native DB access, external configuration, each source adapter, merged counts, and failure isolation.
+- The diagnostic is intentionally not committed and is designed to delete itself after execution; any failed checks must be reported back without exposing credentials or ticket contents.
+
+Last updated: 2026-08-29
+
+## External Ticket Diagnostic Follow-up (2026-08-29)
+
+- User reports that all four external sources were changed to enabled and credentials/database names were entered, but tickets still do not appear.
+- Updated the temporary diagnostic to show a password-redacted exception reason per source, allowing connection, schema/table, and configuration-shape failures to be distinguished safely.
+- Awaiting the second diagnostic result; no application code change is justified until the source-specific failure is identified.
+
+Last updated: 2026-08-29
+
+## External Ticket Diagnostic Configuration Finding (2026-08-29)
+
+- Second production diagnostic confirmed all four external sources are enabled, but each fails before connection with `InvalidArgumentException: External connection is incomplete.`
+- The production `config/config.external.php` must provide non-empty `host`, `database`, and `username` inside each source’s nested `connection` array; the integrated code does not use the proof-of-concept flat `dbname`, `user`, and `pass` keys.
+- No application code or database migration change is indicated until the four server-local connection blocks are corrected.
+
+Last updated: 2026-08-29
+
+## External Sources Production Upload Confirmation (2026-08-29)
+
+- User confirmed that all required external-ticket integration files were uploaded to cPanel.
+- User updated the server-local external configuration, including the customer/name filter list used for CNG/Jamesons ticket matching.
+- Credentials and other server-local configuration values are intentionally not recorded in the project brain or repository.
+- This is a user-reported production upload confirmation; independent live verification was not performed in this session.
+
+Last updated: 2026-08-29
+
 ## External CNG Ticket Sources (2026-08-29)
 
 - Added `app/external_tickets.php` with four read-only list/thread adapters based on the supplied proof-of-concept schemas.
@@ -124,5 +169,17 @@ Last updated: 2026-08-29
 - External detail pages display the source and escaped conversation thread, expose unavailable SLA/Idle/department/subcategory fields as unavailable, and reject POST writes.
 - Team Leaders see only external tickets assigned to their matching full name; one source failure is logged and skipped without hiding other records.
 - Verification passed: PHP lint, `tests/regression.php` (99 checks), diff whitespace check, and normalization/filter/failure-isolation smoke test.
+
+Last updated: 2026-08-29
+
+## External Ticket Export Verification (2026-08-29)
+
+- Reviewed `C:\Users\STRATA-IAN\Downloads\cng-jamesons-tickets.xlsx`, the supplied export of the merged ticket list.
+- The workbook contains 580 ticket rows and the expected 11 system columns: Status, Priority, Subject, Departments, Category, Subcategory, Date Created, Date Updated, Date Closed, Assignees, and Employee.
+- Ticket data is populated through 2026-08-28. The export contains 555 nonblank Date Closed values and 25 blank Date Closed values; the most common requester/employee names include Leonard Sunga, Sheena Magdaraog, and Trisha Balingit.
+- The export does not include the external source badge/source key, so it verifies that ticket data is present in the merged export but cannot independently attribute rows to each of the four external databases.
+- Local `config/config.external.php` was corrected to the required nested connection format using the user-provided proof-of-concept values and `localhost`; it remains Git-ignored and was not committed.
+- Local connectivity smoke testing reached MySQL but all four source accounts were denied on this PC (`1044`/`1045`), so local source counts could not be confirmed. This does not invalidate the supplied live export; verify the same configuration through the deployed cPanel environment.
+- No application-code or SQL change was needed from the workbook review. Existing regression coverage and read-only adapter safeguards remain applicable.
 
 Last updated: 2026-08-29
