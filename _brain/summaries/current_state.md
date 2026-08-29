@@ -116,6 +116,44 @@ Last updated: 2026-08-28
 
 Last updated: 2026-08-29
 
+## UI Login Repair (2026-08-29)
+
+- The refreshed local `login.php` had a PHP parse error caused by a literal merge artifact in the file.
+- Rebuilt `login.php` with the refreshed UI markup while preserving the backup authentication behavior: username/email lookup, CSRF, approval-state checks, active-account checks, session regeneration, and password-change redirect.
+- The separate James-push UI repository has clean syntax but does not contain the external-ticket integration file; it is not safe to deploy as a whole over the functional CNG Ticketing System.
+- Local PHP syntax and regression testing must be rerun before CPanel upload.
+
+Last updated: 2026-08-29
+
+## Local UI Sync (2026-08-29)
+
+- Copied the UI files from `origin/main` commit `ee1eae9` into the local working tree.
+- Verified all tracked UI files match GitHub; `assets/js/app.js` also matches the remote blob exactly.
+- No external-ticket integration, database, SQL, API, upload, or server-local configuration files were changed.
+- Local working files are ready for the user to upload to the matching CPanel paths.
+
+Last updated: 2026-08-29
+
+## Frontend UI Commit Review (2026-08-29)
+
+- GitHub `origin/main` advanced to `ee1eae9` (`feat: refresh ticketing frontend UI`) after local branch `codex/add-presenter-guide` at `2ef7254`.
+- The commit changes 30 files: 14 PHP pages, shared layout, CSS, JavaScript, and preview HTML files.
+- It is primarily a presentation refresh, but it is not strictly UI-only: PHP templates add/change form controls, role-management controls, department selectors, attendance edit presentation, calendar controls, and ticket row interactions.
+- `team-attendance.php` includes server-side attendance edit/update code in the remote diff and therefore requires functional regression testing before deployment.
+- No files were changed locally during this review. Existing working-tree changes remain untouched.
+- Required deployment scope for the UI refresh is the exact file list from `ee1eae9`; do not upload preview HTML files unless they are intentionally used as standalone design previews.
+
+Last updated: 2026-08-29
+
+## External Source Display Labels (2026-08-29)
+
+- External source display labels are now `Escalations`, `IT Department`, `Learning`, and `Requisition`; their existing URLs, credentials, filters, and table mappings are unchanged.
+- Local ignored `config/config.external.php` and the credential-free example were synchronized with the new labels.
+- Created temporary `update-external-source-labels.php` for cPanel: it requires a logged-in Super Admin, CSRF confirmation, validates a temporary config before replacement, and self-deletes after success.
+- The temporary updater is intentionally uncommitted. PHP lint, its built-in self-test, and all 108 regression checks passed.
+
+Last updated: 2026-08-29
+
 ## External Source Links (2026-08-29)
 
 - External source badges in the ticket register and external ticket detail now link to their corresponding systems.

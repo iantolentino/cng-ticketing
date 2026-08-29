@@ -4,10 +4,55 @@ if (!app_is_setup()) redirect('setup.php');
 if (current_user()) redirect('index.php');
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    verify_csrf(); $login=strtolower(trim(request_string($_POST, 'username'))); $password=request_string($_POST, 'password'); $q=db()->prepare('SELECT id,password_hash,must_change_password,is_active,approval_status FROM users WHERE LOWER(username)=? OR LOWER(email)=?'); $q->execute([$login,$login]); $user=$q->fetch(); $credentialsValid=$user && password_verify($password,$user['password_hash']);
-    if($credentialsValid && $user['approval_status']!=='approved') $error=$user['approval_status']==='pending'?'Your registration is awaiting Super Admin approval. Please wait a few minutes or contact the developer or Super Admin.':'Your account is not activated yet. Please wait a few minutes or contact the Super Admin.';
-    elseif($credentialsValid && !$user['is_active']) $error='Your account is not activated yet. Please wait a few minutes or contact the Super Admin.';
-    elseif($credentialsValid){session_regenerate_id(true);$_SESSION['user_id']=$user['id'];db()->prepare('UPDATE users SET last_login_at=NOW() WHERE id=?')->execute([$user['id']]);refresh_current_user();redirect($user['must_change_password']?'change-password.php':default_landing_page());}
-    else $error='Invalid username or password.';
+    verify_csrf();
+    $login = strtolower(trim(request_string($_POST, 'username')));
+    $password = request_string($_POST, 'password');
+    $q = db()->prepare('SELECT id,password_hash,must_change_password,is_active,approval_status FROM users WHERE LOWER(username)=? OR LOWER(email)=?');
+    $q->execute([$login, $login]);
+    $user = $q->fetch();
+    $credentialsValid = $user && password_verify($password, $user['password_hash']);
+    if ($credentialsValid && $user['approval_status']!=='approved') {
+        $error = $user['approval_status'] === 'pending'
+            ? 'Your registration is awaiting Super Admin approval. Please wait a few minutes or contact the developer or Super Admin.'
+            : 'Your account is not activated yet. Please wait a few minutes or contact the Super Admin.';
+    } elseif ($credentialsValid && !$user['is_active']) {
+        $error = 'Your account is not activated yet. Please wait a few minutes or contact the Super Admin.';
+    } elseif ($credentialsValid) {
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = $user['id'];
+        db()->prepare('UPDATE users SET last_login_at=NOW() WHERE id=?')->execute([$user['id']]);
+        refresh_current_user();
+        redirect($user['must_change_password'] ? 'change-password.php' : default_landing_page());
+    } else {
+        $error = 'Invalid username or password.';
+    }
 }
-?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Log in</title><link rel="icon" href="assets/favicon.svg"><link rel="stylesheet" href="assets/css/app.css"></head><body class="auth-page"><main class="auth-shell"><section class="auth-intro"><p class="auth-eyebrow">CNG TICKETING</p><h1>Keep every request moving.</h1><p>Record, assign, and follow up on service requests from one clear workspace.</p><div class="auth-features"><span>Clear ownership</span><span>Progress updates</span><span>One shared record</span></div></section><section class="auth-card"><div class="auth-logos"><img class="auth-strata-logo" src="assets/stratastaff-logo.png" alt="Strata Staff Global"><span class="auth-logo-divider"></span><img class="auth-jamesons-logo" src="assets/jamesons-logo.svg" alt="Jamesons Strata Management"></div><h2>Log in</h2><p class="page-subtitle">Access the CNG / Jamesons ticketing portal.</p><?php if($error):?><p class="auth-error" role="alert"><?=e($error)?></p><?php endif;?><form method="post"><input type="hidden" name="csrf_token" value="<?=e(csrf_token())?>"><label>Username<input name="username" required autocomplete="username"></label><label>Password<input name="password" type="password" required autocomplete="current-password"></label><div class="auth-actions"><button class="button">Log in</button><a class="button button-secondary" href="register.php">Register</a></div></form></section></main></body></html>
+?><!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in</title>
+<link rel="icon" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/app.css">
+</head>
+<body class="auth-page">
+<main class="auth-card">
+    <div class="auth-logos"><img class="auth-strata-logo" src="assets/stratastaff-logo.png" alt="Strata Staff Global"><span class="auth-logo-divider"></span><img class="auth-jamesons-logo" src="assets/jamesons-logo.svg" alt="Jamesons Strata Management"></div>
+    <p class="auth-kicker">CNG Ticketing</p>
+    <h1>Welcome back</h1>
+    <p class="page-subtitle">Sign in to manage tickets and team requests.</p>
+    <?php if ($error): ?><p class="auth-error" role="alert"><?= e($error) ?></p><?php endif; ?>
+    <form method="post">
+        <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+        <label>Username<input name="username" required autocomplete="username" placeholder="Enter your username"></label>
+        <label>Password<input name="password" type="password" required autocomplete="current-password" placeholder="Enter your password"></label>
+        <div class="auth-actions"><button class="button">Sign in</button><a class="button button-secondary" href="register.php">Register</a></div>
+    </form>
+    <p class="auth-footnote">Access is managed through your assigned role.</p>
+</main>
+</body>
+</html>

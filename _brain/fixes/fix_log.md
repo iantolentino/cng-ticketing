@@ -45,6 +45,7 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F020 | Ticket submitter and category-based routing | TICKETS | Issue escalator was manually editable and category changes did not constrain the current department, involved departments, or assignee options. | inline | 2026-08-29 | FIXED |
 | F021 | Attendance corrections and staff leave directory | ATTENDANCE | Attendance had no edit flow, used coverage statuses instead of the requested leave statuses, and had no persistent multi-staff leave selection. | inline | 2026-08-29 | FIXED |
 | F022 | External conversation HTML displayed literally | WEB/SECURITY | The external thread renderer escaped all source HTML, showing tags instead of readable formatting. | inline | 2026-08-29 | FIXED |
+| F023 | Frontend refresh broke login syntax | BUILD/AUTH | A malformed merge artifact was inserted into the refreshed `login.php`, causing a PHP parse error; the login UI was rebuilt around the approved-account authentication logic. | inline | 2026-08-29 | FIXED |
 
 ---
 
