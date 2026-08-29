@@ -4,4 +4,5 @@
 /storage/private/*
 !/storage/private/.htaccess
 *.log
+*.docx
 /*.zip
