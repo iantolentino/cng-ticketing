@@ -116,6 +116,18 @@ Last updated: 2026-08-28
 
 Last updated: 2026-08-29
 
+## External Source Links (2026-08-29)
+
+- External source badges in the ticket register and external ticket detail now link to their corresponding systems.
+- HR Escalation Desk uses `https://escalations.stratastaffglobal.com/`.
+- Strata Support Desk uses `http://support.stratastaffglobal.com/`.
+- Training Desk uses `https://learning.stratastaffglobal.com/`.
+- Requisition Desk uses `https://requisition.stratastaffglobal.com/`.
+- URLs are validated to allow only HTTP/HTTPS schemes; credentials remain in the ignored server-local configuration.
+- PHP lint and `tests/regression.php` passed with 108 checks and 0 failures.
+
+Last updated: 2026-08-29
+
 ## External Conversation Readability Fix (2026-08-29)
 
 - External ticket conversations now pass through `external_thread_body_html()` before rendering.

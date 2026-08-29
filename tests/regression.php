@@ -134,12 +134,17 @@ check(source_contains('index.php', 'external_ticket_load_all'), 'ticket register
 check(source_contains('ticket.php', 'External tickets are read-only.'), 'external ticket detail blocks writes');
 check(source_contains('ticket.php', 'external_thread_body_html'), 'external conversation bodies use safe HTML formatting');
 check(source_contains('app/external_tickets.php', 'DOMDocument'), 'external conversation sanitizer parses HTML');
+check(source_contains('config/config.external.example.php', 'escalations.stratastaffglobal.com'), 'external source links are configurable');
 check(source_contains('export-tickets.php', 'external_ticket_matches_filters'), 'ticket exports include external source filtering');
 check(source_contains('.gitignore', 'config.external.php'), 'external credentials are ignored by Git');
 require_once $root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'external_tickets.php';
 $safeThreadHtml = external_thread_body_html('<p><strong>Name:</strong> Stefani</p><script>alert(1)</script><p><a href="javascript:alert(1)">Details</a></p>');
 check(str_contains($safeThreadHtml, '<strong>Name:</strong>') && str_contains($safeThreadHtml, 'Stefani'), 'external conversation preserves safe formatting');
 check(!str_contains(strtolower($safeThreadHtml), '<script') && !str_contains(strtolower($safeThreadHtml), 'javascript:'), 'external conversation removes unsafe markup and links');
+check(external_source_url('stratast_escalations', []) === 'https://escalations.stratastaffglobal.com/', 'HR Escalation Desk uses its configured source link');
+check(external_source_url('stratast_support', []) === 'http://support.stratastaffglobal.com/', 'Strata Support Desk uses its configured source link');
+check(external_source_url('stratast_wp346', []) === 'https://learning.stratastaffglobal.com/', 'Training Desk uses its configured source link');
+check(external_source_url('stratast_requisition', []) === 'https://requisition.stratastaffglobal.com/', 'Requisition Desk uses its configured source link');
 require_once $root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'tickets.php';
 $testDepartments = [['id' => 1, 'name' => 'R&M', 'code' => 'rm'], ['id' => 2, 'name' => 'Admin', 'code' => 'admin'], ['id' => 3, 'name' => 'Compliance', 'code' => 'compliance'], ['id' => 4, 'name' => 'Customer Care', 'code' => 'customer-care'], ['id' => 5, 'name' => 'Insurance', 'code' => 'insurance']];
 check(count(category_department_ids('Attendance', $testDepartments)) === 5, 'Attendance category selects all departments');

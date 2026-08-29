@@ -169,6 +169,7 @@ input[type="checkbox"]{display:inline-block;width:16px;height:16px;margin:0;acce
 .pill-priority-urgent{background:var(--danger-soft);color:var(--danger)}
 .pill-external,.pill-priority-external{background:#F1F5F9;color:#475569}
 .source-badge{display:inline-block;padding:2px 7px;border:1px solid #C9D5E4;border-radius:999px;background:#F4F8FC;color:#355579;font-size:10px;font-weight:700;line-height:1.2;vertical-align:middle}
+.source-link{text-decoration:none}.source-link:hover,.source-link:focus{text-decoration:underline;background:#E7F0FA}
 .pill-team-leader-approved{background:#FFF3D8;color:var(--progress)}
 .pill-department-head-approved{background:var(--green-soft);color:var(--closed)}
 .pill-rejected{background:var(--danger-soft);color:var(--danger)}

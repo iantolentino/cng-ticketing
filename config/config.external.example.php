@@ -9,6 +9,7 @@ return [
         'stratast_support' => [
             'enabled' => false,
             'label' => 'Strata Support Desk',
+            'url' => 'http://support.stratastaffglobal.com/',
             'connection' => ['host' => '', 'port' => 3306, 'database' => '', 'username' => '', 'password' => ''],
             'tables' => [
                 'tickets' => '92CpH3vC_psmsc_tickets', 'customers' => '92CpH3vC_psmsc_customers',
@@ -22,6 +23,7 @@ return [
         'stratast_escalations' => [
             'enabled' => false,
             'label' => 'HR Escalation Desk',
+            'url' => 'https://escalations.stratastaffglobal.com/',
             'connection' => ['host' => '', 'port' => 3306, 'database' => '', 'username' => '', 'password' => ''],
             'tables' => [
                 'tickets' => 'Qeby0uHyy_psmsc_tickets', 'customers' => 'Qeby0uHyy_psmsc_customers',
@@ -35,6 +37,7 @@ return [
         'stratast_wp346' => [
             'enabled' => false,
             'label' => 'Training Desk',
+            'url' => 'https://learning.stratastaffglobal.com/',
             'connection' => ['host' => '', 'port' => 3306, 'database' => '', 'username' => '', 'password' => ''],
             'tables' => [
                 'tickets' => 'wpnm_psmsc_tickets', 'customers' => 'wpnm_psmsc_customers',
@@ -48,6 +51,7 @@ return [
         'stratast_requisition' => [
             'enabled' => false,
             'label' => 'Requisition Desk',
+            'url' => 'https://requisition.stratastaffglobal.com/',
             'connection' => ['host' => '', 'port' => 3306, 'database' => '', 'username' => '', 'password' => ''],
             'tables' => [
                 'tickets' => 'Qeby0uHyy_psmsc_tickets', 'customers' => 'Qeby0uHyy_psmsc_customers',

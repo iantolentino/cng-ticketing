@@ -21,6 +21,18 @@ function external_source_config(string $sourceKey): ?array
     return is_array($source) ? $source : null;
 }
 
+function external_source_url(string $sourceKey, array $source): ?string
+{
+    $defaults = [
+        'stratast_escalations' => 'https://escalations.stratastaffglobal.com/',
+        'stratast_support' => 'http://support.stratastaffglobal.com/',
+        'stratast_wp346' => 'https://learning.stratastaffglobal.com/',
+        'stratast_requisition' => 'https://requisition.stratastaffglobal.com/',
+    ];
+    $url = trim((string) ($source['url'] ?? $defaults[$sourceKey] ?? ''));
+    return preg_match('/\Ahttps?:\/\/[^\s]+\z/i', $url) ? $url : null;
+}
+
 function external_identifier(string $value, string $label): string
 {
     if ($value === '' || !preg_match('/\A[A-Za-z0-9_]+\z/', $value)) {
@@ -251,6 +263,7 @@ function external_normalize_ticket(array $ticket, string $sourceKey): array
         'id' => $id,
         'ticket_number' => 'EXT-' . strtoupper(str_replace('_', '-', $sourceKey)) . '-' . $id,
         'source' => trim((string) ($ticket['source'] ?? 'External source')) ?: 'External source',
+        'source_url' => external_source_url($sourceKey, external_source_config($sourceKey) ?? []),
         'requester' => trim((string) ($ticket['requester'] ?? '')),
         'email' => trim((string) ($ticket['email'] ?? '')),
         'subject' => trim((string) ($ticket['subject'] ?? '')),
