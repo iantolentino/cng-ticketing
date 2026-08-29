@@ -116,6 +116,15 @@ Last updated: 2026-08-28
 
 Last updated: 2026-08-29
 
+## External Conversation Readability Fix (2026-08-29)
+
+- External ticket conversations now pass through `external_thread_body_html()` before rendering.
+- Safe formatting such as paragraphs, bold text, lists, blockquotes, code, and approved HTTP/HTTPS/mail links is preserved; scripts, styles, unsafe elements, event attributes, and unsafe URL schemes are removed.
+- The external detail view uses a dedicated `thread-body` class with spacing and wrapping rules for readable ticket content.
+- Regression and safety checks pass: `tests/regression.php` reports 103 passed and 0 failed; changed PHP files pass syntax lint.
+
+Last updated: 2026-08-29
+
 ## External Ticket Diagnostic Result (2026-08-29)
 
 - Production diagnostic completed as Super Admin on the deployed CITS site.

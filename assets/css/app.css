@@ -188,7 +188,12 @@ input[type="checkbox"]{display:inline-block;width:16px;height:16px;margin:0;acce
 .external-thread{display:grid;gap:10px}
 .external-thread-message{padding:12px;border:1px solid var(--border);background:var(--surface-muted)}
 .external-thread-message small{display:block;margin-bottom:7px;color:var(--muted);font-size:11px}
-.external-thread-message div{line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+.external-thread-message .thread-body{line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+.external-thread-message .thread-body>:first-child{margin-top:0}
+.external-thread-message .thread-body>:last-child{margin-bottom:0}
+.external-thread-message .thread-body pre{white-space:pre-wrap;font:inherit}
+.external-thread-message .thread-body ul,.external-thread-message .thread-body ol{padding-left:24px}
+.external-thread-message .thread-body a{overflow-wrap:anywhere}
 
 /* Detail and administration views */
 .ticket-detail{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(300px,1fr);gap:18px;margin:18px 0}

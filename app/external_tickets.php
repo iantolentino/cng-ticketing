@@ -172,6 +172,54 @@ function fetch_stratast_requisition_thread(PDO $pdo, array $source, int $ticketI
     return external_thread_rows($pdo, $source, $ticketId);
 }
 
+function external_thread_body_html(string $body): string
+{
+    $body = trim($body);
+    if ($body === '') return '';
+    if (!class_exists('DOMDocument')) return nl2br(htmlspecialchars(strip_tags($body), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+
+    $previousErrors = libxml_use_internal_errors(true);
+    $document = new DOMDocument('1.0', 'UTF-8');
+    $loaded = $document->loadHTML('<div id="cits-external-thread-root">' . $body . '</div>', LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD);
+    $root = $loaded ? $document->getElementById('cits-external-thread-root') : null;
+    $html = '';
+    if ($root) {
+        foreach ($root->childNodes as $child) $html .= external_thread_render_node($child);
+    }
+    libxml_clear_errors();
+    libxml_use_internal_errors($previousErrors);
+    return $html !== '' ? $html : nl2br(htmlspecialchars(strip_tags($body), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
+}
+
+function external_thread_render_node($node): string
+{
+    if ($node instanceof DOMText || $node instanceof DOMCdataSection) {
+        return htmlspecialchars(str_replace("\xC2\xA0", ' ', $node->nodeValue), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+    if (!$node instanceof DOMElement) {
+        $html = '';
+        foreach ($node->childNodes as $child) $html .= external_thread_render_node($child);
+        return $html;
+    }
+
+    $tag = strtolower($node->tagName);
+    if (in_array($tag, ['script', 'style', 'iframe', 'object', 'embed', 'svg', 'math', 'form', 'input', 'textarea', 'button', 'select', 'option', 'link', 'meta', 'head', 'title'], true)) return '';
+    $children = '';
+    foreach ($node->childNodes as $child) $children .= external_thread_render_node($child);
+    if ($tag === 'br') return '<br>';
+    if (trim(html_entity_decode(strip_tags($children), ENT_QUOTES | ENT_HTML5, 'UTF-8')) === '') return '';
+
+    $allowed = ['p', 'div', 'section', 'article', 'strong', 'b', 'em', 'i', 'u', 's', 'ul', 'ol', 'li', 'blockquote', 'code', 'pre', 'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'];
+    if (!in_array($tag, $allowed, true)) return $children;
+    if ($tag === 'a') {
+        $href = trim($node->getAttribute('href'));
+        $scheme = strtolower((string) parse_url($href, PHP_URL_SCHEME));
+        $safeHref = $href !== '' && in_array($scheme, ['http', 'https', 'mailto'], true) ? ' href="' . htmlspecialchars($href, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '"' : '';
+        return '<a' . $safeHref . '>' . $children . '</a>';
+    }
+    return '<' . $tag . '>' . $children . '</' . $tag . '>';
+}
+
 function external_status_key(string $value): string
 {
     $status = strtolower(trim($value));
