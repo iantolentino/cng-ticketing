@@ -153,6 +153,7 @@ Last updated: 2026-08-31
 - The next account-management task is to expose the 70 employee directory rows in the Super Admin Users page, accept exact emails, generate one-time temporary passwords, require a password change at first login, and scope Team Member ticket access to tickets they created.
 - Local implementation is complete for this task: `users.php` now provides the directory setup form, temporary credentials are kept in the Super Admin session and displayed once, Settings links to password change, migration `023_team_member_ticket_access.sql` grants Team Member ticket/create access, and Team Member native/external ticket visibility is restricted to tickets they created.
 - Migration `023` was applied to the local database. Local browser verification showed 70 directory rows, 68 editable rows because 2 exact-name accounts already exist, and a working Settings password form. PHP lint passed and `tests/regression.php` passed 116 checks with 0 failures.
+- The user subsequently confirmed that migration `023` was uploaded/applied in the cPanel production database; this is recorded as user-reported because direct production schema inspection was not performed.
 
 Last updated: 2026-08-31
 

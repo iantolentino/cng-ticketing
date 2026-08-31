@@ -86,7 +86,7 @@ The live MVP includes authentication, database-driven access control, ticket cre
 - Next implementation: Super Admin bulk setup for the 70 employee rows with one-time temporary credentials, forced password change, authenticated password-change access, and created-by-only Team Member ticket visibility.
 - Completed locally: the Users page now accepts exact employee emails from the 70-row directory, creates Team Member accounts with one-time random temporary passwords, and displays the credentials once to the Super Admin. Existing exact-name accounts are not duplicated.
 - Completed locally: Team Members receive view/create ticket access through migration `023_team_member_ticket_access.sql`; shared native ticket queries/details and external-ticket loading enforce created-by-only visibility, while analytics/calendar routes are blocked. Settings links to the authenticated password-change screen.
-- Local verification: migration `023` applied successfully; Users browser check showed 70 rows and 68 new-account fields; PHP lint passed; regression harness passed 116 checks with 0 failures. cPanel still needs migration `023` and the changed production files uploaded.
+- Local verification: migration `023` applied successfully; Users browser check showed 70 rows and 68 new-account fields; PHP lint passed; regression harness passed 116 checks with 0 failures. The user later confirmed migration `023` and the dependent files were uploaded/applied in cPanel; direct production schema inspection was not performed.
 
 ## Account Menu and Theme Settings (2026-08-31)
 
@@ -125,7 +125,7 @@ Last updated: 2026-09-01
 
 - Live route/design checks still load successfully, but live `health.php` does not expose the same required-table and private-storage checks present in the committed repository version.
 - Live reports `Database Healthy` and `SMTP Configured`, but both private attachment directories are missing or not writable. This is a production file/permission/configuration discrepancy, not proof of schema parity.
-- Production database migration state, including `023_team_member_ticket_access.sql`, remains unverified until the live schema is inspected in phpMyAdmin or through an approved production database check.
+- The user confirmed that production migration `023_team_member_ticket_access.sql` was uploaded/applied in cPanel. Direct production schema inspection was not performed, so this remains a user-reported deployment fact rather than an independently queried result.
 
 Last updated: 2026-09-01
 
