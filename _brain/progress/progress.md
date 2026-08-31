@@ -121,6 +121,14 @@ Last updated: 2026-08-31
 
 Last updated: 2026-09-01
 
+## Live Deployment Health Divergence (2026-09-01)
+
+- Live route/design checks still load successfully, but live `health.php` does not expose the same required-table and private-storage checks present in the committed repository version.
+- Live reports `Database Healthy` and `SMTP Configured`, but both private attachment directories are missing or not writable. This is a production file/permission/configuration discrepancy, not proof of schema parity.
+- Production database migration state, including `023_team_member_ticket_access.sql`, remains unverified until the live schema is inspected in phpMyAdmin or through an approved production database check.
+
+Last updated: 2026-09-01
+
 ## Live UI Upload Verification (2026-08-31)
 
 - Confirmed the live site serves `assets/css/app.css?v=20260831-ui-consistency-dark` after the user's cPanel upload.

@@ -132,6 +132,8 @@ Last updated: 2026-08-31
 - After `git fetch origin --prune`, the synchronized application commit is `01cdb2d8b24f5bde557f1a53532bc04f3d267245`; local `HEAD`, GitHub `origin/main`, and `origin/codex/add-presenter-guide` all point to it.
 - All selected application changes are committed and pushed. Intentionally excluded untracked diagnostics, reset/seed utilities, generated reports, and local artifacts remain outside GitHub.
 - Live currently loads the cache-busted `app.css` and `ui-fixes.css` links and the Tickets page shows the uploaded shortened ticket labels. This confirms the deployed UI surface; cPanel remains a manual deployment target.
+- Live `health.php` currently reports `Database Healthy` and `SMTP Configured`, but also reports both private attachment directories as missing/not writable. It does not show the required-table/private-storage checks present in the committed repository `health.php`, so full live code parity is not confirmed.
+- The live database connection being healthy does not prove that all repository migrations, including `023_team_member_ticket_access.sql`, have been applied.
 
 Last updated: 2026-09-01
 
