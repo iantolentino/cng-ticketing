@@ -660,4 +660,99 @@ document.addEventListener('DOMContentLoaded', () => {
             openRow();
         });
     });
+
+    const accountMenu = document.querySelector('[data-account-menu]');
+    const accountMenuTrigger = document.querySelector('[data-account-menu-trigger]');
+    if (accountMenu && accountMenuTrigger) {
+        const accountMenuItems = accountMenu.querySelectorAll('[role="menuitem"]');
+        const closeAccountMenu = (returnFocus = false) => {
+            accountMenu.hidden = true;
+            accountMenuTrigger.setAttribute('aria-expanded', 'false');
+            if (returnFocus) accountMenuTrigger.focus();
+        };
+
+        accountMenuTrigger.addEventListener('click', () => {
+            const isOpen = accountMenuTrigger.getAttribute('aria-expanded') === 'true';
+            if (isOpen) {
+                closeAccountMenu(true);
+                return;
+            }
+            accountMenu.hidden = false;
+            accountMenuTrigger.setAttribute('aria-expanded', 'true');
+            accountMenuItems[0]?.focus();
+        });
+        accountMenuItems.forEach((item) => item.addEventListener('click', () => closeAccountMenu()));
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('[data-account-menu-trigger], [data-account-menu]')) closeAccountMenu();
+        });
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && accountMenuTrigger.getAttribute('aria-expanded') === 'true') {
+                event.preventDefault();
+                closeAccountMenu(true);
+            }
+        });
+    }
+
+    const themeChoices = document.querySelectorAll('[data-theme-choice]');
+    const themeStatus = document.querySelector('[data-theme-status]');
+    const themeStorageKey = 'cng-ticketing-theme';
+    let savedTheme = 'light';
+    try {
+        savedTheme = window.localStorage.getItem(themeStorageKey) === 'dark' ? 'dark' : 'light';
+    } catch (error) {
+        savedTheme = 'light';
+    }
+
+    const applyTheme = (theme, persist = true) => {
+        const nextTheme = theme === 'dark' ? 'dark' : 'light';
+        document.documentElement.dataset.theme = nextTheme;
+        themeChoices.forEach((choice) => {
+            const isSelected = choice.dataset.themeChoice === nextTheme;
+            choice.classList.toggle('is-selected', isSelected);
+            choice.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        });
+        if (themeStatus) themeStatus.textContent = `${nextTheme === 'dark' ? 'Dark' : 'Light'} theme is active.`;
+        if (persist) {
+            try {
+                window.localStorage.setItem(themeStorageKey, nextTheme);
+            } catch (error) {
+                // Continue with the selected theme for this page when storage is unavailable.
+            }
+        }
+    };
+
+    applyTheme(savedTheme, false);
+    themeChoices.forEach((choice) => choice.addEventListener('click', () => applyTheme(choice.dataset.themeChoice)));
+
+    const notificationModal = document.querySelector('[data-notification-modal]');
+    const notificationTrigger = document.querySelector('[data-notification-modal-trigger]');
+    if (notificationModal && notificationTrigger) {
+        const notificationDialog = notificationModal.querySelector('.notification-modal-dialog');
+        const closeButtons = notificationModal.querySelectorAll('[data-notification-modal-close]');
+        let notificationReturnFocus = null;
+
+        const closeNotificationModal = () => {
+            notificationModal.hidden = true;
+            document.body.classList.remove('notification-modal-open');
+            notificationTrigger.setAttribute('aria-expanded', 'false');
+            notificationReturnFocus?.focus();
+        };
+
+        const openNotificationModal = () => {
+            notificationReturnFocus = document.activeElement;
+            notificationModal.hidden = false;
+            document.body.classList.add('notification-modal-open');
+            notificationTrigger.setAttribute('aria-expanded', 'true');
+            notificationDialog?.focus();
+        };
+
+        notificationTrigger.addEventListener('click', (event) => {
+            event.preventDefault();
+            openNotificationModal();
+        });
+        closeButtons.forEach((button) => button.addEventListener('click', closeNotificationModal));
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !notificationModal.hidden) closeNotificationModal();
+        });
+    }
 });

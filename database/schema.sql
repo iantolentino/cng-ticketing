@@ -170,5 +170,5 @@ INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 F
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='pod-leader' AND p.permission_key IN ('view_all_tickets','edit_tickets','close_tickets','comment_tickets','assign_tickets');
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='sme' AND p.permission_key IN ('view_all_tickets','comment_tickets');
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='cng-admin' AND p.permission_key IN ('view_all_tickets');
-INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='team-member' AND p.permission_key IN ('access_leave_request_module');
+INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug='team-member' AND p.permission_key IN ('view_all_tickets','create_tickets','access_leave_request_module');
 INSERT INTO role_permissions(role_id,permission_id,granted) SELECT r.id,p.id,1 FROM roles r JOIN permissions p WHERE r.slug IN ('team-leader','department-head') AND p.permission_key IN ('access_leave_request_module');

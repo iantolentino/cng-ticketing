@@ -7,4 +7,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     elseif ($password !== $confirmation) $error = 'The passwords do not match.';
     else { db()->prepare('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?')->execute([password_hash($password, PASSWORD_DEFAULT), $user['id']]); refresh_current_user(); redirect(default_landing_page()); }
 }
-?><!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Set your password</title><link rel="icon" href="assets/favicon.svg"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"><link rel="stylesheet" href="assets/css/app.css"></head><body class="auth-page"><main class="auth-card"><div class="auth-logos"><img class="auth-strata-logo" src="assets/stratastaff-logo.png" alt="Strata Staff Global"><span class="auth-logo-divider"></span><img class="auth-jamesons-logo" src="assets/jamesons-logo.svg" alt="Jamesons Strata Management"></div><p class="auth-kicker">Account security</p><h1>Set your password</h1><p class="page-subtitle">Use at least 12 characters to secure your account.</p><?php if($error):?><p class="auth-error" role="alert"><?=e($error)?></p><?php endif;?><form method="post"><input type="hidden" name="csrf_token" value="<?=e(csrf_token())?>"><label>New password<input name="password" type="password" minlength="12" maxlength="1024" required autocomplete="new-password" placeholder="Minimum 12 characters"></label><label>Confirm password<input name="password_confirmation" type="password" minlength="12" maxlength="1024" required autocomplete="new-password" placeholder="Re-enter your password"></label><button class="button">Save password</button></form><p class="auth-footnote">You will continue to your assigned workspace after saving.</p></main></body></html>
+require __DIR__ . '/app/layout.php';
+page_start('Settings', $user);
+?>
+<div class="page-head">
+    <div>
+        <p class="eyebrow">Account</p>
+        <h1>Settings</h1>
+        <p class="page-subtitle">Manage the appearance of this browser and your account password.</p>
+    </div>
+</div>
+<div class="settings-screen">
+    <section class="settings-panel">
+        <div class="settings-panel-head">
+            <div><p class="eyebrow">Appearance</p><h2>Theme</h2><p>Choose the theme you want to use on this browser.</p></div>
+        </div>
+        <div class="theme-choice-group" role="group" aria-label="Theme">
+            <button class="theme-choice" type="button" data-theme-choice="light" aria-pressed="false"><span class="theme-choice-swatch theme-choice-swatch-light" aria-hidden="true"></span><span>Light</span></button>
+            <button class="theme-choice" type="button" data-theme-choice="dark" aria-pressed="false"><span class="theme-choice-swatch theme-choice-swatch-dark" aria-hidden="true"></span><span>Dark</span></button>
+        </div>
+        <p class="field-help" data-theme-status>Light theme is active.</p>
+    </section>
+    <section class="settings-panel">
+        <div class="settings-panel-head">
+            <div><p class="eyebrow">Account security</p><h2>Change password</h2><p>Use at least 12 characters. Your new password will be active immediately.</p></div>
+        </div>
+        <?php if($error): ?><p class="auth-error" role="alert"><?= e($error) ?></p><?php endif; ?>
+        <form method="post" class="settings-password-form">
+            <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
+            <label>New password<input name="password" type="password" minlength="12" maxlength="1024" required autocomplete="new-password" placeholder="Minimum 12 characters"></label>
+            <label>Confirm password<input name="password_confirmation" type="password" minlength="12" maxlength="1024" required autocomplete="new-password" placeholder="Re-enter your password"></label>
+            <div class="record-form-actions"><button class="button" data-confirm="Save this password?">Save password</button></div>
+        </form>
+    </section>
+</div>
+<?php page_end();

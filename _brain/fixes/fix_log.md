@@ -46,6 +46,8 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F021 | Attendance corrections and staff leave directory | ATTENDANCE | Attendance had no edit flow, used coverage statuses instead of the requested leave statuses, and had no persistent multi-staff leave selection. | inline | 2026-08-29 | FIXED |
 | F022 | External conversation HTML displayed literally | WEB/SECURITY | The external thread renderer escaped all source HTML, showing tags instead of readable formatting. | inline | 2026-08-29 | FIXED |
 | F023 | Frontend refresh broke login syntax | BUILD/AUTH | A malformed merge artifact was inserted into the refreshed `login.php`, causing a PHP parse error; the login UI was rebuilt around the approved-account authentication logic. | inline | 2026-08-29 | FIXED |
+| F024 | Account settings menu and sidebar scrollbar | UI/ACCESSIBILITY | Settings was exposed as a sidebar item and the navigation scrollbar consumed scarce sidebar height, leaving account controls difficult to reach at normal zoom. | inline | 2026-08-31 | FIXED |
+| F025 | Site-wide layout inconsistency and incomplete dark mode | UI/ACCESSIBILITY | Supporting screens used older page-specific layouts and hardcoded light surfaces/text, while production served a stale shared stylesheet that omitted newer component rules. | inline | 2026-08-31 | FIXED |
 
 ---
 

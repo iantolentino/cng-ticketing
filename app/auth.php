@@ -35,3 +35,7 @@ function require_login(): array {
 function require_permission(string $permissionKey): array {
     $user = require_login(); if (!user_can($permissionKey)) { http_response_code(403); exit('You do not have permission to access this action.'); } return $user;
 }
+function require_non_team_member(array $user): array {
+    if (($user['role_slug'] ?? '') === 'team-member') { http_response_code(403); exit('This workspace is not available to Team Members.'); }
+    return $user;
+}

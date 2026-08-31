@@ -42,8 +42,8 @@ foreach ($migrationFiles as $file) {
     $migrationNumbers[] = (int) basename($file, '.sql');
 }
 sort($migrationNumbers);
-$expectedNumbers = range(2, 22);
-check($migrationNumbers === $expectedNumbers, 'migrations 002 through 022 are present without gaps');
+$expectedNumbers = range(2, 23);
+check($migrationNumbers === $expectedNumbers, 'migrations 002 through 023 are present without gaps');
 
 $migrationMarkers = [
     '011' => 'password_reset_tokens',
@@ -58,6 +58,7 @@ $migrationMarkers = [
     '020' => 'resolution',
     '021' => 'token_hash',
     '022' => 'staff_directory',
+    '023' => 'team-member',
 ];
 foreach ($migrationMarkers as $number => $marker) {
     $matches = glob($root . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . $number . '_*.sql') ?: [];
@@ -84,7 +85,9 @@ foreach ($authorizationChecks as $file => $marker) {
 check(source_contains('restore-ticket.php', 'verify_csrf'), 'ticket restore requires CSRF validation');
 check(source_contains('calendar-admin.php', 'verify_csrf'), 'calendar administration requires CSRF validation');
 check(source_contains('create-ticket.php', "require_permission('create_tickets'"), 'ticket creation route requires the create_tickets permission');
-check(source_contains('app/tickets.php', "role_slug'] ?? '') !== 'team-leader'"), 'Team Leader ticket scope is limited to assigned tickets');
+check(source_contains('app/tickets.php', "if (\$role === 'team-member')"), 'Team Member ticket scope is handled explicitly');
+check(source_contains('app/tickets.php', 't.created_by = :scope_user_id'), 'Team Member ticket lists are limited to tickets they created');
+check(source_contains('app/tickets.php', "['team-leader', 'team-member']"), 'Ticket detail visibility covers Team Members and Team Leaders');
 check(source_contains('admin.php', "role_slug'] ?? '') !== 'super-admin'"), 'role permission changes require Super Admin');
 check(source_contains('admin.php', 'token_hash'), 'API tokens are stored by hash');
 check(source_contains('api/feed.php', 'hash(\'sha256\''), 'API feed validates hashed tokens');
@@ -95,7 +98,7 @@ check(source_contains('users.php', 'At least one active Super Admin must remain.
 check(source_contains('users.php', 'Only a Super Admin can assign the Super Admin role.'), 'user management protects Super Admin role assignment');
 check(source_contains('leave-requests.php', 'DateTimeImmutable'), 'leave dates are calendar-valid, not only regex-valid');
 check(source_contains('leave-requests.php', 'unlink(ROOT_PATH'), 'failed leave attachment inserts remove orphaned files');
-check(source_contains('import.php', 'count($row)!==count($expected)'), 'CSV import rejects malformed column counts');
+check(source_contains('reports.php', 'count($row) !== count($expected)'), 'CSV import rejects malformed column counts');
 check(source_contains('app/security.php', 'function request_string'), 'authentication input rejects array-valued request fields');
 check(source_contains('app/bootstrap.php', "session.use_strict_mode"), 'sessions use strict mode');
 check(source_contains('login.php', "approval_status']!=='approved'"), 'login rejects non-approved account states');
@@ -126,6 +129,17 @@ check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'stra
 check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'jamesons.com.au'), 'staff directory records employee email domain');
 check(source_contains('register.php', 'jamesons\\.com\\.au'), 'registration accepts Jamesons staff email domain');
 check(source_contains('register.php', 'stratastaffglobal\\.com'), 'registration accepts Strata Staff Global TL email domain');
+check(source_contains('users.php', "create_team_members"), 'Super Admin Users page provides bulk Team Member setup');
+check(source_contains('users.php', "team_member_credentials"), 'Team Member setup keeps temporary credentials in the Super Admin session only');
+check(source_contains('users.php', 'must_change_password'), 'Team Member setup forces a password change');
+check(source_contains('app/auth.php', 'require_non_team_member'), 'restricted workspace routes block Team Members');
+check(source_contains('app/layout.php', "'change-password.php'"), 'authenticated users have a Settings password-change link');
+check(source_contains('app/layout.php', 'data-account-menu-trigger'), 'authenticated users have an upper-right account menu trigger');
+check(source_contains('app/layout.php', 'data-account-menu'), 'the account menu exposes Settings');
+check(!source_contains('app/layout.php', "['settings', 'change-password.php'"), 'Settings is not rendered as a sidebar item');
+check(source_contains('change-password.php', 'data-theme-choice="dark"'), 'Settings provides a dark theme choice');
+check(source_contains('assets/js/app.js', 'cng-ticketing-theme'), 'theme selection uses browser-local persistence');
+check(source_contains('assets/css/ui-fixes.css', 'scrollbar-width:none'), 'sidebar scrollbar is visually hidden');
 check(is_file($root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'external_tickets.php'), 'external ticket adapters are present');
 check(is_file($root . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.external.example.php'), 'external credential template is present');
 check(source_contains('app/external_tickets.php', 'PDO::ATTR_EMULATE_PREPARES'), 'external connections disable emulated prepares');
@@ -141,10 +155,10 @@ require_once $root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'extern
 $safeThreadHtml = external_thread_body_html('<p><strong>Name:</strong> Stefani</p><script>alert(1)</script><p><a href="javascript:alert(1)">Details</a></p>');
 check(str_contains($safeThreadHtml, '<strong>Name:</strong>') && str_contains($safeThreadHtml, 'Stefani'), 'external conversation preserves safe formatting');
 check(!str_contains(strtolower($safeThreadHtml), '<script') && !str_contains(strtolower($safeThreadHtml), 'javascript:'), 'external conversation removes unsafe markup and links');
-check(external_source_url('stratast_escalations', []) === 'https://escalations.stratastaffglobal.com/', 'HR Escalation Desk uses its configured source link');
-check(external_source_url('stratast_support', []) === 'http://support.stratastaffglobal.com/', 'Strata Support Desk uses its configured source link');
-check(external_source_url('stratast_wp346', []) === 'https://learning.stratastaffglobal.com/', 'Training Desk uses its configured source link');
-check(external_source_url('stratast_requisition', []) === 'https://requisition.stratastaffglobal.com/', 'Requisition Desk uses its configured source link');
+check(external_source_url('stratast_escalations', []) === 'https://escalations.stratastaffglobal.com/', 'Escalations uses its configured source link');
+check(external_source_url('stratast_support', []) === 'http://support.stratastaffglobal.com/', 'IT Department uses its configured source link');
+check(external_source_url('stratast_wp346', []) === 'https://learning.stratastaffglobal.com/', 'Learning uses its configured source link');
+check(external_source_url('stratast_requisition', []) === 'https://requisition.stratastaffglobal.com/', 'Requisition uses its configured source link');
 require_once $root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'tickets.php';
 $testDepartments = [['id' => 1, 'name' => 'R&M', 'code' => 'rm'], ['id' => 2, 'name' => 'Admin', 'code' => 'admin'], ['id' => 3, 'name' => 'Compliance', 'code' => 'compliance'], ['id' => 4, 'name' => 'Customer Care', 'code' => 'customer-care'], ['id' => 5, 'name' => 'Insurance', 'code' => 'insurance']];
 check(count(category_department_ids('Attendance', $testDepartments)) === 5, 'Attendance category selects all departments');

@@ -52,15 +52,25 @@ function sync_ticket_departments(int $ticketId, array $departmentIds): void {
     foreach ($departmentIds as $departmentId) $insert->execute([$ticketId, $departmentId]);
 }
 function ticket_scope_sql(array $user, array &$params): string {
-    if (($user['role_slug'] ?? '') !== 'team-leader') return '';
+    $role = (string) ($user['role_slug'] ?? '');
+    if ($role === 'team-member') {
+        $params['scope_user_id'] = (int) $user['id'];
+        return ' AND t.created_by = :scope_user_id';
+    }
+    if ($role !== 'team-leader') return '';
     $params['scope_user_id'] = (int) $user['id'];
     $params['scope_user_id_pivot'] = (int) $user['id'];
     return ' AND (t.assignee_id = :scope_user_id OR EXISTS (SELECT 1 FROM ticket_assignees tas WHERE tas.ticket_id = t.id AND tas.user_id = :scope_user_id_pivot))';
 }
 function require_ticket_visible(array $user, int $ticketId): void {
-    if (($user['role_slug'] ?? '') !== 'team-leader') return;
-    $q = db()->prepare('SELECT 1 FROM tickets t WHERE t.id = ? AND (t.assignee_id = ? OR EXISTS (SELECT 1 FROM ticket_assignees tas WHERE tas.ticket_id = t.id AND tas.user_id = ?))');
-    $q->execute([$ticketId, $user['id'], $user['id']]);
+    $role = (string) ($user['role_slug'] ?? '');
+    if (!in_array($role, ['team-leader', 'team-member'], true)) return;
+    $visibilitySql = $role === 'team-member'
+        ? 't.created_by = ?'
+        : '(t.assignee_id = ? OR EXISTS (SELECT 1 FROM ticket_assignees tas WHERE tas.ticket_id = t.id AND tas.user_id = ?))';
+    $parameters = $role === 'team-member' ? [$ticketId, $user['id']] : [$ticketId, $user['id'], $user['id']];
+    $q = db()->prepare('SELECT 1 FROM tickets t WHERE t.id = ? AND ' . $visibilitySql);
+    $q->execute($parameters);
     if (!$q->fetchColumn()) { http_response_code(404); exit('Ticket not found.'); }
 }
 function ticket_age_days(array $ticket, string $field): int {
@@ -84,4 +94,12 @@ function ticket_sla_state(array $ticket): array {
     if ($ageDays >= (int) $rule['open_days']) return ['overdue', 'Overdue', $ageDays . ' days open'];
     if ($idleDays >= (int) $rule['idle_days']) return ['watch', 'Watch', $idleDays . ' days idle'];
     return ['ok', 'On track', $ageDays . ' days open'];
+}
+function ticket_display_id(array $ticket): string {
+    $externalId = (int) ($ticket['external_id'] ?? 0);
+    if (!empty($ticket['is_external']) && $externalId > 0) return '#' . $externalId;
+    $nativeId = (int) ($ticket['id'] ?? 0);
+    if ($nativeId > 0) return '#' . $nativeId;
+    $ticketNumber = (string) ($ticket['ticket_number'] ?? '');
+    return preg_match('/(\d+)\z/', $ticketNumber, $matches) ? '#' . $matches[1] : $ticketNumber;
 }

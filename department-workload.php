@@ -7,6 +7,7 @@ require __DIR__ . '/app/layout.php';
 
 $user = require_permission('view_all_tickets');
 if (($user['role_slug'] ?? '') === 'cng-admin') { http_response_code(403); exit('You do not have permission to access this action.'); }
+require_non_team_member($user);
 
 $departments = active_departments();
 $departmentIds = array_map('intval', array_column($departments, 'id'));
@@ -90,7 +91,7 @@ page_start('Departments', $user);
         <div class="table-wrap department-table-wrap"><table class="ticket-table department-table"><thead><tr><?php foreach (['ID', 'Title', 'Status', 'Current department', 'Departments involved', 'Assignees', 'Manage'] as $heading): ?><th><?= e($heading) ?></th><?php endforeach; ?></tr></thead><tbody>
         <?php foreach ($tickets as $ticket): $selected = array_values(array_unique(array_map('intval', array_filter(explode(',', (string) $ticket['department_ids']))))); if (!in_array((int) $ticket['department_id'], $selected, true)) $selected[] = (int) $ticket['department_id']; $involvedNames = array_filter(array_map('trim', explode(',', (string) $ticket['departments']))); ?>
             <tr data-ticket-href="ticket.php?id=<?= (int) $ticket['id'] ?>" tabindex="0" aria-label="Open <?= e($ticket['ticket_number']) ?>: <?= e($ticket['subject']) ?>">
-                <td class="ticket-id"><a href="ticket.php?id=<?= (int) $ticket['id'] ?>"><?= e($ticket['ticket_number']) ?></a></td>
+                <td class="ticket-id"><a href="ticket.php?id=<?= (int) $ticket['id'] ?>"><?= e(ticket_display_id($ticket)) ?></a></td>
                 <td class="subject"><a href="ticket.php?id=<?= (int) $ticket['id'] ?>"><?= e($ticket['subject']) ?></a><span class="ticket-row-meta"><?= e($ticket['current_department']) ?> · <?= e($ticket['assignees'] ?? 'Unassigned') ?></span></td>
                 <td><span class="pill pill-<?= e(str_replace('_', '-', $ticket['status'])) ?>"><?= e(ucwords(str_replace('_', ' ', $ticket['status']))) ?></span></td>
                 <td><span class="department-primary-chip"><?= e($ticket['current_department']) ?></span></td>

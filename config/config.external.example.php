@@ -8,7 +8,7 @@ return [
     'external_sources' => [
         'stratast_support' => [
             'enabled' => false,
-            'label' => 'Strata Support Desk',
+            'label' => 'IT Department',
             'url' => 'http://support.stratastaffglobal.com/',
             'connection' => ['host' => '', 'port' => 3306, 'database' => '', 'username' => '', 'password' => ''],
             'tables' => [
@@ -22,7 +22,7 @@ return [
         ],
         'stratast_escalations' => [
             'enabled' => false,
-            'label' => 'HR Escalation Desk',
+            'label' => 'Escalations',
             'url' => 'https://escalations.stratastaffglobal.com/',
             'connection' => ['host' => '', 'port' => 3306, 'database' => '', 'username' => '', 'password' => ''],
             'tables' => [
@@ -36,7 +36,7 @@ return [
         ],
         'stratast_wp346' => [
             'enabled' => false,
-            'label' => 'Training Desk',
+            'label' => 'Learning',
             'url' => 'https://learning.stratastaffglobal.com/',
             'connection' => ['host' => '', 'port' => 3306, 'database' => '', 'username' => '', 'password' => ''],
             'tables' => [
@@ -50,7 +50,7 @@ return [
         ],
         'stratast_requisition' => [
             'enabled' => false,
-            'label' => 'Requisition Desk',
+            'label' => 'Requisition',
             'url' => 'https://requisition.stratastaffglobal.com/',
             'connection' => ['host' => '', 'port' => 3306, 'database' => '', 'username' => '', 'password' => ''],
             'tables' => [

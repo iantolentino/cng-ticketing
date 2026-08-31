@@ -5,6 +5,7 @@ require __DIR__ . '/app/tickets.php';
 require __DIR__ . '/app/layout.php';
 $user = require_permission('view_all_tickets');
 if (($user['role_slug'] ?? '') === 'cng-admin') { http_response_code(403); exit('You do not have permission to access this action.'); }
+require_non_team_member($user);
 $pdo = db(); $notice = ''; $error = '';
 $statuses = ['annual' => 'Annual', 'sick' => 'Sick', 'emergency' => 'Emergency', 'half_day' => 'Half-day', 'birthday' => 'Birthday', 'bereavement' => 'Bereavement', 'paternity' => 'Paternity', 'maternity' => 'Maternity', 'undertime' => 'Undertime'];
 $canLog = ($user['role_slug'] ?? '') === 'team-leader' || user_can('manage_roles');

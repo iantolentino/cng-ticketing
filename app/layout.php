@@ -15,6 +15,7 @@ function sidebar_icon(string $name): string
         'calendar' => '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" rx="1"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/></svg>',
         'attendance' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.75h14v13.5H5zM8 3.75v4M16 3.75v4M5 10h14M8 14h2M12 14h4M8 17h2M12 17h4"/></svg>',
         'leave' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.75h10l2 2v12.5H7zM17 4.75v4h4M10 13h7M10 16h5"/></svg>',
+        'settings' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.75 4.75h4.5l.75 2.25 2 .85 2.1-1.05 2.2 2.2-1.05 2.1.85 2-.75 2.25h-4.5l-.75-2.25-2-.85-2.1 1.05-2.2-2.2 1.05-2.1-.85-2zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>',
         'paperclip' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5 12.2 20.3a5 5 0 0 1-7.1-7.1l9.3-9.3a3.3 3.3 0 0 1 4.7 4.7l-9.4 9.4a1.6 1.6 0 1 1-2.3-2.3l8.8-8.8"/></svg>',
     ];
     return $icons[$name] ?? '';
@@ -29,18 +30,24 @@ function page_start(string $title, ?array $user = null): void
         'team-attendance.php' => 'team-attendance-page', 'leave-requests.php' => 'leave-requests-page',
         'notifications.php' => 'notifications-page', 'admin.php' => 'roles-access-page',
         'users.php' => 'users-page', 'reports.php' => 'reports-page', 'audit-log.php' => 'audit-page',
+        'deleted-tickets.php' => 'deleted-tickets-page',
         'calendar-admin.php' => 'calendar-admin-page', 'health.php' => 'health-page', 'import.php' => 'import-page',
         'create-ticket.php' => 'ticket-form-page', 'edit-ticket.php' => 'ticket-form-page',
         'ticket.php' => 'ticket-detail-page', 'reset-user-password.php' => 'account-action-page',
+        'change-password.php' => 'settings-page',
     ];
     $items = [];
-    $canViewCalendar = $user && user_can('view_all_tickets') && ($user['role_slug'] ?? '') !== 'cng-admin';
-    $canViewWorkQueue = $user && user_can('view_all_tickets') && ($user['role_slug'] ?? '') !== 'cng-admin';
+    $canViewCalendar = $user && user_can('view_all_tickets') && !in_array(($user['role_slug'] ?? ''), ['cng-admin', 'team-member'], true);
+    $canViewWorkQueue = $user && user_can('view_all_tickets') && !in_array(($user['role_slug'] ?? ''), ['cng-admin', 'team-member'], true);
     $unreadNotifications = 0;
+    $notificationItems = [];
     if ($user) {
         $notificationCount = db()->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL');
         $notificationCount->execute([(int) $user['id']]);
         $unreadNotifications = (int) $notificationCount->fetchColumn();
+        $notificationList = db()->prepare('SELECT n.id, n.type, n.title, n.body, n.url, n.read_at, n.created_at, a.full_name AS actor_name FROM notifications n LEFT JOIN users a ON a.id = n.actor_id WHERE n.user_id = ? ORDER BY n.created_at DESC, n.id DESC LIMIT 5');
+        $notificationList->execute([(int) $user['id']]);
+        $notificationItems = $notificationList->fetchAll();
     }
     if ($user && user_can('view_all_tickets')) {
         $items[] = ['dashboard', 'dashboard.php', ['dashboard.php'], 'Dashboard', 'dashboard'];
@@ -58,9 +65,6 @@ function page_start(string $title, ?array $user = null): void
     if ($user && user_can('access_leave_request_module')) {
         $items[] = ['leave', 'leave-requests.php', ['leave-requests.php'], 'Leave Requests', 'leave'];
     }
-    if ($user) {
-        $items[] = ['notifications', 'notifications.php', ['notifications.php'], 'Notifications' . ($unreadNotifications ? ' (' . min($unreadNotifications, 99) . ')' : ''), 'notifications'];
-    }
     if ($user && user_can('manage_roles')) {
         $items[] = ['roles', 'admin.php', ['admin.php', 'reset-user-password.php'], 'Roles & Access', 'roles'];
     }
@@ -70,8 +74,7 @@ function page_start(string $title, ?array $user = null): void
     if ($user && ($user['role_slug'] ?? '') === 'super-admin') {
         $items[] = ['deleted', 'deleted-tickets.php', ['deleted-tickets.php'], 'Deleted tickets', 'deleted'];
         $items[] = ['audit', 'audit-log.php', ['audit-log.php'], 'Audit log', 'deleted'];
-        $items[] = ['import', 'import.php', ['import.php'], 'CSV import', 'users'];
-        $items[] = ['reports', 'reports.php', ['reports.php'], 'Reports', 'dashboard'];
+        $items[] = ['reports', 'reports.php', ['reports.php', 'import.php'], 'Reports & CSV import', 'dashboard'];
         $items[] = ['health', 'health.php', ['health.php'], 'System health', 'dashboard'];
     }
     $active = '';
@@ -92,8 +95,9 @@ function page_start(string $title, ?array $user = null): void
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/app.css">
-    <script src="assets/js/app.js" defer></script>
+    <link rel="stylesheet" href="assets/css/app.css?v=20260831-ui-consistency-dark">
+    <link rel="stylesheet" href="assets/css/ui-fixes.css?v=20260831-ui-consistency-dark">
+    <script src="assets/js/app.js?v=20260831-ui-consistency-dark" defer></script>
 </head>
 <body class="<?= e($pageClasses[$page] ?? '') ?>">
 <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -102,7 +106,19 @@ function page_start(string $title, ?array $user = null): void
     <div class="app-header-actions">
         <?php if ($page === 'dashboard.php'): ?><a class="button button-secondary" href="index.php"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.75h14v14.5H5zM8 9h8M8 13h8M8 17h5"/></svg>View tickets</a><?php endif; ?>
         <?php if ($user && user_can('create_tickets') && in_array($page, ['dashboard.php', 'index.php', 'my-work.php', 'department-workload.php', 'team-calendar.php', 'team-attendance.php', 'leave-requests.php', 'notifications.php', 'admin.php', 'ticket.php', 'edit-ticket.php'], true)): ?><a class="button" href="create-ticket.php"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Create ticket</a><?php endif; ?>
-        <?php if ($user): ?><div class="app-header-account"><span class="app-header-avatar" aria-hidden="true"><?= e(strtoupper(substr((string) ($user['full_name'] ?? 'U'), 0, 1))) ?></span><span><strong><?= e($user['full_name']) ?></strong><small><?= e($user['role_name'] ?? '') ?></small></span></div><?php endif; ?>
+        <?php if ($user): ?><a class="notification-link<?= $page === 'notifications.php' ? ' active' : '' ?>" href="notifications.php" data-notification-modal-trigger aria-haspopup="dialog" aria-expanded="false" aria-controls="notification-modal" aria-label="Notifications<?= $unreadNotifications ? ' (' . min($unreadNotifications, 99) . ' unread)' : '' ?>" title="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.75 10.75a5.25 5.25 0 0 1 10.5 0c0 3 1.25 4.5 2 5.5H4.75c.75-1 2-2.5 2-5.5M9.75 18.25a2.25 2.25 0 0 0 4.5 0"/></svg><?php if ($unreadNotifications): ?><span class="notification-count"><?= min($unreadNotifications, 99) ?></span><?php endif; ?></a><?php endif; ?>
+        <?php if ($user): ?>
+            <div class="app-header-account-wrap">
+                <button class="app-header-account<?= $page === 'change-password.php' ? ' is-active' : '' ?>" type="button" data-account-menu-trigger aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu" aria-label="Open account menu">
+                    <span class="app-header-avatar" aria-hidden="true"><?= e(strtoupper(substr((string) ($user['full_name'] ?? 'U'), 0, 1))) ?></span>
+                    <span class="app-header-account-copy"><strong><?= e($user['full_name']) ?></strong><small><?= e($user['role_name'] ?? '') ?></small></span>
+                    <svg class="account-menu-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+                </button>
+                <div class="account-menu" id="account-menu" data-account-menu role="menu" hidden>
+                    <a href="change-password.php" role="menuitem"><?= sidebar_icon('settings') ?><span>Settings</span></a>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 </header>
 <aside class="topbar" aria-label="Primary navigation">
@@ -122,6 +138,27 @@ function page_start(string $title, ?array $user = null): void
         <?php if ($user): ?><a href="logout.php">Sign out</a><?php endif; ?>
     </div>
 </aside>
+<?php if ($user): ?>
+<div class="notification-modal" id="notification-modal" data-notification-modal hidden>
+    <div class="notification-modal-backdrop" data-notification-modal-close></div>
+    <section class="notification-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="notification-modal-title" tabindex="-1">
+        <div class="notification-modal-head">
+            <div><p class="eyebrow">Updates</p><h2 id="notification-modal-title">Notifications</h2></div>
+            <button class="icon-button notification-modal-close" type="button" data-notification-modal-close aria-label="Close notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div class="notification-modal-list">
+            <?php foreach ($notificationItems as $notification): ?>
+                <a class="notification-modal-item<?= $notification['read_at'] ? '' : ' unread' ?>" href="notifications.php?open=<?= (int) $notification['id'] ?>">
+                    <span class="notification-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.75 10.75a5.25 5.25 0 0 1 10.5 0c0 3 1.25 4.5 2 5.5H4.75c.75-1 2-2.5 2-5.5M9.75 18.25a2.25 2.25 0 0 0 4.5 0"/></svg></span>
+                    <span class="notification-modal-copy"><strong><?= e($notification['title']) ?></strong><span><?= e($notification['body']) ?></span><small><?= e($notification['actor_name'] ?? 'System') ?> · <?= e(date('M j, g:i A', strtotime($notification['created_at']))) ?></small></span>
+                </a>
+            <?php endforeach; ?>
+            <?php if (!$notificationItems): ?><div class="notification-modal-empty">No notifications yet.</div><?php endif; ?>
+        </div>
+        <div class="notification-modal-actions"><a class="button button-secondary" href="notifications.php">View all notifications</a></div>
+    </section>
+</div>
+<?php endif; ?>
 <main id="main-content" class="page"><div class="content-shell">
 <?php
 }

@@ -39,6 +39,8 @@ Tickets record and manage CX issues from creation through assignment, collaborat
 ### What it contains
 
 - Subject, description, department, priority, status, assignees, involved departments, dates, comments, attachments, and activity history.
+- Separate **Issue** and **Resolution** fields. Issue describes the actual problem; Resolution records the final closing note.
+- Resolution-driven status: an empty resolution keeps the ticket in the active/in-progress status; a completed resolution moves it to the existing closed/resolved workflow and records the field and status changes.
 - Priority levels including low, normal, high, and urgent.
 - Statuses: Open, In Progress, Pending, and Closed.
 - Single or multiple assignees.
@@ -46,6 +48,7 @@ Tickets record and manage CX issues from creation through assignment, collaborat
 - Search, filtering, pagination, and export.
 - Ticket age, idle age, SLA state, and follow-up indicators.
 - Soft deletion with Super Admin restoration.
+- Human comments remain separate from system-generated activity history.
 
 ### Who it is for / when it is used
 
@@ -206,6 +209,27 @@ Super Admins use it to create accounts, update staff details, assign roles and d
 
 It keeps account ownership and access current as staff join, leave, or change responsibilities.
 
+## Registration and Account Approval
+
+### What it does
+
+It allows a new user to request an account publicly while keeping activation under Super Admin control.
+
+### What it contains
+
+- Name, company email, username, requested role, password, and password confirmation.
+- Thank-you/pending message after registration.
+- Super Admin activation with confirmation.
+- Pending and inactive-account messages during login.
+
+### Who it is for / when it is used
+
+New staff use it to request access; Super Admins review and activate approved accounts.
+
+### Why it is needed
+
+It provides a controlled onboarding process without allowing unapproved accounts to enter the system.
+
 ## Deleted Tickets
 
 ### What it does
@@ -300,6 +324,27 @@ Super Admins use it during troubleshooting, deployment validation, and routine o
 
 It helps identify infrastructure or configuration problems before they prevent users from creating tickets, receiving notifications, or accessing files.
 
+## Public API / Webhook Feed
+
+### What it does
+
+It provides external systems such as Zapier, Make, or internal automations with read-only ticket data through a revocable secret URL.
+
+### What it contains
+
+- Super Admin token generation, rotation, masking, revocation, and history.
+- Token-authenticated JSON ticket feed with status, priority, category, assignee, date, and search filters.
+- Pagination, basic rate limiting, and separate access logging.
+- Issue, resolution, description, and comment-count fields without internal-only comment content.
+
+### Who it is for / when it is used
+
+Authorised integrations use it when they need ticket data without interactive login credentials. Super Admins manage the access URL.
+
+### Why it is needed
+
+It supports controlled automation while allowing the access URL to be invalidated immediately if exposed.
+
 ## Roles and typical use
 
 | Role | Typical use |
@@ -308,6 +353,8 @@ It helps identify infrastructure or configuration problems before they prevent u
 | Management | Reviews permitted operational workload and reports. |
 | Department Head | Reviews department work, completes the final leave approval stage, and reviews approved leave. |
 | Team Leader | Creates and manages assigned work, reviews team workload, approves Team Member leave, and records attendance. |
+| Pod Leader | Uses permitted ticket and team-work functions within the assigned access scope. |
+| Subject Matter Expert (SME) | Works on permitted assigned tickets and provides technical or process input. |
 | Team Member | Uses permitted ticket functions and submits or tracks leave requests. |
 | CNG Admin | Uses restricted ticket viewing and filtering according to assigned permissions. |
 

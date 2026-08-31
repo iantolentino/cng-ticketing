@@ -290,6 +290,7 @@ function external_normalize_ticket(array $ticket, string $sourceKey): array
 
 function external_ticket_visible_to_user(array $ticket, array $user): bool
 {
+    if (($user['role_slug'] ?? '') === 'team-member') return false;
     if (($user['role_slug'] ?? '') !== 'team-leader') return true;
     $agent = strtolower(trim((string) ($ticket['agent'] ?? '')));
     $name = strtolower(trim((string) ($user['full_name'] ?? '')));
@@ -310,6 +311,7 @@ function external_ticket_load_source(string $sourceKey): array
 
 function external_ticket_load_all(array $user): array
 {
+    if (($user['role_slug'] ?? '') === 'team-member') return ['tickets' => [], 'errors' => []];
     $tickets = [];
     $errors = [];
     foreach (external_source_configs() as $sourceKey => $source) {
@@ -329,6 +331,7 @@ function external_ticket_load_all(array $user): array
 
 function external_ticket_find(string $sourceKey, int $ticketId, array $user): ?array
 {
+    if (($user['role_slug'] ?? '') === 'team-member') return null;
     foreach (external_ticket_load_source($sourceKey) as $ticket) {
         if ((int) $ticket['external_id'] === $ticketId && external_ticket_visible_to_user($ticket, $user)) return $ticket;
     }

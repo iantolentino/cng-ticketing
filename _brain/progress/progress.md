@@ -79,11 +79,55 @@ The live MVP includes authentication, database-driven access control, ticket cre
 - Local and live ticket-list filtering confirmed ready for use.
 - Production SMTP credentials remain managed only in the server-local configuration file.
 
+## Production Upload Confirmation and Team Member Account Follow-up (2026-08-31)
+
+- User confirmed the latest cPanel upload was applied and Team Calendar and Team Attendance are working in production.
+- Reviewed the supplied `CNG_Staff_List_updated.xlsx`: it contains 70 employee names/team labels and 3 TL rows, but no individual email addresses. Do not fabricate login emails from names; the account setup flow must collect exact emails.
+- Next implementation: Super Admin bulk setup for the 70 employee rows with one-time temporary credentials, forced password change, authenticated password-change access, and created-by-only Team Member ticket visibility.
+- Completed locally: the Users page now accepts exact employee emails from the 70-row directory, creates Team Member accounts with one-time random temporary passwords, and displays the credentials once to the Super Admin. Existing exact-name accounts are not duplicated.
+- Completed locally: Team Members receive view/create ticket access through migration `023_team_member_ticket_access.sql`; shared native ticket queries/details and external-ticket loading enforce created-by-only visibility, while analytics/calendar routes are blocked. Settings links to the authenticated password-change screen.
+- Local verification: migration `023` applied successfully; Users browser check showed 70 rows and 68 new-account fields; PHP lint passed; regression harness passed 116 checks with 0 failures. cPanel still needs migration `023` and the changed production files uploaded.
+
+## Account Menu and Theme Settings (2026-08-31)
+
+- Completed locally: moved the Settings link out of the sidebar into the upper-right account menu while retaining the visible sidebar account/sign-out footer.
+- Completed locally: converted the authenticated password route into the shared Settings page with Light/Dark theme buttons and the existing password-change flow. Theme choice is browser-local and does not require a database update.
+- Completed locally: hid the desktop sidebar scrollbar while retaining internal navigation scrolling so the sidebar footer remains accessible at normal zoom.
+- Verification complete locally: XAMPP PHP lint passed for `app/layout.php` and `change-password.php`, JavaScript syntax check passed, the regression harness passed 122 checks with 0 failures, and browser interaction checks passed at 1280x720/device scale 1 (100% zoom). The account menu, Settings route, theme switching/persistence, hidden sidebar scrollbar, and in-viewport footer were all confirmed.
+
 ## Next Phase
 
 Apply `migrations/004_multi_assignees_departments_cng_admin.sql`, updated `migrations/005_future_foundation_alignment.sql`, `migrations/006_calendar_events_and_public_holidays.sql`, `migrations/007_leave_attachments_calendar_details.sql`, `migrations/008_ticket_priority.sql`, `migrations/009_notifications.sql`, and `migrations/010_team_attendance.sql` before deploying this feature set. Upload the new UI files `dashboard.php`, `notifications.php`, `team-calendar.php`, `team-attendance.php`, `leave-requests.php`, `department-workload.php`, `download-attachment.php`, `download-leave-attachment.php`, `app/notifications.php`, and `storage/private/.htaccess` with the changed PHP/CSS files.
 
 Last updated: 2026-08-05
+
+## Site-wide UI consistency and dark theme pass
+
+- Audited all authenticated local application screens at 1280x720 and 100% browser zoom in light and dark themes, using Dashboard and Tickets as the light-mode reference.
+- Standardized supporting page headings, Users and Calendar Administration forms, Reports filters, attendance actions, and Create/Edit Ticket form layout without changing Dashboard or Tickets light-mode styling.
+- Completed dark-theme coverage for the sidebar, controls, selects, cards, tables, calendars, ticket SLA states, notifications, account screens, and supporting text contrast.
+- Independently audited the deployed live site before upload, then rechecked it after the user uploaded the files. The live site now serves the cache-busted current baseline stylesheet; the prior giant unsized SVGs and missing component layouts are gone.
+- Local verification passed: 100% zoom visual checks in both themes, PHP lint, `git diff --check`, and 122 regression checks with 0 failures.
+- Post-upload live verification passed across every available sidebar route in both light and dark themes at normal zoom. Dashboard has one expected large chart SVG; no other route has an oversized SVG.
+
+Last updated: 2026-08-31
+
+## Local, GitHub, and Live Sync Check (2026-09-01)
+
+- Local `HEAD` is `a38c11981e3d30084bcfc4a31f3bb6a67c892b32`, exactly matching GitHub `origin/main` after a fresh fetch.
+- The local working tree is not clean: 22 tracked files differ from `origin/main`, and additional untracked files exist. These working-tree changes are not in GitHub.
+- The live site serves the cache-busted `app.css` and `ui-fixes.css` uploaded on 2026-08-31; browser checks confirmed the current Tickets UI and shortened `#number` labels.
+- Live page behavior matches the uploaded local UI for the checked surface, but live cannot be declared byte-for-byte identical to GitHub while the current local changes remain uncommitted/unpushed.
+
+Last updated: 2026-09-01
+
+## Live UI Upload Verification (2026-08-31)
+
+- Confirmed the live site serves `assets/css/app.css?v=20260831-ui-consistency-dark` after the user's cPanel upload.
+- Rechecked 18 authenticated live routes in light and dark themes at 100% zoom/device pixel ratio 1; all rendered their main content with no 404, blank page, PHP error, or light-surface leftovers.
+- Rechecked every available live sidebar item; all routes loaded successfully. The Sign out link was not counted as an application page and the authenticated session was restored after testing.
+
+Last updated: 2026-08-31
 
 ## Latest UI Safety and Layout Update
 

@@ -116,6 +116,54 @@ Last updated: 2026-08-28
 
 Last updated: 2026-08-29
 
+## UI consistency and dark mode status (2026-08-31)
+
+- Local authenticated pages now follow the Dashboard/Tickets spacing, control sizing, card, table, and typography patterns. Dashboard and Tickets light mode were retained as the reference.
+- Dark mode now themes the full shared shell and all audited components, including sidebar, cards, tables, calendars, custom selects, notification surfaces, ticket forms/detail, and account screens.
+- Local browser verification was completed at 1280x720, device pixel ratio 1 (100% zoom), in both light and dark mode.
+- The live site was independently audited. Its routes load, but its deployed `assets/css/app.css` is older than the local baseline; production currently shows giant unsized SVGs and missing component layouts on several pages.
+- Required production upload for this pass: `app/layout.php`, `assets/css/app.css`, and `assets/css/ui-fixes.css`. No database migration is required.
+- Automated verification: PHP lint passed and `tests/regression.php` reports 122 passed, 0 failed.
+
+Last updated: 2026-08-31
+
+## Local, GitHub, and Live Sync Check (2026-09-01)
+
+- After `git fetch origin --prune`, local `HEAD` exactly matches GitHub `origin/main` at `a38c11981e3d30084bcfc4a31f3bb6a67c892b32`.
+- The working tree is dirty: 22 tracked files have local changes relative to `origin/main`, with additional untracked project files. Do not describe the local folder as fully synchronized with GitHub.
+- The current branch `codex/add-presenter-guide` is three commits ahead of its remote tracking branch; those commits are already represented by `origin/main`.
+- Live currently loads the cache-busted `app.css` and `ui-fixes.css` links and the Tickets page shows the uploaded shortened ticket labels. This confirms the deployed UI upload, not a byte-for-byte comparison of every live file to GitHub.
+
+Last updated: 2026-09-01
+
+## Live UI Upload Verification (2026-08-31)
+
+- The user uploaded the UI pass to cPanel. Live now serves the cache-busted stylesheet `app.css?v=20260831-ui-consistency-dark`.
+- Browser verification at normal 100% zoom/device pixel ratio 1 passed for 18 authenticated live routes in both themes, including Team Calendar, Team Attendance, Reports, Create Ticket, account screens, and ticket detail.
+- All available live sidebar routes loaded successfully. Dashboard's single large SVG is the expected chart; no other page retained the previously observed oversized icon/SVG problem.
+- No database migration is required for this UI consistency/dark-mode upload.
+
+Last updated: 2026-08-31
+
+## Production Upload Confirmation and Team Member Account Follow-up (2026-08-31)
+
+- The user confirmed that the latest cPanel upload was applied and that Team Calendar and Team Attendance are now working in production.
+- The supplied `CNG_Staff_List_updated.xlsx` contains 70 employee names and team labels plus 3 TL rows; it does not contain individual email addresses. The local `staff_directory` stores only the allowed email domain for those rows, so individual login emails must be entered from the real staff email list rather than inferred.
+- The next account-management task is to expose the 70 employee directory rows in the Super Admin Users page, accept exact emails, generate one-time temporary passwords, require a password change at first login, and scope Team Member ticket access to tickets they created.
+- Local implementation is complete for this task: `users.php` now provides the directory setup form, temporary credentials are kept in the Super Admin session and displayed once, Settings links to password change, migration `023_team_member_ticket_access.sql` grants Team Member ticket/create access, and Team Member native/external ticket visibility is restricted to tickets they created.
+- Migration `023` was applied to the local database. Local browser verification showed 70 directory rows, 68 editable rows because 2 exact-name accounts already exist, and a working Settings password form. PHP lint passed and `tests/regression.php` passed 116 checks with 0 failures.
+
+Last updated: 2026-08-31
+
+## Account Menu and Theme Settings (2026-08-31)
+
+- Settings is now accessed from the authenticated user's upper-right account button; it is no longer rendered as a sidebar item. The existing sidebar account/sign-out footer remains available.
+- `change-password.php` now uses the shared Settings page and includes browser-local Light/Dark theme controls alongside the password-change form. Theme selection is persisted in local browser storage; no database migration is required.
+- The sidebar navigation keeps internal scrolling available but hides the scrollbar at normal desktop widths, so the footer is not pushed out of view by the visible scrollbar.
+- The account menu supports keyboard focus, Escape-to-close, and outside-click closing. Local verification passed at 1280x720/device scale 1 (100% zoom): XAMPP PHP lint, JavaScript syntax check, browser interaction checks, and the regression harness (122 checks, 0 failures).
+
+Last updated: 2026-08-31
+
 ## UI Login Repair (2026-08-29)
 
 - The refreshed local `login.php` had a PHP parse error caused by a literal merge artifact in the file.
