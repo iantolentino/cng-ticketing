@@ -121,7 +121,7 @@ Last updated: 2026-08-29
 - Local authenticated pages now follow the Dashboard/Tickets spacing, control sizing, card, table, and typography patterns. Dashboard and Tickets light mode were retained as the reference.
 - Dark mode now themes the full shared shell and all audited components, including sidebar, cards, tables, calendars, custom selects, notification surfaces, ticket forms/detail, and account screens.
 - Local browser verification was completed at 1280x720, device pixel ratio 1 (100% zoom), in both light and dark mode.
-- The live site was independently audited. Its routes load, but its deployed `assets/css/app.css` is older than the local baseline; production currently shows giant unsized SVGs and missing component layouts on several pages.
+- The live site was independently audited before and after upload. After upload, it serves the current cache-busted baseline and the prior giant unsized SVG/missing-component-layout issues are gone.
 - Required production upload for this pass: `app/layout.php`, `assets/css/app.css`, and `assets/css/ui-fixes.css`. No database migration is required.
 - Automated verification: PHP lint passed and `tests/regression.php` reports 122 passed, 0 failed.
 
@@ -129,10 +129,9 @@ Last updated: 2026-08-31
 
 ## Local, GitHub, and Live Sync Check (2026-09-01)
 
-- After `git fetch origin --prune`, local `HEAD` exactly matches GitHub `origin/main` at `a38c11981e3d30084bcfc4a31f3bb6a67c892b32`.
-- The working tree is dirty: 22 tracked files have local changes relative to `origin/main`, with additional untracked project files. Do not describe the local folder as fully synchronized with GitHub.
-- The current branch `codex/add-presenter-guide` is three commits ahead of its remote tracking branch; those commits are already represented by `origin/main`.
-- Live currently loads the cache-busted `app.css` and `ui-fixes.css` links and the Tickets page shows the uploaded shortened ticket labels. This confirms the deployed UI upload, not a byte-for-byte comparison of every live file to GitHub.
+- After `git fetch origin --prune`, the synchronized application commit is `01cdb2d8b24f5bde557f1a53532bc04f3d267245`; local `HEAD`, GitHub `origin/main`, and `origin/codex/add-presenter-guide` all point to it.
+- All selected application changes are committed and pushed. Intentionally excluded untracked diagnostics, reset/seed utilities, generated reports, and local artifacts remain outside GitHub.
+- Live currently loads the cache-busted `app.css` and `ui-fixes.css` links and the Tickets page shows the uploaded shortened ticket labels. This confirms the deployed UI surface; cPanel remains a manual deployment target.
 
 Last updated: 2026-09-01
 

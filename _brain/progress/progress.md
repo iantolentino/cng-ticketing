@@ -114,10 +114,10 @@ Last updated: 2026-08-31
 
 ## Local, GitHub, and Live Sync Check (2026-09-01)
 
-- Local `HEAD` is `a38c11981e3d30084bcfc4a31f3bb6a67c892b32`, exactly matching GitHub `origin/main` after a fresh fetch.
-- The local working tree is not clean: 22 tracked files differ from `origin/main`, and additional untracked files exist. These working-tree changes are not in GitHub.
+- The synchronized application commit is now `01cdb2d8b24f5bde557f1a53532bc04f3d267245`, and both GitHub `origin/main` and `origin/codex/add-presenter-guide` point to it.
+- All selected application changes are committed and pushed. Only intentionally excluded untracked diagnostics, reset/seed utilities, generated reports, and local artifacts remain outside GitHub.
 - The live site serves the cache-busted `app.css` and `ui-fixes.css` uploaded on 2026-08-31; browser checks confirmed the current Tickets UI and shortened `#number` labels.
-- Live page behavior matches the uploaded local UI for the checked surface, but live cannot be declared byte-for-byte identical to GitHub while the current local changes remain uncommitted/unpushed.
+- Live page behavior matches the committed/uploaded application UI for the checked surface. cPanel is still a manual deployment and was not changed by the GitHub push.
 
 Last updated: 2026-09-01
 
