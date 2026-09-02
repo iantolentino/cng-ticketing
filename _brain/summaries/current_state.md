@@ -133,7 +133,7 @@ Last updated: 2026-08-31
 - All selected application changes are committed and pushed. Intentionally excluded untracked diagnostics, reset/seed utilities, generated reports, and local artifacts remain outside GitHub.
 - Live currently loads the cache-busted `app.css` and `ui-fixes.css` links and the Tickets page shows the uploaded shortened ticket labels. This confirms the deployed UI surface; cPanel remains a manual deployment target.
 - Live `health.php` currently reports `Database Healthy` and `SMTP Configured`, but also reports both private attachment directories as missing/not writable. It does not show the required-table/private-storage checks present in the committed repository `health.php`, so full live code parity is not confirmed.
-- The live database connection being healthy does not prove that all repository migrations, including `023_team_member_ticket_access.sql`, have been applied.
+- The live database connection being healthy does not prove that all repository migrations, including `023_team_member_ticket_access.sql`, have been applied. The user clarified on 2026-09-02 that the current migration/change set has not yet been uploaded/applied in cPanel.
 
 Last updated: 2026-09-01
 
@@ -153,7 +153,7 @@ Last updated: 2026-08-31
 - The next account-management task is to expose the 70 employee directory rows in the Super Admin Users page, accept exact emails, generate one-time temporary passwords, require a password change at first login, and scope Team Member ticket access to tickets they created.
 - Local implementation is complete for this task: `users.php` now provides the directory setup form, temporary credentials are kept in the Super Admin session and displayed once, Settings links to password change, migration `023_team_member_ticket_access.sql` grants Team Member ticket/create access, and Team Member native/external ticket visibility is restricted to tickets they created.
 - Migration `023` was applied to the local database. Local browser verification showed 70 directory rows, 68 editable rows because 2 exact-name accounts already exist, and a working Settings password form. PHP lint passed and `tests/regression.php` passed 116 checks with 0 failures.
-- The user subsequently confirmed that migration `023` was uploaded/applied in the cPanel production database; this is recorded as user-reported because direct production schema inspection was not performed.
+- The user clarified on 2026-09-02 that migration `023` and the current synchronized change set have not yet been uploaded/applied in the cPanel production database. Earlier production-upload notes are historical and superseded for this deployment set.
 
 Last updated: 2026-08-31
 
