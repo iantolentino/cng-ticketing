@@ -388,6 +388,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const accessRoleButtons = Array.from(document.querySelectorAll('[data-access-role-target]'));
+    const accessRolePanes = Array.from(document.querySelectorAll('[data-access-role-pane]'));
+    if (accessRoleButtons.length && accessRolePanes.length) {
+        const selectAccessRole = (target) => {
+            accessRoleButtons.forEach((button) => {
+                const selected = button.dataset.accessRoleTarget === target;
+                button.classList.toggle('is-selected', selected);
+                button.setAttribute('aria-pressed', selected ? 'true' : 'false');
+            });
+            accessRolePanes.forEach((pane) => {
+                pane.hidden = pane.dataset.accessRolePane !== target;
+            });
+        };
+
+        accessRoleButtons.forEach((button) => button.addEventListener('click', () => selectAccessRole(button.dataset.accessRoleTarget || '')));
+    }
+
     const departmentPickers = Array.from(document.querySelectorAll('[data-department-picker]'));
 
     const departmentSelection = (picker) => Array.from(picker.querySelectorAll('[data-department-option][aria-pressed="true"]'))
@@ -753,6 +770,38 @@ document.addEventListener('DOMContentLoaded', () => {
         closeButtons.forEach((button) => button.addEventListener('click', closeNotificationModal));
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && !notificationModal.hidden) closeNotificationModal();
+        });
+    }
+
+    const userDrawer = document.querySelector('[data-user-drawer]');
+    const userDrawerTrigger = document.querySelector('[data-user-drawer-trigger]');
+    const userDrawerScrim = document.querySelector('[data-user-drawer-scrim]');
+    if (userDrawer && userDrawerTrigger) {
+        const userDrawerCloseButtons = userDrawer.querySelectorAll('[data-user-drawer-close]');
+        let userDrawerReturnFocus = null;
+
+        const closeUserDrawer = () => {
+            userDrawer.hidden = true;
+            if (userDrawerScrim) userDrawerScrim.hidden = true;
+            document.body.classList.remove('user-drawer-open');
+            userDrawerTrigger.setAttribute('aria-expanded', 'false');
+            userDrawerReturnFocus?.focus();
+        };
+
+        const openUserDrawer = () => {
+            userDrawerReturnFocus = document.activeElement;
+            userDrawer.hidden = false;
+            if (userDrawerScrim) userDrawerScrim.hidden = false;
+            document.body.classList.add('user-drawer-open');
+            userDrawerTrigger.setAttribute('aria-expanded', 'true');
+            userDrawer.querySelector('input[name="full_name"]')?.focus();
+        };
+
+        userDrawerTrigger.addEventListener('click', openUserDrawer);
+        userDrawerScrim?.addEventListener('click', closeUserDrawer);
+        userDrawerCloseButtons.forEach((button) => button.addEventListener('click', closeUserDrawer));
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && !userDrawer.hidden) closeUserDrawer();
         });
     }
 });
