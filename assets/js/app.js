@@ -1,11 +1,13 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const rangeSegments = [
+    const dashboardRangeSegments = [
+        { value: 'all', label: 'ALL', fullLabel: 'All tickets' },
         { value: '7d', label: '7D', fullLabel: 'Last 7 days' },
         { value: '30d', label: '30D', fullLabel: 'Last 30 days' },
         { value: '3m', label: '3M', fullLabel: 'Last 3 months' },
         { value: '6m', label: '6M', fullLabel: 'Last 6 months' },
         { value: '1y', label: '1Y', fullLabel: 'Last 1 year' },
     ];
+    const trendRangeSegments = dashboardRangeSegments.filter((segment) => segment.value !== 'all');
 
     const buildRangeSegments = (form, picker, fieldName) => {
         const menu = picker.querySelector('[data-filter-menu]');
@@ -25,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
         control.setAttribute('role', 'tablist');
         control.setAttribute('aria-label', 'Date range');
 
+        const rangeSegments = fieldName === 'dashboard_range' ? dashboardRangeSegments : trendRangeSegments;
         rangeSegments.forEach((segment) => {
             const option = existing.get(segment.value) || document.createElement('button');
             option.type = 'button';
@@ -35,7 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
             option.setAttribute('role', 'tab');
             option.setAttribute('aria-label', segment.fullLabel);
             option.innerHTML = `<span>${segment.label}</span>`;
-            option.classList.toggle('is-selected', (activeValue || '7d') === segment.value);
+            const fallbackValue = fieldName === 'dashboard_range' ? 'all' : '6m';
+            option.classList.toggle('is-selected', (activeValue || fallbackValue) === segment.value);
             control.appendChild(option);
         });
 
@@ -60,6 +64,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 option.setAttribute('aria-selected', 'true');
                 const input = form.querySelector(`[name="${fieldName}"]`);
                 if (input) input.value = option.dataset.filterValue || '';
+                if (form.classList.contains('trend-filter-form')) {
+                    const grainInput = form.querySelector('[name="trend_grain"]');
+                    if (grainInput && ['7d', '30d'].includes(option.dataset.filterValue || '')) grainInput.value = 'daily';
+                }
                 if (form.dataset.preview !== 'true') form.submit();
             });
         });
@@ -322,6 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const menu = picker.querySelector('[data-filter-menu]');
         const label = picker.querySelector('[data-filter-label]');
         if (!trigger || !menu) return;
+        const associatedForm = () => picker.closest('form') || (picker.dataset.accessForm ? document.getElementById(picker.dataset.accessForm) : null);
 
         trigger.addEventListener('click', () => {
             const isOpen = picker.classList.contains('is-open');
@@ -345,7 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 menu.querySelectorAll('.filter-option').forEach((item) => item.classList.remove('is-selected'));
                 option.classList.add('is-selected');
 
-                const form = picker.closest('form');
+                const form = associatedForm();
                 const target = option.dataset.filterTarget;
                 if (form && target) {
                     const input = form.querySelector(`[name="${target}"]`);
@@ -382,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isActive = button.getAttribute('aria-pressed') !== 'true';
             button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             button.classList.toggle('is-on', isActive);
-            label.textContent = isActive ? 'Active' : 'Inactive';
+            label.textContent = isActive ? 'Enabled' : 'Disabled';
             if (isActive) input.name = 'is_active';
             else input.removeAttribute('name');
         });
@@ -741,35 +750,39 @@ document.addEventListener('DOMContentLoaded', () => {
     applyTheme(savedTheme, false);
     themeChoices.forEach((choice) => choice.addEventListener('click', () => applyTheme(choice.dataset.themeChoice)));
 
-    const notificationModal = document.querySelector('[data-notification-modal]');
-    const notificationTrigger = document.querySelector('[data-notification-modal-trigger]');
-    if (notificationModal && notificationTrigger) {
-        const notificationDialog = notificationModal.querySelector('.notification-modal-dialog');
-        const closeButtons = notificationModal.querySelectorAll('[data-notification-modal-close]');
+    const notificationPopover = document.querySelector('[data-notification-popover]');
+    const notificationTrigger = document.querySelector('[data-notification-popover-trigger]');
+    if (notificationPopover && notificationTrigger) {
+        const closeButton = notificationPopover.querySelector('[data-notification-popover-close]');
         let notificationReturnFocus = null;
 
-        const closeNotificationModal = () => {
-            notificationModal.hidden = true;
-            document.body.classList.remove('notification-modal-open');
+        const closeNotificationPopover = (restoreFocus = true) => {
+            notificationPopover.hidden = true;
             notificationTrigger.setAttribute('aria-expanded', 'false');
-            notificationReturnFocus?.focus();
+            if (restoreFocus) notificationReturnFocus?.focus();
         };
 
-        const openNotificationModal = () => {
+        const openNotificationPopover = () => {
             notificationReturnFocus = document.activeElement;
-            notificationModal.hidden = false;
-            document.body.classList.add('notification-modal-open');
+            notificationPopover.hidden = false;
             notificationTrigger.setAttribute('aria-expanded', 'true');
-            notificationDialog?.focus();
+            closeButton?.focus();
         };
 
         notificationTrigger.addEventListener('click', (event) => {
             event.preventDefault();
-            openNotificationModal();
+            if (notificationPopover.hidden) openNotificationPopover();
+            else closeNotificationPopover();
         });
-        closeButtons.forEach((button) => button.addEventListener('click', closeNotificationModal));
+        closeButton?.addEventListener('click', () => closeNotificationPopover());
+        document.addEventListener('click', (event) => {
+            if (!notificationPopover.hidden && !event.target.closest('[data-notification-popover], [data-notification-popover-trigger]')) closeNotificationPopover(false);
+        });
         document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && !notificationModal.hidden) closeNotificationModal();
+            if (event.key === 'Escape' && !notificationPopover.hidden) {
+                event.preventDefault();
+                closeNotificationPopover();
+            }
         });
     }
 

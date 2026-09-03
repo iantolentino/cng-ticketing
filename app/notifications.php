@@ -20,3 +20,11 @@ function active_user_ids_by_role(string $roleSlug): array
     $query->execute([$roleSlug]);
     return array_map('intval', $query->fetchAll(PDO::FETCH_COLUMN));
 }
+
+function notify_new_ticket(array $assigneeIds, int $actorId, string $ticketNumber, string $subject, int $ticketId): void
+{
+    $url = 'ticket.php?id=' . $ticketId;
+    notify_many($assigneeIds, $actorId, 'assignment', 'Ticket assigned: ' . $ticketNumber, $subject, $url);
+    $managementIds = array_merge(active_user_ids_by_role('management'), active_user_ids_by_role('super-admin'));
+    notify_many(array_diff($managementIds, $assigneeIds), $actorId, 'new_ticket', 'New ticket: ' . $ticketNumber, $subject, $url);
+}

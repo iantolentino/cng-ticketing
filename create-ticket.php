@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             sync_ticket_departments($id, $departmentSelection);
             sync_ticket_assignees($id, $assigneeIds);
             activity($id, $user['id'], 'created', ['ticket_number' => $number]);
-            notify_many($assigneeIds, (int) $user['id'], 'assignment', 'Ticket assigned: ' . $number, $values['subject'], 'ticket.php?id=' . $id);
+            notify_new_ticket($assigneeIds, (int) $user['id'], $number, $values['subject'], $id);
             $pdo->commit();
             notify_management('New ticket ' . $number, $values['subject']);
             redirect('ticket.php?id=' . $id);

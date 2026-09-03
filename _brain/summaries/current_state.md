@@ -116,6 +116,45 @@ Last updated: 2026-08-28
 
 Last updated: 2026-08-29
 
+## Post-upload UI verification and follow-up fixes (2026-09-03)
+
+- The latest live browser check found that the uploaded baseline is present but not fully synchronized with local: live serves the prior `20260903-dashboard-departments` asset version and its Recruitment sidebar link returns 404 because `recruitment.php` is absent from the live web root. The live health page also still serves the earlier reduced check list.
+- Local follow-up changes now make 7D/30D daily and visibly populated, improve the attendance staff picker, convert the Users setup to responsive cards, convert Recruitment to a two-column name-first editor, align Calendar Administration controls, fix health log column widths, and move Settings/Sign out into the clickable upper-right account menu while removing the sidebar footer and caret.
+- Local browser smoke testing covered every local sidebar route with no 404, blank page, or PHP error. Live smoke testing covered every existing live route with the single Recruitment 404 noted above. Local light/dark checks passed at normal 100% zoom; live follow-up visual verification is pending the user uploading the new commit.
+- `migrations/024_recruitment_directory.sql` remains a database dependency for Recruitment fields; the UI follow-up itself adds no migration.
+
+Last updated: 2026-09-03
+
+## Dashboard and Department External Ticket Fixes (2026-09-03)
+
+- Live browser verification found 580 tickets in the register but 523 in the dashboard; 57 external records use source-specific statuses outside the native four-status set.
+- `dashboard.php` now counts those records under `Other`, keeps the total complete, includes mapped departments in recent tickets, and preserves the existing 7D/30D controls. Browser checks confirmed 7D and 30D already returned distinct correct subsets on both local and live before this patch.
+- `app/external_tickets.php` maps `stratast_support` to IT Department, `stratast_escalations` to HR Department, `stratast_requisition` to Finance Department, and `stratast_wp346` to L&D.
+- `department-workload.php` now merges external tickets into department summaries and the ticket list; external rows link to namespaced read-only detail URLs, while native department logging remains editable as before.
+- `ticket.php` now shows a Back to tickets button for native and external detail pages and displays the mapped external department.
+- Local database currently has 581 native active tickets; the external source accounts on this PC still deny access, so local browser verification of live external rows remains deployment-dependent.
+- No database migration is required for this fix. Upload the changed application files after backing up the live site; do not upload `_brain` files.
+
+Last updated: 2026-09-03
+
+## Login Intro Panel Layout Fix (2026-09-03)
+
+- Local login now disables inherited auth-body centering and explicitly stretches the shell, giving `login.php` a full-height, flush-left blue intro panel instead of an inset centered box; the right-side sign-in card remains intact.
+- The change is limited to login markup/CSS and does not require a database migration or cPanel/GitHub update.
+- Browser verification passed locally at 1280x720 and 100% zoom.
+
+Last updated: 2026-09-03
+
+## Recruitment Directory (2026-09-03)
+
+- Local recruitment.php now lists all 73 active staff-directory rows and provides inline editing for hired_date, shift_schedule, is_in_training, and position_title.
+- Migration 024_recruitment_directory.sql adds those fields and the manage_recruitment permission, granted to Super Admin, Management, Team Leader, Department Head, and Pod Leader.
+- Team Member and CNG Admin are explicitly blocked server-side, including if a permission override is attempted.
+- Local migration 024 is applied. Local verification reports 73 staff rows, the expected five granted roles, PHP lint clean, and 129 regression checks passing.
+- cPanel must run migration 024 before uploading the new page and related files.
+
+Last updated: 2026-09-03
+
 ## UI consistency and dark mode status (2026-08-31)
 
 - Local authenticated pages now follow the Dashboard/Tickets spacing, control sizing, card, table, and typography patterns. Dashboard and Tickets light mode were retained as the reference.

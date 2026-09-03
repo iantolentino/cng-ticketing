@@ -37,14 +37,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/app.css">
+<link rel="stylesheet" href="assets/css/app.css?v=20260903-login-panel">
 </head>
 <body class="auth-page">
-<main class="auth-card">
+<main class="auth-shell">
+    <section class="auth-intro">
+        <p class="auth-eyebrow">CNG TICKETING</p>
+        <h1>Keep every request moving.</h1>
+        <p>Record, assign, and follow up on service requests from one clear workspace.</p>
+        <div class="auth-features"><span>Clear ownership</span><span>Progress updates</span><span>One shared record</span></div>
+    </section>
+    <section class="auth-card">
     <div class="auth-logos"><img class="auth-strata-logo" src="assets/stratastaff-logo.png" alt="Strata Staff Global"><span class="auth-logo-divider"></span><img class="auth-jamesons-logo" src="assets/jamesons-logo.svg" alt="Jamesons Strata Management"></div>
-    <p class="auth-kicker">CNG Ticketing</p>
-    <h1>Welcome back</h1>
-    <p class="page-subtitle">Sign in to manage tickets and team requests.</p>
+    <p class="auth-eyebrow">ACCOUNT ACCESS</p>
+    <h1>Sign in</h1>
+    <p class="page-subtitle">Access the CNG / Jamesons ticketing portal.</p>
     <?php if ($error): ?><p class="auth-error" role="alert"><?= e($error) ?></p><?php endif; ?>
     <form method="post">
         <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
@@ -53,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="auth-actions"><button class="button">Sign in</button><a class="button button-secondary" href="register.php">Register</a></div>
     </form>
     <p class="auth-footnote">Access is managed through your assigned role.</p>
+    </section>
 </main>
 </body>
 </html>

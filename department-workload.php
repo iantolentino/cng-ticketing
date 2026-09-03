@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/tickets.php';
+require __DIR__ . '/app/external_tickets.php';
 require __DIR__ . '/app/layout.php';
 
 $user = require_permission('view_all_tickets');
@@ -35,6 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $notice = ($_GET['notice'] ?? '') === 'departments_logged' ? 'Department log updated.' : '';
 $scopeParams = [];
 $scopeSql = ticket_scope_sql($user, $scopeParams);
+$externalResult = external_ticket_load_all($user);
 
 $summary = db()->prepare("SELECT d.id, d.name,
     COUNT(DISTINCT CASE WHEN t.department_id = d.id THEN t.id END) AS current_count,
@@ -48,6 +50,34 @@ $summary = db()->prepare("SELECT d.id, d.name,
     ORDER BY open_count DESC, involved_count DESC, d.name");
 $summary->execute($scopeParams);
 $departmentSummary = $summary->fetchAll();
+$departmentSummaryByName = [];
+foreach ($departmentSummary as $department) {
+    $departmentSummaryByName[(string) $department['name']] = $department;
+}
+foreach ($externalResult['tickets'] as $ticket) {
+    $departmentName = trim((string) ($ticket['department'] ?? '')) ?: 'External source';
+    if (!isset($departmentSummaryByName[$departmentName])) {
+        $departmentSummaryByName[$departmentName] = [
+            'id' => 0,
+            'name' => $departmentName,
+            'current_count' => 0,
+            'involved_count' => 0,
+            'open_count' => 0,
+            'overdue_count' => 0,
+        ];
+    }
+    $departmentSummaryByName[$departmentName]['current_count']++;
+    $departmentSummaryByName[$departmentName]['involved_count']++;
+    if (($ticket['status'] ?? '') !== 'closed') $departmentSummaryByName[$departmentName]['open_count']++;
+}
+$departmentSummary = array_values($departmentSummaryByName);
+usort($departmentSummary, static function (array $left, array $right): int {
+    $openComparison = (int) $right['open_count'] <=> (int) $left['open_count'];
+    if ($openComparison !== 0) return $openComparison;
+    $involvedComparison = (int) $right['involved_count'] <=> (int) $left['involved_count'];
+    if ($involvedComparison !== 0) return $involvedComparison;
+    return strcasecmp((string) ($left['name'] ?? ''), (string) ($right['name'] ?? ''));
+});
 
 $ticketParams = [];
 $ticketScopeSql = ticket_scope_sql($user, $ticketParams);
@@ -62,16 +92,29 @@ $ticketQuery = db()->prepare("SELECT t.id, t.ticket_number, t.subject, t.status,
     LEFT JOIN users a ON a.id = t.assignee_id
     WHERE t.deleted_at IS NULL $ticketScopeSql
     GROUP BY t.id, t.ticket_number, t.subject, t.status, t.department_id, d.name, a.full_name
-    ORDER BY FIELD(t.status,'open','in_progress','pending','closed'), t.updated_at DESC, t.id DESC
-    LIMIT 40");
+    ORDER BY FIELD(t.status,'open','in_progress','pending','closed'), t.updated_at DESC, t.id DESC");
 $ticketQuery->execute($ticketParams);
 $tickets = $ticketQuery->fetchAll();
+$tickets = array_merge($tickets, $externalResult['tickets']);
+usort($tickets, static function (array $left, array $right): int {
+    $leftTime = strtotime((string) ($left['sort_at'] ?? $left['updated_at'] ?? $left['created_at'] ?? '')) ?: 0;
+    $rightTime = strtotime((string) ($right['sort_at'] ?? $right['updated_at'] ?? $right['created_at'] ?? '')) ?: 0;
+    return ($rightTime <=> $leftTime) ?: ((int) ($right['id'] ?? 0) <=> (int) ($left['id'] ?? 0));
+});
+$tickets = array_slice($tickets, 0, 40);
+
+function department_ticket_url(array $ticket): string
+{
+    if (!empty($ticket['is_external'])) return 'ticket.php?external=' . rawurlencode((string) $ticket['external_key'] . ':' . (int) $ticket['external_id']);
+    return 'ticket.php?id=' . (int) ($ticket['id'] ?? 0);
+}
 
 page_start('Departments', $user);
 ?>
 <div class="departments-screen">
     <?php if ($notice): ?><p class="action-notice" role="status"><?= e($notice) ?></p><?php endif; ?>
     <?php if ($error): ?><p class="auth-error" role="alert"><?= e($error) ?></p><?php endif; ?>
+    <?php if ($externalResult['errors']): ?><p class="external-source-notice" role="status">Some external ticket sources are temporarily unavailable. Available tickets are still shown.</p><?php endif; ?>
     <section class="department-summary-panel" aria-labelledby="department-summary-title">
         <div class="department-section-head"><div><h2 id="department-summary-title">Department workload</h2><p>Open ticket activity across departments.</p></div><span class="department-section-count"><?= count($departmentSummary) ?> departments</span></div>
         <div class="department-metric-grid">
@@ -89,15 +132,16 @@ page_start('Departments', $user);
     <section class="department-ticket-panel" aria-labelledby="department-ticket-title">
         <div class="department-section-head"><div><h2 id="department-ticket-title">Ticket involvement</h2><p>Review routing and update supporting departments.</p></div><span class="department-section-count"><?= count($tickets) ?> tickets</span></div>
         <div class="table-wrap department-table-wrap"><table class="ticket-table department-table"><thead><tr><?php foreach (['ID', 'Title', 'Status', 'Current department', 'Departments involved', 'Assignees', 'Manage'] as $heading): ?><th><?= e($heading) ?></th><?php endforeach; ?></tr></thead><tbody>
-        <?php foreach ($tickets as $ticket): $selected = array_values(array_unique(array_map('intval', array_filter(explode(',', (string) $ticket['department_ids']))))); if (!in_array((int) $ticket['department_id'], $selected, true)) $selected[] = (int) $ticket['department_id']; $involvedNames = array_filter(array_map('trim', explode(',', (string) $ticket['departments']))); ?>
-            <tr data-ticket-href="ticket.php?id=<?= (int) $ticket['id'] ?>" tabindex="0" aria-label="Open <?= e($ticket['ticket_number']) ?>: <?= e($ticket['subject']) ?>">
-                <td class="ticket-id"><a href="ticket.php?id=<?= (int) $ticket['id'] ?>"><?= e(ticket_display_id($ticket)) ?></a></td>
-                <td class="subject"><a href="ticket.php?id=<?= (int) $ticket['id'] ?>"><?= e($ticket['subject']) ?></a><span class="ticket-row-meta"><?= e($ticket['current_department']) ?> · <?= e($ticket['assignees'] ?? 'Unassigned') ?></span></td>
-                <td><span class="pill pill-<?= e(str_replace('_', '-', $ticket['status'])) ?>"><?= e(ucwords(str_replace('_', ' ', $ticket['status']))) ?></span></td>
+        <?php foreach ($tickets as $ticket): $isExternal = !empty($ticket['is_external']); $ticketUrl = department_ticket_url($ticket); $currentDepartment = (string) ($ticket['department'] ?? $ticket['current_department'] ?? '-'); $ticket['current_department'] = $currentDepartment; $ticket['department_ids'] = $ticket['department_ids'] ?? ''; $ticket['department_id'] = (int) ($ticket['department_id'] ?? 0); $selected = array_values(array_unique(array_map('intval', array_filter(explode(',', (string) $ticket['department_ids']))))); if (!$isExternal && !in_array((int) $ticket['department_id'], $selected, true)) $selected[] = (int) $ticket['department_id']; $involvedNames = array_filter(array_map('trim', explode(',', (string) ($ticket['departments'] ?? $currentDepartment)))); $statusKey = (string) ($ticket['status'] ?? 'external'); $statusLabel = (string) ($ticket['status_label'] ?? ucwords(str_replace('_', ' ', $statusKey))); ?>
+            <tr data-ticket-href="<?= e($ticketUrl) ?>" tabindex="0" aria-label="Open <?= e($ticket['ticket_number']) ?>: <?= e($ticket['subject']) ?>">
+                <td class="ticket-id"><a href="<?= e($ticketUrl) ?>"><?= e(ticket_display_id($ticket)) ?></a></td>
+                <td class="subject"><a href="<?= e($ticketUrl) ?>"><?= e($ticket['subject']) ?></a><span class="ticket-row-meta"><?= e($ticket['current_department']) ?> &middot; <?= e($ticket['assignees'] ?? $ticket['agent'] ?? 'Unassigned') ?></span></td>
+                <td><span class="pill pill-<?= e(str_replace('_', '-', $statusKey)) ?>"><?= e($statusLabel) ?></span></td>
                 <td><span class="department-primary-chip"><?= e($ticket['current_department']) ?></span></td>
                 <td><div class="department-chip-list"><?php foreach ($involvedNames as $departmentName): ?><span><?= e($departmentName) ?></span><?php endforeach; ?></div></td>
                 <td class="department-assignee"><?= e($ticket['assignees'] ?? 'Unassigned') ?></td>
                 <td class="department-manage-cell">
+<?php if (!$isExternal): ?>
                     <form method="post" class="department-log-form" data-department-form>
                         <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
                         <input type="hidden" name="ticket_id" value="<?= (int) $ticket['id'] ?>">
@@ -113,6 +157,7 @@ page_start('Departments', $user);
                             </div>
                         </div>
                     </form>
+                    <?php else: ?><span class="muted department-external-note">External source &middot; Read-only</span><?php endif; ?>
                 </td>
             </tr>
         <?php endforeach; ?>

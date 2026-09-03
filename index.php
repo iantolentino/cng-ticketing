@@ -11,7 +11,7 @@ $statuses = ['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pen
 $departments = active_departments();
 $departmentIds = array_map('intval', array_column($departments, 'id'));
 $filters = [
-    'dashboard_range' => trim((string) ($_GET['dashboard_range'] ?? '7d')),
+    'dashboard_range' => trim((string) ($_GET['dashboard_range'] ?? 'all')),
     'dashboard_view' => trim((string) ($_GET['dashboard_view'] ?? '')),
     'status' => trim((string) ($_GET['status'] ?? '')),
     'priority' => trim((string) ($_GET['priority'] ?? '')),
@@ -23,9 +23,12 @@ $filters = [
     'date_to' => trim((string) ($_GET['date_to'] ?? '')),
 ];
 $dashboardRanges = [
+    'all' => ['All tickets', null],
     'today' => ['Today', 'Today'],
     '7d' => ['Last 7 days', '-6 days'],
     '30d' => ['Last 30 days', '-29 days'],
+    '3m' => ['Last 3 months', '-3 months'],
+    '6m' => ['Last 6 months', '-6 months'],
     '1y' => ['Last 1 year', '-1 year'],
 ];
 $dashboardViews = [
@@ -36,7 +39,7 @@ $dashboardViews = [
     'idle' => 'Idle watch',
     'unassigned' => 'Unassigned',
 ];
-if (!isset($dashboardRanges[$filters['dashboard_range']])) $filters['dashboard_range'] = '7d';
+if (!isset($dashboardRanges[$filters['dashboard_range']])) $filters['dashboard_range'] = 'all';
 if (!isset($dashboardViews[$filters['dashboard_view']])) $filters['dashboard_view'] = '';
 if (!isset($statuses[$filters['status']])) $filters['status'] = '';
 if (!isset(TICKET_PRIORITIES[$filters['priority']])) $filters['priority'] = '';
@@ -46,9 +49,11 @@ $subcategoryOptions = $filters['category'] ? TICKET_CATEGORIES[$filters['categor
 if (!in_array($filters['subcategory'], $subcategoryOptions, true)) $filters['subcategory'] = '';
 foreach (['date_from', 'date_to'] as $dateKey) if ($filters[$dateKey] && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters[$dateKey])) $filters[$dateKey] = '';
 
-$dashboardStart = $filters['dashboard_range'] === 'today'
-    ? date('Y-m-d 00:00:00')
-    : date('Y-m-d 00:00:00', strtotime($dashboardRanges[$filters['dashboard_range']][1]));
+$dashboardStart = $filters['dashboard_range'] === 'all'
+    ? '1970-01-01 00:00:00'
+    : ($filters['dashboard_range'] === 'today'
+        ? date('Y-m-d 00:00:00')
+        : date('Y-m-d 00:00:00', strtotime($dashboardRanges[$filters['dashboard_range']][1])));
 
 $where = ['t.deleted_at IS NULL'];
 $params = [];
@@ -67,9 +72,11 @@ if ($filters['search'] !== '') {
 }
 if ($filters['date_from'] !== '') { $where[] = 't.created_at >= :date_from'; $params['date_from'] = $filters['date_from'] . ' 00:00:00'; }
 if ($filters['date_to'] !== '') { $where[] = 't.created_at < DATE_ADD(:date_to, INTERVAL 1 DAY)'; $params['date_to'] = $filters['date_to']; }
+if ($filters['dashboard_range'] !== 'all') {
+    $where[] = 't.created_at >= :dashboard_start';
+    $params['dashboard_start'] = $dashboardStart;
+}
 if ($filters['dashboard_view'] !== '') {
-    $where[] = 't.created_at >= :dashboard_view_start';
-    $params['dashboard_view_start'] = $dashboardStart;
     if ($filters['dashboard_view'] === 'open_work') $where[] = "t.status IN ('open','in_progress','pending')";
     if ($filters['dashboard_view'] === 'urgent') $where[] = 't.status <> "closed" AND t.priority = "urgent"';
     if ($filters['dashboard_view'] === 'overdue') $where[] = 't.status <> "closed" AND TIMESTAMPDIFF(DAY,t.created_at,NOW()) >= COALESCE((SELECT open_days FROM sla_rules sr WHERE sr.priority=t.priority),7)';

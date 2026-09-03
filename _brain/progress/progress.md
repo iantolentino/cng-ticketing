@@ -101,6 +101,38 @@ Apply `migrations/004_multi_assignees_departments_cng_admin.sql`, updated `migra
 
 Last updated: 2026-08-05
 
+## Post-upload UI verification and follow-up fixes (2026-09-03)
+
+- Rechecked the authenticated live site and local site in the browser. All visible sidebar routes loaded on local; live also loaded every existing route except `recruitment.php`, which returned a real 404 even though its sidebar link is present.
+- Confirmed live is serving the previously uploaded cache-busted assets (`20260903-dashboard-departments`), not this follow-up pass. Live 7D/30D still rendered only one monthly `Aug 2026` chart bucket, the account menu still had only Settings, the sidebar footer was still present, and health still served the older reduced check set.
+- Fixed locally: 7D and 30D force daily chart buckets; attendance staff selection has a labeled, styled checkbox picker; Users setup is a responsive two-column card grid; Recruitment is a two-column name-first editor with an edit icon and preserved update POST flow; Calendar Administration uses shared control sizing; health log columns no longer overlap; and Settings/Sign out now live in the upper-right account menu with no sidebar footer or caret.
+- Browser verification passed locally at the available normal 100% viewport in light and dark themes. The local Recruitment editor opens its fields on employee-name click, and local sidebar smoke testing found no 404, blank page, or PHP error. Live requires the new changed files to be uploaded before these follow-up fixes can be rechecked there.
+- No database schema change was added by this follow-up. Migration `024_recruitment_directory.sql` remains required for the Recruitment data fields if not already applied in production.
+
+Last updated: 2026-09-03
+
+## Dashboard and Department External Ticket Fixes
+
+Completed locally on 2026-09-03 after checking live and local independently. Live contains 580 merged external tickets but the dashboard counted 523 because 57 source tickets use statuses outside the native four-status set; the dashboard now includes them under Other. External records now map support to IT Department, escalations to HR Department, requisition to Finance Department, and the training desk source to L&D. Departments now merges external records and keeps external rows read-only, while native department logging remains unchanged. Ticket detail pages now show Back to tickets. Local 7D and 30D dashboard controls were browser-tested and were already returning correct subsets; no separate range calculation change was necessary.
+
+The current task requires no database migration. cPanel must upload the changed application files and retain the existing server-local external connection configuration.
+
+Last updated: 2026-09-03
+
+## Login Intro Panel Layout Fix (2026-09-03)
+
+- Local login now disables inherited auth-body centering and explicitly stretches the shell, so the blue intro section is flush with the left/top/bottom viewport edges and fills the full-height left grid column; the sign-in card remains centered on the right.
+- Existing mobile login stacking and spacing rules remain unchanged.
+- Browser verification passed locally at 1280x720 and 100% zoom; no database migration, live deployment, or GitHub update was performed.
+
+Last updated: 2026-09-03
+
+## Recruitment Directory
+
+Added locally on 2026-09-03: recruitment.php displays all active staff-directory rows and allows hire date, shift schedule, training status, and position updates. Migration 024_recruitment_directory.sql adds the fields and manage_recruitment permission. Access is granted to Super Admin, Management, Team Leader, Department Head, and Pod Leader; Team Member and CNG Admin are explicitly denied.
+
+Last updated: 2026-09-03
+
 ## Site-wide UI consistency and dark theme pass
 
 - Audited all authenticated local application screens at 1280x720 and 100% browser zoom in light and dark themes, using Dashboard and Tickets as the light-mode reference.

@@ -26,7 +26,7 @@ function source_contains(string $relativePath, string $needle): bool
 }
 
 $requiredFiles = [
-    'login.php', 'forgot-password.php', 'reset-password.php', 'users.php',
+    'login.php', 'forgot-password.php', 'reset-password.php', 'users.php', 'recruitment.php',
     'deleted-tickets.php', 'restore-ticket.php', 'audit-log.php', 'dashboard.php',
     'index.php', 'ticket.php', 'bulk-tickets.php', 'calendar-admin.php',
     'import.php', 'reports.php', 'health.php', 'app/security.php', 'app/auth.php',
@@ -42,8 +42,8 @@ foreach ($migrationFiles as $file) {
     $migrationNumbers[] = (int) basename($file, '.sql');
 }
 sort($migrationNumbers);
-$expectedNumbers = range(2, 23);
-check($migrationNumbers === $expectedNumbers, 'migrations 002 through 023 are present without gaps');
+$expectedNumbers = range(2, 24);
+check($migrationNumbers === $expectedNumbers, 'migrations 002 through 024 are present without gaps');
 
 $migrationMarkers = [
     '011' => 'password_reset_tokens',
@@ -59,6 +59,7 @@ $migrationMarkers = [
     '021' => 'token_hash',
     '022' => 'staff_directory',
     '023' => 'team-member',
+    '024' => 'manage_recruitment',
 ];
 foreach ($migrationMarkers as $number => $marker) {
     $matches = glob($root . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . $number . '_*.sql') ?: [];
@@ -74,6 +75,7 @@ $authorizationChecks = [
     'deleted-tickets.php' => "role_slug'] ?? '') !== 'super-admin'",
     'restore-ticket.php' => "role_slug'] ?? '') !== 'super-admin'",
     'audit-log.php' => "role_slug'] ?? '') !== 'super-admin'",
+    'recruitment.php' => "user_can('manage_recruitment'",
     'calendar-admin.php' => 'Super Admin access required.',
     'health.php' => 'Super Admin access required.',
     'bulk-tickets.php' => "require_permission('bulk_ticket_actions'",
@@ -124,28 +126,41 @@ check(source_contains('team-attendance.php', "'half_day' => 'Half-day'"), 'atten
 check(source_contains('team-attendance.php', "action === 'update'"), 'attendance records support editing');
 check(source_contains('team-attendance.php', 'team_attendance_leave'), 'attendance saves multiple staff on leave');
 check(source_contains('team-attendance.php', 'staff-picker'), 'attendance provides a staff checkbox picker');
+check(source_contains('team-attendance.php', 'attendance-staff-field'), 'attendance staff picker has a labeled field wrapper');
 check(source_contains('team-calendar.php', 'leave_staff'), 'calendar displays staff on leave with attendance');
 check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'stratastaffglobal.com'), 'staff directory records TL email domain');
 check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'jamesons.com.au'), 'staff directory records employee email domain');
 check(source_contains('register.php', 'jamesons\\.com\\.au'), 'registration accepts Jamesons staff email domain');
 check(source_contains('register.php', 'stratastaffglobal\\.com'), 'registration accepts Strata Staff Global TL email domain');
 check(source_contains('users.php', "create_team_members"), 'Super Admin Users page provides bulk Team Member setup');
+check(source_contains('recruitment.php', 'hired_date'), 'Recruitment page provides hire dates');
+check(source_contains('recruitment.php', 'shift_schedule'), 'Recruitment page provides shift schedules');
+check(source_contains('recruitment.php', 'is_in_training'), 'Recruitment page provides training status');
+check(source_contains('recruitment.php', 'position_title'), 'Recruitment page provides positions');
+check(source_contains('recruitment.php', 'recruitment-card-grid'), 'Recruitment page uses the compact employee card grid');
+check(source_contains('recruitment.php', 'recruitment-edit-icon'), 'Recruitment page provides employee edit icons');
 check(source_contains('users.php', "team_member_credentials"), 'Team Member setup keeps temporary credentials in the Super Admin session only');
 check(source_contains('users.php', 'must_change_password'), 'Team Member setup forces a password change');
 check(source_contains('app/auth.php', 'require_non_team_member'), 'restricted workspace routes block Team Members');
 check(source_contains('app/layout.php', "'change-password.php'"), 'authenticated users have a Settings password-change link');
 check(source_contains('app/layout.php', 'data-account-menu-trigger'), 'authenticated users have an upper-right account menu trigger');
 check(source_contains('app/layout.php', 'data-account-menu'), 'the account menu exposes Settings');
+check(source_contains('app/layout.php', 'href="logout.php"'), 'the account menu exposes Sign out');
+check(!source_contains('app/layout.php', '<div class="sidebar-footer">'), 'the sidebar no longer renders the account footer');
 check(!source_contains('app/layout.php', "['settings', 'change-password.php'"), 'Settings is not rendered as a sidebar item');
 check(source_contains('change-password.php', 'data-theme-choice="dark"'), 'Settings provides a dark theme choice');
 check(source_contains('assets/js/app.js', 'cng-ticketing-theme'), 'theme selection uses browser-local persistence');
 check(source_contains('assets/css/ui-fixes.css', 'scrollbar-width:none'), 'sidebar scrollbar is visually hidden');
+check(source_contains('dashboard.php', "in_array(\$filters['trend_range'], ['7d', '30d']"), 'short dashboard trends use daily buckets');
+check(source_contains('health.php', 'health-log-table'), 'health log table has dedicated layout columns');
 check(is_file($root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'external_tickets.php'), 'external ticket adapters are present');
 check(is_file($root . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.external.example.php'), 'external credential template is present');
 check(source_contains('app/external_tickets.php', 'PDO::ATTR_EMULATE_PREPARES'), 'external connections disable emulated prepares');
 check(!preg_match('/\\b(?:INSERT|UPDATE|DELETE)\\b/i', (string) file_get_contents($root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'external_tickets.php')), 'external adapters contain no write SQL');
+check(source_contains('app/external_tickets.php', 'function external_department_label'), 'external sources have an explicit department mapping');
 check(source_contains('index.php', 'external_ticket_load_all'), 'ticket register merges external sources');
 check(source_contains('ticket.php', 'External tickets are read-only.'), 'external ticket detail blocks writes');
+check(source_contains('ticket.php', 'Back to tickets'), 'ticket detail provides a return link to the ticket register');
 check(source_contains('ticket.php', 'external_thread_body_html'), 'external conversation bodies use safe HTML formatting');
 check(source_contains('app/external_tickets.php', 'DOMDocument'), 'external conversation sanitizer parses HTML');
 check(source_contains('config/config.external.example.php', 'escalations.stratastaffglobal.com'), 'external source links are configurable');
@@ -159,6 +174,12 @@ check(external_source_url('stratast_escalations', []) === 'https://escalations.s
 check(external_source_url('stratast_support', []) === 'http://support.stratastaffglobal.com/', 'IT Department uses its configured source link');
 check(external_source_url('stratast_wp346', []) === 'https://learning.stratastaffglobal.com/', 'Learning uses its configured source link');
 check(external_source_url('stratast_requisition', []) === 'https://requisition.stratastaffglobal.com/', 'Requisition uses its configured source link');
+check(external_department_label('stratast_support') === 'IT Department', 'support tickets map to IT Department');
+check(external_department_label('stratast_escalations') === 'HR Department', 'escalation tickets map to HR Department');
+check(external_department_label('stratast_requisition') === 'Finance Department', 'requisition tickets map to Finance Department');
+check(external_department_label('stratast_wp346') === 'L&D', 'training desk tickets map to L&D');
+check(source_contains('dashboard.php', '$dashboardOtherStatusCount'), 'dashboard totals include external statuses outside the native four');
+check(source_contains('department-workload.php', 'external_ticket_load_all'), 'department workload includes external tickets');
 require_once $root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'tickets.php';
 $testDepartments = [['id' => 1, 'name' => 'R&M', 'code' => 'rm'], ['id' => 2, 'name' => 'Admin', 'code' => 'admin'], ['id' => 3, 'name' => 'Compliance', 'code' => 'compliance'], ['id' => 4, 'name' => 'Customer Care', 'code' => 'customer-care'], ['id' => 5, 'name' => 'Insurance', 'code' => 'insurance']];
 check(count(category_department_ids('Attendance', $testDepartments)) === 5, 'Attendance category selects all departments');

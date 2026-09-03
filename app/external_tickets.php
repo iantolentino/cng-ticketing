@@ -248,6 +248,16 @@ function external_priority_key(string $value): string
     return in_array($priority, ['low', 'normal', 'high', 'urgent'], true) ? $priority : 'external';
 }
 
+function external_department_label(string $sourceKey): string
+{
+    return [
+        'stratast_support' => 'IT Department',
+        'stratast_escalations' => 'HR Department',
+        'stratast_requisition' => 'Finance Department',
+        'stratast_wp346' => 'L&D',
+    ][$sourceKey] ?? 'External source';
+}
+
 function external_normalize_ticket(array $ticket, string $sourceKey): array
 {
     $id = (int) ($ticket['id'] ?? 0);
@@ -256,6 +266,7 @@ function external_normalize_ticket(array $ticket, string $sourceKey): array
     $statusLabel = trim((string) ($ticket['status'] ?? '')) ?: 'Unknown';
     $priorityLabel = trim((string) ($ticket['priority'] ?? '')) ?: 'N/A';
     $agent = trim((string) ($ticket['agent'] ?? '')) ?: null;
+    $department = external_department_label($sourceKey);
     return [
         'is_external' => true,
         'external_key' => $sourceKey,
@@ -276,8 +287,8 @@ function external_normalize_ticket(array $ticket, string $sourceKey): array
         'agent' => $agent,
         'assignees' => $agent ?: 'Unassigned',
         'employee_name' => trim((string) ($ticket['requester'] ?? '')) ?: '—',
-        'department' => '—',
-        'departments' => '—',
+        'department' => $department,
+        'departments' => $department,
         'issue_escalator' => '—',
         'description' => '',
         'resolution' => null,
@@ -361,8 +372,8 @@ function external_ticket_matches_filters(array $ticket, array $filters, string $
     }
     if ($filters['date_from'] !== '' && (!$ticket['created_at'] || $ticket['created_at'] < $filters['date_from'] . ' 00:00:00')) return false;
     if ($filters['date_to'] !== '' && (!$ticket['created_at'] || $ticket['created_at'] >= date('Y-m-d 00:00:00', strtotime($filters['date_to'] . ' +1 day')))) return false;
+    if (($filters['dashboard_range'] ?? 'all') !== 'all' && (!$ticket['created_at'] || $ticket['created_at'] < $dashboardStart)) return false;
     if ($filters['dashboard_view'] === '') return true;
-    if (!$ticket['created_at'] || $ticket['created_at'] < $dashboardStart) return false;
     return match ($filters['dashboard_view']) {
         'total' => true,
         'open_work' => $ticket['status'] !== 'closed',
