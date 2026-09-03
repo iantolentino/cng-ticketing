@@ -8,6 +8,10 @@ EXECUTION_MODE
 
 Deployment preparation and post-deployment stabilization; August 10–14 feature work is recorded, with existing-ticket migration planned for the following week.
 
+## Latest UI Change (2026-09-03)
+
+The Tickets page now places the existing bulk status/priority/soft-delete form beside the ticket filters in a compact, baseline-aligned card. Its endpoint, permissions, CSRF protection, confirmation, and field names are unchanged. Local browser verification passed at 1280x720 and 100% zoom. Upload `index.php`, `assets/css/ui-fixes.css`, and `app/layout.php` to cPanel; no database migration is required.
+
 ## Last Completed Task
 
 DEP-04 - One-time unused-production cleanup and Super Admin seed script

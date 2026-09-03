@@ -159,6 +159,9 @@ check(source_contains('app/external_tickets.php', 'PDO::ATTR_EMULATE_PREPARES'),
 check(!preg_match('/\\b(?:INSERT|UPDATE|DELETE)\\b/i', (string) file_get_contents($root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'external_tickets.php')), 'external adapters contain no write SQL');
 check(source_contains('app/external_tickets.php', 'function external_department_label'), 'external sources have an explicit department mapping');
 check(source_contains('index.php', 'external_ticket_load_all'), 'ticket register merges external sources');
+check(source_contains('index.php', 'tickets-control-grid'), 'ticket filters and bulk actions share a compact control layout');
+check(source_contains('index.php', 'class="bulk-actions-panel"'), 'bulk actions retain a dedicated compact panel');
+check(source_contains('assets/css/ui-fixes.css', 'bulk-actions-form'), 'bulk actions use compact baseline control sizing');
 check(source_contains('ticket.php', 'External tickets are read-only.'), 'external ticket detail blocks writes');
 check(source_contains('ticket.php', 'Back to tickets'), 'ticket detail provides a return link to the ticket register');
 check(source_contains('ticket.php', 'external_thread_body_html'), 'external conversation bodies use safe HTML formatting');

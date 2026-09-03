@@ -97,9 +97,9 @@ function page_start(string $title, ?array $user = null): void
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/app.css?v=20260903-feedback-pass">
-    <link rel="stylesheet" href="assets/css/ui-fixes.css?v=20260903-feedback-pass">
-    <script src="assets/js/app.js?v=20260903-feedback-pass" defer></script>
+    <link rel="stylesheet" href="assets/css/app.css?v=20260903-bulk-actions">
+    <link rel="stylesheet" href="assets/css/ui-fixes.css?v=20260903-bulk-actions">
+    <script src="assets/js/app.js?v=20260903-bulk-actions" defer></script>
 </head>
 <body class="<?= e($pageClasses[$page] ?? '') ?>">
 <a class="skip-link" href="#main-content">Skip to main content</a>

@@ -1,5 +1,14 @@
 # Progress
 
+## Ticket Bulk Actions Toolbar (2026-09-03)
+
+- Moved the existing permission-protected bulk ticket form beside the Tickets filter panel and gave it a compact card layout matching the current ticket controls.
+- Preserved the existing POST route, CSRF token, confirmation prompt, field names, permissions, and backend behavior. The controls stack responsively below the filters on smaller screens.
+- Local browser verification passed at 1280x720 and 100% zoom; the rendered bulk card is 300px wide and 220px high instead of the prior 953px-wide, 366px-high section after pagination.
+- No database migration or live-site upload was performed for this UI-only change.
+
+Last updated: 2026-09-03
+
 ## MVP Status
 
 **Deployed and in use** — local and live production checks passed on 2026-07-25.

@@ -58,6 +58,7 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F033 | Live external totals and department workload were incomplete | WEB | The dashboard counted only four recognized external statuses (523 of 580), external records had no department mapping, and Departments queried only the empty native-ticket store. | inline | 2026-09-03 | FIXED |
 | F034 | Login intro panel was inset instead of full-width | WEB | The auth body retained grid centering, so the auto-sized auth shell stayed inset at wide viewports. | inline | 2026-09-03 | FIXED |
 | F035 | Supporting screens and short dashboard trends remained difficult to use | WEB/UI | Short ranges kept monthly chart buckets, the live Recruitment link lacked its page file, and supporting screens retained compressed controls and account actions. | inline | 2026-09-03 | FIXED |
+| F036 | Bulk actions panel was oversized and isolated | UI | The bulk form rendered after pagination as an unstyled full-width section instead of sharing the compact ticket-filter toolbar layout. | inline | 2026-09-03 | FIXED |
 
 ---
 
