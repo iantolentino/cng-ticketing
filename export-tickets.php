@@ -14,7 +14,7 @@ $statuses = ['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pen
 $departments = active_departments();
 $departmentIds = array_map('intval', array_column($departments, 'id'));
 $filters = [];
-foreach (['dashboard_range', 'dashboard_view', 'status', 'priority', 'department', 'category', 'subcategory', 'search', 'date_from', 'date_to'] as $key) {
+foreach (['dashboard_range', 'dashboard_view', 'scope', 'status', 'priority', 'department', 'category', 'subcategory', 'search', 'date_from', 'date_to'] as $key) {
     $filters[$key] = trim(request_string($_GET, $key));
 }
 $dashboardRanges = [
@@ -29,6 +29,7 @@ $dashboardRanges = [
 $dashboardViews = ['total', 'open_work', 'urgent', 'overdue', 'idle', 'unassigned'];
 if (!isset($dashboardRanges[$filters['dashboard_range']])) $filters['dashboard_range'] = 'all';
 if (!in_array($filters['dashboard_view'], $dashboardViews, true)) $filters['dashboard_view'] = '';
+if (!in_array($filters['scope'], ['', 'mine'], true)) $filters['scope'] = '';
 if (!isset($statuses[$filters['status']])) $filters['status'] = '';
 if (!isset(TICKET_PRIORITIES[$filters['priority']])) $filters['priority'] = '';
 if (!ctype_digit($filters['department']) || !in_array((int) $filters['department'], $departmentIds, true)) $filters['department'] = '';
@@ -72,7 +73,7 @@ if ($filters['dashboard_view'] !== '') {
     if ($filters['dashboard_view'] === 'idle') $where[] = 't.status <> "closed" AND t.updated_at < DATE_SUB(NOW(), INTERVAL 3 DAY) AND t.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
     if ($filters['dashboard_view'] === 'unassigned') $where[] = 't.assignee_id IS NULL AND NOT EXISTS (SELECT 1 FROM ticket_assignees ta_view WHERE ta_view.ticket_id = t.id)';
 }
-$whereSql = implode(' AND ', $where) . ticket_scope_sql($user, $params);
+$whereSql = implode(' AND ', $where) . ticket_scope_sql($user, $params, $filters['scope']);
 
 $stmt = db()->prepare("SELECT t.*, d.name department,
     COALESCE((SELECT GROUP_CONCAT(DISTINCT dep.name ORDER BY dep.name SEPARATOR ', ') FROM ticket_departments td JOIN departments dep ON dep.id = td.department_id WHERE td.ticket_id = t.id), d.name) AS departments,
@@ -85,7 +86,7 @@ $stmt = db()->prepare("SELECT t.*, d.name department,
 $stmt->execute($params);
 $nativeTickets = $stmt->fetchAll();
 $externalResult = external_ticket_load_all($user);
-$externalTickets = array_values(array_filter($externalResult['tickets'], static fn(array $ticket): bool => external_ticket_matches_filters($ticket, $filters, $dashboardStart)));
+$externalTickets = array_values(array_filter($externalResult['tickets'], static fn(array $ticket): bool => external_ticket_matches_filters($ticket, $filters, $dashboardStart, $user)));
 $tickets = array_merge($nativeTickets, $externalTickets);
 usort($tickets, static function (array $left, array $right): int {
     $leftTime = strtotime((string) ($left['sort_at'] ?? $left['updated_at'] ?? $left['created_at'] ?? '')) ?: 0;

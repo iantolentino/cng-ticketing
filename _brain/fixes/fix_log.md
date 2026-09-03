@@ -60,6 +60,16 @@ Status: `FIXED` | `WORKAROUND` (not a real fix, revisit) | `SUPERSEDED` (see lin
 | F035 | Supporting screens and short dashboard trends remained difficult to use | WEB/UI | Short ranges kept monthly chart buckets, the live Recruitment link lacked its page file, and supporting screens retained compressed controls and account actions. | inline | 2026-09-03 | FIXED |
 | F036 | Bulk actions panel was oversized and isolated | UI | The bulk form rendered after pagination as an unstyled full-width section instead of sharing the compact ticket-filter toolbar layout. | inline | 2026-09-03 | FIXED |
 | F037 | Supporting pages showed redundant headings and transient source warnings | UI | Several pages duplicated the page title in the content area, and external adapter failures were surfaced as non-actionable banners above the usable data. | inline | 2026-09-03 | FIXED |
+| F038 | Login card contained redundant copy and an undersized brand mark | UI | The login card rendered three nonessential helper texts and constrained the Strata Staff logo below the Jamesons logo's visual height. | inline | 2026-09-03 | FIXED |
+| F039 | Ticket detail return action lacked the shared arrow treatment | UI | Both native and external ticket detail pages had a text-only return link even though the shared button system already supports inline vector icons. | inline | 2026-09-03 | FIXED |
+| F040 | Bulk actions were separate from the ticket filters | UI | The bulk form rendered as a separate side panel; moving it inline initially risked invalid nested forms. | inline | 2026-09-03 | FIXED |
+| F041 | Ticket detail SLA summary touched the action buttons | UI | `.sla-summary` had top spacing but no bottom spacing, so the following `.page-actions` row started immediately after it. | inline | 2026-09-03 | FIXED |
+| F042 | Bulk actions required manual single-ID entry | UI | The register had no row-selection controls, so the existing array-capable bulk endpoint was difficult to use for multiple visible tickets. | inline | 2026-09-03 | FIXED |
+| F043 | Bulk selection controls were always visible | UI | Row checkboxes were rendered in the ticket ID cell even when the bulk-actions menu was closed. | inline | 2026-09-03 | FIXED |
+| F044 | Ticket numbers were present but visually collapsed | UI | The flex-based ID cell allowed its link to shrink to 0px after the row-selection checkbox was added. | inline | 2026-09-03 | FIXED |
+| F045 | Ticket ID column was too narrow in bulk mode | UI | The fixed ticket table allocated only 5% to the ID column, leaving insufficient room for both the checkbox and the visible numeric label. | inline | 2026-09-03 | FIXED |
+| F046 | Ticket ID cell bypassed table column sizing | UI | Applying `display:flex` directly to the table cell caused the ID cell to collapse independently of the table's column-width rules. | inline | 2026-09-03 | FIXED |
+| F047 | Mine scope redirected away from the Tickets page | UX | The ownership control linked directly to `my-work.php`, creating a separate workflow instead of applying an ownership filter to the current ticket register. | inline | 2026-09-03 | FIXED |
 
 ---
 

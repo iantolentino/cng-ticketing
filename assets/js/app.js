@@ -687,6 +687,51 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const bulkActions = document.querySelector('[data-bulk-actions]');
+    if (bulkActions) {
+        const syncBulkSelectionMode = () => {
+            document.body.classList.toggle('bulk-selection-mode', bulkActions.open);
+        };
+        const selectedInputs = bulkActions.querySelector('[data-bulk-selected-inputs]');
+        const selectionCount = bulkActions.querySelector('[data-bulk-selection-count]');
+        const selectVisible = bulkActions.querySelector('[data-bulk-select-visible]');
+        const clearSelection = bulkActions.querySelector('[data-bulk-clear-selection]');
+        const ticketCheckboxes = Array.from(document.querySelectorAll('[data-bulk-ticket-checkbox]'));
+        const syncSelectedInputs = (selected) => {
+            if (!selectedInputs) return;
+            selectedInputs.replaceChildren(...selected.map((checkbox) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'ticket_ids[]';
+                input.value = checkbox.value;
+                return input;
+            }));
+        };
+        const updateSelectionState = (message = '') => {
+            const selected = ticketCheckboxes.filter((checkbox) => checkbox.checked);
+            syncSelectedInputs(selected);
+            if (selectionCount) {
+                selectionCount.textContent = message || `${selected.length} selected`;
+                selectionCount.classList.toggle('is-error', Boolean(message));
+            }
+            if (selectVisible) selectVisible.disabled = !ticketCheckboxes.length;
+            if (clearSelection) clearSelection.disabled = !selected.length;
+        };
+
+        bulkActions.addEventListener('toggle', syncBulkSelectionMode);
+        syncBulkSelectionMode();
+        ticketCheckboxes.forEach((checkbox) => checkbox.addEventListener('change', () => updateSelectionState()));
+        selectVisible?.addEventListener('click', () => {
+            ticketCheckboxes.forEach((checkbox) => { checkbox.checked = true; });
+            updateSelectionState();
+        });
+        clearSelection?.addEventListener('click', () => {
+            ticketCheckboxes.forEach((checkbox) => { checkbox.checked = false; });
+            updateSelectionState();
+        });
+        updateSelectionState();
+    }
+
     const accountMenu = document.querySelector('[data-account-menu]');
     const accountMenuTrigger = document.querySelector('[data-account-menu-trigger]');
     if (accountMenu && accountMenuTrigger) {

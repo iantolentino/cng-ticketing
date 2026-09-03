@@ -360,12 +360,17 @@ function external_ticket_thread(string $sourceKey, int $ticketId): array
     return $threadFunction(external_connection($source), $source, $ticketId);
 }
 
-function external_ticket_matches_filters(array $ticket, array $filters, string $dashboardStart): bool
+function external_ticket_matches_filters(array $ticket, array $filters, string $dashboardStart, array $user = []): bool
 {
     if ($filters['status'] !== '' && $ticket['status'] !== $filters['status']) return false;
     if ($filters['priority'] !== '' && $ticket['priority'] !== $filters['priority']) return false;
     if ($filters['department'] !== '' || $filters['subcategory'] !== '') return false;
     if ($filters['category'] !== '' && strcasecmp((string) $ticket['category'], $filters['category']) !== 0) return false;
+    if (($filters['scope'] ?? '') === 'mine') {
+        $agent = strtolower(trim((string) ($ticket['agent'] ?? '')));
+        $name = strtolower(trim((string) ($user['full_name'] ?? '')));
+        if ($agent === '' || $name === '' || !str_contains($agent, $name)) return false;
+    }
     if ($filters['search'] !== '') {
         $haystack = implode(' ', [$ticket['ticket_number'], $ticket['source'], $ticket['requester'], $ticket['email'], $ticket['subject'], $ticket['status_label'], $ticket['priority_label'], $ticket['category'], (string) ($ticket['agent'] ?? '')]);
         if (stripos($haystack, $filters['search']) === false) return false;

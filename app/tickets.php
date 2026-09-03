@@ -51,13 +51,13 @@ function sync_ticket_departments(int $ticketId, array $departmentIds): void {
     $insert = db()->prepare('INSERT INTO ticket_departments(ticket_id,department_id) VALUES(?,?)');
     foreach ($departmentIds as $departmentId) $insert->execute([$ticketId, $departmentId]);
 }
-function ticket_scope_sql(array $user, array &$params): string {
+function ticket_scope_sql(array $user, array &$params, string $scope = ''): string {
     $role = (string) ($user['role_slug'] ?? '');
     if ($role === 'team-member') {
         $params['scope_user_id'] = (int) $user['id'];
         return ' AND t.created_by = :scope_user_id';
     }
-    if ($role !== 'team-leader') return '';
+    if ($role !== 'team-leader' && $scope !== 'mine') return '';
     $params['scope_user_id'] = (int) $user['id'];
     $params['scope_user_id_pivot'] = (int) $user['id'];
     return ' AND (t.assignee_id = :scope_user_id OR EXISTS (SELECT 1 FROM ticket_assignees tas WHERE tas.ticket_id = t.id AND tas.user_id = :scope_user_id_pivot))';

@@ -8,6 +8,60 @@
 
 Last updated: 2026-09-03
 
+## Latest Task — Preserve table sizing for ticket IDs (2026-09-03)
+
+- Restored the ticket ID cell to normal table-cell layout and aligned the optional checkbox and visible ID link inline.
+- The existing `#13` label and `ticket.php?id=13` href remain unchanged.
+- Verified locally in the browser with Bulk actions open; the checkbox and full ticket number render together.
+- No database change was made.
+
+Last updated: 2026-09-03
+
+## cPanel Upload Package Prepared (2026-09-03)
+
+- Prepared `C:\xampp\htdocs\cng-ticketing-cpanel-upload-2026-09-03` outside the web root.
+- The application package contains 29 current production PHP/CSS/JS files, preserving their relative paths.
+- The separate database package contains migrations `023_team_member_ticket_access.sql` and `024_recruitment_directory.sql`; run them in phpMyAdmin only if those production changes are not already present.
+- Excluded local configuration, credentials, tests, `_brain` notes, reports, generated dependencies, `database/schema.sql`, and one-time utilities.
+
+Last updated: 2026-09-03
+
+## Latest Task — Keep ticket IDs readable in bulk mode (2026-09-03)
+
+- Increased the ticket-list ID column to 7% and reduced the title column to 12% so the visible numeric label and optional selection checkbox fit together.
+- Kept ticket ID values, display formatting, and detail-page URLs unchanged.
+- Verified locally in the browser at normal zoom with Bulk actions open; `#13` remained readable and linked to `ticket.php?id=13`.
+- No database change was made.
+
+Last updated: 2026-09-03
+
+## Latest Task — Restore visible ticket numbers (2026-09-03)
+
+- Kept the existing clickable ticket-number labels and URLs unchanged.
+- Added a compact minimum width to the ID link so labels such as `#13` cannot collapse when the bulk checkbox is present in the same cell.
+- Verified locally at normal zoom with Bulk actions closed and after selection mode is opened.
+- No database change was made.
+
+Last updated: 2026-09-03
+
+## Latest Task — Bulk selection mode (2026-09-03)
+
+- Kept displayed ticket numbers visible in the ticket ID column.
+- Bulk row selection controls now appear only while the Bulk actions menu is open.
+- Existing selected-ID sync, endpoint, CSRF, permission, and native/external behavior were preserved.
+- Verified the local browser: ticket number visible before/after opening, checkboxes hidden/visible at the correct states, selection controls still work, and no browser errors were reported.
+- No database change was made.
+
+Last updated: 2026-09-03
+
+## Ticket Detail Return Action (2026-09-03)
+
+- Added the existing shared arrow SVG treatment to the native and external `Back to tickets` links in `ticket.php`; both links still target `index.php`.
+- Browser verification found the return link on local native ticket `id=593` and live external ticket `stratast_escalations:514`; live rendered the external conversation successfully.
+- Local external conversation loading is blocked by server-local database connection failures (support code 1044; escalations, Learning, and Requisition code 1045), not by removed conversation code. No database change was made.
+
+Last updated: 2026-09-03
+
 ## Ticket Bulk Actions Toolbar (2026-09-03)
 
 - Moved the existing permission-protected bulk ticket form beside the Tickets filter panel and gave it a compact card layout matching the current ticket controls.
@@ -117,6 +171,24 @@ The live MVP includes authentication, database-driven access control, ticket cre
 Apply `migrations/004_multi_assignees_departments_cng_admin.sql`, updated `migrations/005_future_foundation_alignment.sql`, `migrations/006_calendar_events_and_public_holidays.sql`, `migrations/007_leave_attachments_calendar_details.sql`, `migrations/008_ticket_priority.sql`, `migrations/009_notifications.sql`, and `migrations/010_team_attendance.sql` before deploying this feature set. Upload the new UI files `dashboard.php`, `notifications.php`, `team-calendar.php`, `team-attendance.php`, `leave-requests.php`, `department-workload.php`, `download-attachment.php`, `download-leave-attachment.php`, `app/notifications.php`, and `storage/private/.htaccess` with the changed PHP/CSS files.
 
 Last updated: 2026-08-05
+
+## Latest Task — Bulk actions toolbar placement (2026-09-03)
+
+- Moved the existing bulk-ticket POST form into a compact kebab/details control in the ticket filter toolbar, above the ticket list.
+- Preserved the existing endpoint, CSRF protection, ticket IDs, action/status/priority fields, and submit behavior; no database changes were made.
+- Added responsive horizontal styling and reserved toolbar space so the date filter and bulk-action trigger do not overlap at the local browser viewport.
+- Verified with PHP lint, regression tests, `git diff --check`, and the local browser: menu opens/closes, form is valid, and no browser errors were reported.
+
+Last updated: 2026-09-03
+
+## Login Card Cleanup (2026-09-03)
+
+- Removed the redundant `ACCOUNT ACCESS`, portal subtitle, and role footnote from the login card while preserving the sign-in form, Register action, accessibility labels, and the full-height intro panel.
+- Increased the existing Strata Staff logo rendering to 122x28px so its visual height aligns with the existing Jamesons logo without changing either asset.
+- Browser verification passed locally at 1280x720, DPR 1 (100% zoom): targeted copy is absent, both logos render, and the form/actions remain available.
+- PHP lint and `tests/regression.php` passed with 160 checks; no database or migration change is required.
+
+Last updated: 2026-09-03
 
 ## Post-upload UI verification and follow-up fixes (2026-09-03)
 
@@ -261,3 +333,42 @@ Priority order:
 Pagination already exists in the current ticket register. `SRCH-01` therefore focuses on indexed search and ensuring pagination remains performant as data grows.
 
 Last updated: 2026-08-05
+
+## Latest Task — Ticket detail SLA spacing (2026-09-03)
+
+- Added a 12px bottom margin to the shared ticket-detail SLA summary so the action buttons have clear separation.
+- Updated the shared asset version in `app/layout.php` to ensure the stylesheet refreshes after deployment.
+- Verified the local ticket detail page at normal zoom: measured 12px gap, screenshot confirmed the spacing, and no browser errors were reported.
+- No database change was made.
+
+Last updated: 2026-09-03
+
+## Latest Task — Usable bulk ticket selection (2026-09-03)
+
+- Added native-ticket row checkboxes and a compact selection count to the existing bulk-actions menu.
+- Added Select visible and Clear controls; selected IDs synchronize into the existing `ticket_ids[]` POST fields.
+- Kept manual numeric ID entry, the existing `bulk-tickets.php` endpoint, CSRF protection, permissions, and external-ticket read-only behavior unchanged.
+- Verified locally at normal zoom: one-row selection, 10-row visible selection, clearing, menu interaction, endpoint/CSRF presence, PHP/JavaScript syntax, 166 regression checks, and no browser errors.
+- No database change was made.
+
+Last updated: 2026-09-03
+
+## Latest Task — In-place Mine filter and calendar review (2026-09-03)
+
+- Mine now stays on the Tickets page and applies `scope=mine`; All and Unassigned remain in the same filter control.
+- Non-Team-Member users are filtered to tickets assigned directly or through the assignee pivot; Team Members retain their created-by visibility rule.
+- External ticket matching and exports preserve the Mine scope where applicable.
+- Removed only the My Work sidebar item; `my-work.php` remains available for old bookmarks and direct access.
+- Reviewed Calendar Team Calendar versus Calendar Administration: Team Calendar creates entries, while Calendar Administration remains necessary for Super Admin edit/delete controls. No calendar route was removed.
+- Local browser navigation and route checks passed; no database change was made.
+
+Last updated: 2026-09-03
+
+## cPanel Upload Confirmation (2026-09-04)
+
+- User confirmed that the current application files were uploaded to cPanel and the live site is working.
+- The previous live verification covered login/logout, all 12 sidebar routes, direct application routes, Mine filtering, shortened ticket IDs, departments, ticket detail conversations, settings, calendar, attendance, recruitment, reports, and system health.
+- The live shared `app.css`, `ui-fixes.css`, and `app.js` files matched the local working files byte-for-byte during verification.
+- No additional database migration is required for the current UI and in-place Mine-filter change.
+
+Last updated: 2026-09-04

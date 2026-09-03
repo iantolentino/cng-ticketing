@@ -124,6 +124,84 @@ Last updated: 2026-08-28
 
 Last updated: 2026-08-29
 
+## Bulk Actions Toolbar Update (2026-09-03)
+
+- `index.php` now places bulk actions in the ticket filter toolbar via a compact kebab/details trigger above the ticket list.
+- `assets/css/ui-fixes.css` supplies the compact horizontal form, desktop spacing reservation, and responsive fallback.
+- `app/layout.php` cache-busts the shared CSS/JS asset URLs for deployment.
+- Browser verification at the local 1237×912 viewport confirmed no filter overlap, valid POST form action `bulk-tickets.php`, CSRF presence, open/close behavior, and no console errors.
+- No database migration/update is required. Current task change was not committed or pushed.
+
+Files for this task's cPanel upload: `index.php`, `assets/css/ui-fixes.css`, and `app/layout.php`.
+
+Last updated: 2026-09-03
+
+## Ticket ID Table Layout (2026-09-03)
+
+- `assets/css/ui-fixes.css` keeps `.ticket-id` as a normal table cell so the 7% ID-column width applies; checkbox and ID link are inline-aligned.
+- Ticket IDs remain visible and clickable, with no database or URL changes.
+- `app/layout.php` uses a new asset version so the corrected stylesheet is fetched after cPanel upload.
+- No database update is required. Upload `assets/css/ui-fixes.css` and `app/layout.php` for this follow-up.
+
+Last updated: 2026-09-03
+
+## Readable Ticket IDs in Bulk Mode (2026-09-03)
+
+- `assets/css/ui-fixes.css` reserves 7% for the ticket ID column and 12% for the title column, leaving room for the optional checkbox and visible numeric ID.
+- Ticket ID links keep their existing display labels and hrefs.
+- No database update is required. Upload `assets/css/ui-fixes.css` and `app/layout.php` for this follow-up.
+
+Last updated: 2026-09-03
+
+## Ticket Number Visibility (2026-09-03)
+
+- `assets/css/ui-fixes.css` gives `.tickets-screen .ticket-id a` an 18px minimum width so visible labels such as `#13` cannot collapse inside the flex ID cell.
+- Ticket numbers remain display-only labels; existing hrefs and ticket lookups are unchanged.
+- No database update is required. Upload `assets/css/ui-fixes.css` and `app/layout.php` for this follow-up.
+
+Last updated: 2026-09-03
+
+## Bulk Selection Mode (2026-09-03)
+
+- `index.php` keeps ticket number links visible and leaves row-selection checkboxes in the DOM for bulk mode.
+- `assets/js/app.js` toggles `bulk-selection-mode` on the body from the details menu state.
+- `assets/css/ui-fixes.css` hides row checkboxes by default and shows them only when bulk mode is active.
+- No database update is required. Upload `index.php`, `assets/js/app.js`, `assets/css/ui-fixes.css`, and `app/layout.php`.
+
+Last updated: 2026-09-03
+
+## cPanel Upload Package (2026-09-03)
+
+- Prepared outside the web root: `C:\xampp\htdocs\cng-ticketing-cpanel-upload-2026-09-03`.
+- `cng-ticketing-application-update-2026-09-03.zip` contains the 29 application files needed for the current update.
+- `cng-ticketing-migrations-2026-09-03.zip` contains migrations 023 and 024 separately for conditional phpMyAdmin execution.
+- The package does not include server-local config, credentials, database/schema.sql, internal notes, tests, reports, or generated dependencies.
+
+Last updated: 2026-09-03
+
+## Login Card Cleanup (2026-09-03)
+
+- `login.php` now keeps the existing two-column auth layout and removes only the right-card eyebrow, portal subtitle, and role footnote requested by the user.
+- `assets/css/app.css` now gives `.auth-strata-logo` an explicit 122px width and 28px maximum height; the existing Jamesons logo remains at its current size.
+- `login.php` cache-busts the auth stylesheet as `20260903-login-cleanup`.
+- Local browser verification passed at 1280x720/100%: Strata Staff 122x28px, Jamesons 145x27px, both card actions and fields present, no login-card target text present.
+- `tests/regression.php` now reports 160 passed checks. No database change is required.
+
+Pending product decisions: Team Attendance should be clarified before implementation—whether TL/admins record daily attendance or staff self-check in, whether approved leave should auto-populate the picker or allow manual unplanned leave, and whether the page needs history/export or only daily entry.
+
+Last updated: 2026-09-03
+
+## Ticket Detail Return Action (2026-09-03)
+
+- `ticket.php` now includes a small inline vector arrow in both the native and external `Back to tickets` links; URLs, ticket lookup, POST handlers, comments, and external thread rendering are unchanged.
+- Local browser test: native `ticket.php?id=593` shows the return link and native Comments section. The same external URL used by live returns `Ticket not found` locally because all four server-local external connections fail before lookup (1044/1045).
+- Live browser test: `ticket.php?external=stratast_escalations:514` shows the return link and conversation messages.
+- No database or migration change is required. Regression suite target is now 161 checks after adding the back-icon assertion.
+
+Remaining local parity blocker: install/configure the four external database accounts so the local server can reach the read-only source databases; this requires environment credentials/access, not a PHP UI change.
+
+Last updated: 2026-09-03
+
 ## Post-upload UI verification and follow-up fixes (2026-09-03)
 
 - The latest live browser check found that the uploaded baseline is present but not fully synchronized with local: live serves the prior `20260903-dashboard-departments` asset version and its Recruitment sidebar link returns 404 because `recruitment.php` is absent from the live web root. The live health page also still serves the earlier reduced check list.
@@ -339,3 +417,42 @@ Last updated: 2026-08-29
 - No application-code or SQL change was needed from the workbook review. Existing regression coverage and read-only adapter safeguards remain applicable.
 
 Last updated: 2026-08-29
+
+## Ticket Detail SLA Spacing (2026-09-03)
+
+- `assets/css/app.css` now gives `.sla-summary` a 12px bottom margin before `.page-actions`.
+- `app/layout.php` uses the `20260903-ticket-sla` asset version for cache refresh.
+- Local browser verification at 1237×912 confirmed the measured 12px gap and no browser errors.
+- No database update is required. Upload `assets/css/app.css` and `app/layout.php` for this fix.
+
+Last updated: 2026-09-03
+
+## Usable Bulk Ticket Selection (2026-09-03)
+
+- `index.php` shows checkboxes for selectable native tickets and adds Select visible/Clear controls to the existing bulk menu.
+- `assets/js/app.js` keeps the selection count current and synchronizes selected row IDs into the existing `ticket_ids[]` form inputs.
+- `assets/css/ui-fixes.css` styles the selection controls and checkbox alignment; `app/layout.php` uses the `20260903-bulk-selection` cache version.
+- External tickets remain read-only and are not selectable for native bulk updates.
+- No database update is required. Upload `index.php`, `assets/js/app.js`, `assets/css/ui-fixes.css`, and `app/layout.php` for this update.
+
+Last updated: 2026-09-03
+
+## In-place Mine Filter and Calendar Decision (2026-09-03)
+
+- `index.php` uses `scope=mine` to filter the current Tickets page; the Mine control no longer redirects to `my-work.php`.
+- `app/tickets.php` applies assigned-ticket filtering for Mine while preserving Team Member created-by scope.
+- `app/external_tickets.php` and `export-tickets.php` preserve the Mine filter for external rows and exports.
+- `app/layout.php` no longer renders My Work in the sidebar, but `my-work.php` remains available for compatibility.
+- Calendar Administration remains in the Super Admin navigation because it uniquely edits and deletes entries; Team Calendar provides creation only.
+- No database update is required for this change.
+
+Last updated: 2026-09-03
+
+## cPanel Upload Confirmation (2026-09-04)
+
+- User confirmed the latest application upload is complete in cPanel and the live site is working.
+- Live verification covered authentication, sidebar/direct routes, ticket filters and IDs, departments, external ticket conversations, settings, calendar, attendance, recruitment, reports, and health.
+- Live shared assets matched the local versions byte-for-byte; no missing upload was identified.
+- The current UI/Mine-filter change set does not require a database update.
+
+Last updated: 2026-09-04
