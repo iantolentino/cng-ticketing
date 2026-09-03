@@ -1,5 +1,13 @@
 # Progress
 
+## Supporting Page Header Cleanup (2026-09-03)
+
+- Removed the transient external-source warning banners from the Tickets and Departments pages while keeping external loading and failure handling intact.
+- Removed redundant main-content page heading blocks from Calendar Administration, Users, Recruitment, Admin History, and System Health; the shared top navigation title remains, and Users/New user plus Recruitment/team count actions remain visible.
+- Verified all seven pages in the local browser at 1280x720 and 100% zoom; no database migration or live-site upload was performed.
+
+Last updated: 2026-09-03
+
 ## Ticket Bulk Actions Toolbar (2026-09-03)
 
 - Moved the existing permission-protected bulk ticket form beside the Tickets filter panel and gave it a compact card layout matching the current ticket controls.

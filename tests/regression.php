@@ -153,6 +153,13 @@ check(source_contains('assets/js/app.js', 'cng-ticketing-theme'), 'theme selecti
 check(source_contains('assets/css/ui-fixes.css', 'scrollbar-width:none'), 'sidebar scrollbar is visually hidden');
 check(source_contains('dashboard.php', "in_array(\$filters['trend_range'], ['7d', '30d']"), 'short dashboard trends use daily buckets');
 check(source_contains('health.php', 'health-log-table'), 'health log table has dedicated layout columns');
+check(!source_contains('index.php', 'external-source-notice'), 'ticket register hides transient external-source warning text');
+check(!source_contains('department-workload.php', 'external-source-notice'), 'department workload hides transient external-source warning text');
+foreach (['calendar-admin.php', 'users.php', 'recruitment.php', 'audit-log.php', 'health.php'] as $pageWithoutRedundantHeader) {
+    check(!source_contains($pageWithoutRedundantHeader, 'class="page-head"><div><p class="eyebrow">'), $pageWithoutRedundantHeader . ' omits the redundant main-content page heading block');
+}
+check(source_contains('users.php', '<div class="page-actions"><button'), 'Users keeps the New user action after removing the redundant heading');
+check(source_contains('recruitment.php', '<div class="page-actions">'), 'Recruitment keeps the team-member count after removing the redundant heading');
 check(is_file($root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'external_tickets.php'), 'external ticket adapters are present');
 check(is_file($root . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'config.external.example.php'), 'external credential template is present');
 check(source_contains('app/external_tickets.php', 'PDO::ATTR_EMULATE_PREPARES'), 'external connections disable emulated prepares');

@@ -12,6 +12,10 @@ Deployment preparation and post-deployment stabilization; August 10–14 feature
 
 The Tickets page now places the existing bulk status/priority/soft-delete form beside the ticket filters in a compact, baseline-aligned card. Its endpoint, permissions, CSRF protection, confirmation, and field names are unchanged. Local browser verification passed at 1280x720 and 100% zoom. Upload `index.php`, `assets/css/ui-fixes.css`, and `app/layout.php` to cPanel; no database migration is required.
 
+## Latest UI Cleanup (2026-09-03)
+
+Removed external-source warning banners from Tickets and Departments and removed redundant main-content heading blocks from Calendar Administration, Users, Recruitment, Admin History, and System Health. Shared topbar titles remain; Users/New user and Recruitment/team count actions are preserved. Local browser verification passed at 1280x720 and 100% zoom. No migration is required; upload the seven changed PHP pages to cPanel.
+
 ## Last Completed Task
 
 DEP-04 - One-time unused-production cleanup and Super Admin seed script

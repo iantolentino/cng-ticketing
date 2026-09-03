@@ -114,7 +114,6 @@ page_start('Departments', $user);
 <div class="departments-screen">
     <?php if ($notice): ?><p class="action-notice" role="status"><?= e($notice) ?></p><?php endif; ?>
     <?php if ($error): ?><p class="auth-error" role="alert"><?= e($error) ?></p><?php endif; ?>
-    <?php if ($externalResult['errors']): ?><p class="external-source-notice" role="status">Some external ticket sources are temporarily unavailable. Available tickets are still shown.</p><?php endif; ?>
     <section class="department-summary-panel" aria-labelledby="department-summary-title">
         <div class="department-section-head"><div><h2 id="department-summary-title">Department workload</h2><p>Open ticket activity across departments.</p></div><span class="department-section-count"><?= count($departmentSummary) ?> departments</span></div>
         <div class="department-metric-grid">

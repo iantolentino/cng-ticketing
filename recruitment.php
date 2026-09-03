@@ -85,7 +85,7 @@ try {
 }
 
 page_start('Recruitment', $admin); ?>
-<div class="page-head"><div><p class="eyebrow">People operations</p><h1>Recruitment</h1><p class="page-subtitle">Maintain employee hire dates, schedules, training status, and positions.</p></div><?php if ($staffRows): ?><span class="section-count"><?= count($staffRows) ?> team members</span><?php endif; ?></div>
+<div class="page-actions"><?php if ($staffRows): ?><span class="section-count"><?= count($staffRows) ?> team members</span><?php endif; ?></div>
 <?php if ($error): ?><p class="error"><?= e($error) ?></p><?php endif; ?><?php if ($notice): ?><p class="notice"><?= e($notice) ?></p><?php endif; ?>
 <?php if ($directoryError): ?>
     <section><h2>Recruitment directory</h2><p class="error"><?= e($directoryError) ?></p></section>

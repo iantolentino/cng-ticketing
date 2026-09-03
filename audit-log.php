@@ -6,7 +6,6 @@ if (($admin['role_slug'] ?? '') !== 'super-admin') { http_response_code(403); ex
 $events = db()->query('SELECT a.*,u.full_name FROM admin_audit_log a LEFT JOIN users u ON u.id=a.actor_id ORDER BY a.created_at DESC, a.id DESC LIMIT 500')->fetchAll();
 $tickets = db()->query("SELECT t.id,t.ticket_number,t.subject,t.deleted_at,u.full_name AS deleted_by_name FROM tickets t LEFT JOIN users u ON u.id=t.deleted_by WHERE t.deleted_at IS NOT NULL ORDER BY t.deleted_at DESC")->fetchAll();
 page_start('Admin history', $admin); ?>
-<div class="page-head"><div><p class="eyebrow">Super Admin</p><h1>Admin history</h1><p class="page-subtitle">Restore deleted tickets and review recent administrative actions.</p></div></div>
 <div class="admin-history-grid">
     <section class="admin-history-panel">
         <div class="section-head"><div><p class="eyebrow">Ticket recovery</p><h2>Deleted tickets</h2><p>Restore a soft-deleted ticket and return it to the active register.</p></div></div>

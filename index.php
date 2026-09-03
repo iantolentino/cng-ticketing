@@ -147,7 +147,6 @@ page_start('Tickets', $user);
 ?>
 <div class="tickets-screen">
 <?php if ($notice): ?><p class="action-notice" role="status"><?= e($notice) ?></p><?php endif; ?>
-<?php if ($externalResult['errors']): ?><p class="external-source-notice" role="status">Some external ticket sources are temporarily unavailable. Available native and external tickets are still shown.</p><?php endif; ?>
 <div class="tickets-control-grid">
 <form method="get" class="filter-panel ticket-filter-panel" data-filter-form data-submit-on-change="true">
     <input type="hidden" name="dashboard_range" value="<?= e($filters['dashboard_range']) ?>">
