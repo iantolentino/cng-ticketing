@@ -50,7 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $categoryAssigneeIds = category_assignee_ids($values['category'], $departments, $users);
 
     if (
-        empty($values['issue_escalator']) ||
         empty($values['subject']) ||
         empty($values['issue']) ||
         $subcategories === null ||

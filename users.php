@@ -3,6 +3,7 @@ require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/layout.php';
 
 $admin = require_permission('manage_users');
+$canApproveAccounts = ($admin['role_slug'] ?? '') === 'super-admin';
 $pdo = db();
 $error = '';
 $notice = '';
@@ -42,6 +43,16 @@ function team_member_username(string $email, string $fullName, array &$usedUsern
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     $action = (string) ($_POST['action'] ?? '');
+    if (!$canApproveAccounts) {
+        if ($action === 'activate') { http_response_code(403); exit('Super Admin access required.'); }
+        $targetId = (int) ($_POST['id'] ?? 0);
+        if ($targetId > 0) {
+            $approvalQuery = $pdo->prepare('SELECT approval_status FROM users WHERE id=?');
+            $approvalQuery->execute([$targetId]);
+            $approvalStatus = $approvalQuery->fetchColumn();
+            if ($approvalStatus !== false && $approvalStatus !== 'approved') { http_response_code(403); exit('Super Admin access required.'); }
+        }
+    }
     try {
         if ($action === 'save') {
             $id = (int) ($_POST['id'] ?? 0);
@@ -171,7 +182,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $roles = $pdo->query('SELECT id,name FROM roles ORDER BY name')->fetchAll();
 $departments = $pdo->query('SELECT id,name FROM departments ORDER BY name')->fetchAll();
 $permissions = $pdo->query('SELECT id,label,permission_key FROM permissions ORDER BY label')->fetchAll();
-$users = $pdo->query('SELECT u.*,r.name role_name,d.name department_name FROM users u JOIN roles r ON r.id=u.role_id LEFT JOIN departments d ON d.id=u.department_id ORDER BY u.full_name')->fetchAll();
+$userVisibilitySql = $canApproveAccounts ? '' : " WHERE u.approval_status='approved'";
+$users = $pdo->query('SELECT u.*,r.name role_name,d.name department_name FROM users u JOIN roles r ON r.id=u.role_id LEFT JOIN departments d ON d.id=u.department_id' . $userVisibilitySql . ' ORDER BY u.full_name')->fetchAll();
 $teamMemberDirectory = [];
 $directoryError = '';
 try {
@@ -192,7 +204,7 @@ if ($editing) {
     foreach ($q as $override) $overrideMap[(int) $override['permission_id']] = (int) $override['granted'];
 }
 page_start('Users', $admin); ?>
-<?php $pendingAccounts = array_filter($users, static fn(array $member): bool => !$member['is_active']); if ($pendingAccounts): ?><section><h2>Pending activation</h2><p class="muted">Review registration requests before activating access.</p><div class="table-wrap"><table class="ticket-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr></thead><tbody><?php foreach ($pendingAccounts as $member): ?><tr><td><?= e($member['full_name']) ?></td><td><?= e($member['email'] ?? '') ?></td><td><?= e($member['role_name']) ?></td><td><form method="post" onsubmit="return confirm('Activate this account?')"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="activate"><input type="hidden" name="id" value="<?= (int) $member['id'] ?>"><button class="button" type="submit">Activate</button></form></td></tr><?php endforeach; ?></tbody></table></div></section><?php endif; ?>
+<?php $pendingAccounts = $canApproveAccounts ? array_filter($users, static fn(array $member): bool => !$member['is_active']) : []; if ($pendingAccounts): ?><section><h2>Pending activation</h2><p class="muted">Review registration requests before activating access.</p><div class="table-wrap"><table class="ticket-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr></thead><tbody><?php foreach ($pendingAccounts as $member): ?><tr><td><?= e($member['full_name']) ?></td><td><?= e($member['email'] ?? '') ?></td><td><?= e($member['role_name']) ?></td><td><form method="post" onsubmit="return confirm('Activate this account?')"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="activate"><input type="hidden" name="id" value="<?= (int) $member['id'] ?>"><button class="button" type="submit">Activate</button></form></td></tr><?php endforeach; ?></tbody></table></div></section><?php endif; ?>
 <div class="page-actions"><button class="button" type="button" data-user-drawer-trigger aria-expanded="false" aria-controls="user-create-drawer">New user</button></div>
 <?php if ($error): ?><p class="error"><?= e($error) ?></p><?php endif; ?><?php if ($notice): ?><p class="notice"><?= e($notice) ?></p><?php endif; ?>
 <?php if ($credentialBatch): ?><section class="team-member-credentials" aria-labelledby="team-member-credentials-title"><div class="section-head"><div><h2 id="team-member-credentials-title">Temporary Team Member credentials</h2><p>Save or send these now. They are shown only once, and every account must change its password at first sign-in.</p></div><span><?= count($credentialBatch) ?> account<?= count($credentialBatch) === 1 ? '' : 's' ?></span></div><div class="table-wrap"><table class="ticket-table"><thead><tr><th>Name</th><th>Email</th><th>Username</th><th>Temporary password</th></tr></thead><tbody><?php foreach ($credentialBatch as $credential): ?><tr><td><?= e($credential['full_name']) ?></td><td><?= e($credential['email']) ?></td><td><?= e($credential['username']) ?></td><td><code><?= e($credential['password']) ?></code></td></tr><?php endforeach; ?></tbody></table></div></section><?php endif; ?>

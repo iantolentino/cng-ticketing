@@ -130,8 +130,8 @@ check(source_contains('team-attendance.php', 'attendance-staff-field'), 'attenda
 check(source_contains('team-calendar.php', 'leave_staff'), 'calendar displays staff on leave with attendance');
 check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'stratastaffglobal.com'), 'staff directory records TL email domain');
 check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'jamesons.com.au'), 'staff directory records employee email domain');
-check(source_contains('register.php', 'jamesons\\.com\\.au'), 'registration accepts Jamesons staff email domain');
-check(source_contains('register.php', 'stratastaffglobal\\.com'), 'registration accepts Strata Staff Global TL email domain');
+check(source_contains('register.php', "'jamesons.com.au'"), 'registration accepts Jamesons staff email domain');
+check(source_contains('register.php', "'stratastaffglobal.com'"), 'registration accepts Strata Staff Global TL email domain');
 check(source_contains('users.php', "create_team_members"), 'Super Admin Users page provides bulk Team Member setup');
 check(source_contains('recruitment.php', 'hired_date'), 'Recruitment page provides hire dates');
 check(source_contains('recruitment.php', 'shift_schedule'), 'Recruitment page provides shift schedules');

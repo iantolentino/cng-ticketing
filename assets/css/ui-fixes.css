@@ -282,3 +282,20 @@ html[data-theme="dark"] .bulk-selection-button{background:var(--surface);border-
 @media(min-width:901px){.tickets-control-grid .ticket-filter-grid{padding-right:110px}}
 @media(max-width:900px){.tickets-control-grid .ticket-filter-grid{display:flex;align-items:center;flex-wrap:wrap}.bulk-actions-menu{position:static;flex:0 0 auto;margin:6px 0 0 auto}.bulk-actions-menu .bulk-actions-panel{position:static;width:auto;margin-top:6px}.bulk-actions-form{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:520px){.bulk-actions-menu{flex-basis:100%;margin-left:0}.bulk-actions-trigger{width:100%}.bulk-actions-head{align-items:flex-start;flex-direction:column}.bulk-actions-head-tools{justify-content:flex-start}.bulk-actions-form{grid-template-columns:1fr}.bulk-actions-form .button{width:100%}}
+
+/* Department workload: readable names and aligned statistics at every width. */
+.departments-screen .department-summary-panel{padding:20px}
+.departments-screen .department-section-head{flex-wrap:wrap;gap:8px 16px;margin-bottom:16px}
+.departments-screen .department-section-head h2{font-size:16px}
+.departments-screen .department-section-head p{font-size:12px;line-height:1.5}
+.departments-screen .department-section-count{font-size:11px}
+.departments-screen .department-metric-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;align-items:stretch}
+.departments-screen .department-metric-card{display:grid;grid-template-columns:auto 1fr;grid-template-rows:3em auto 1fr;align-items:start;gap:0 8px;min-width:0;min-height:180px;padding:18px;border-radius:12px}
+.departments-screen .department-metric-name{grid-column:1/-1;overflow:visible;white-space:normal;text-overflow:clip;overflow-wrap:anywhere;font-size:13px;line-height:1.5;letter-spacing:0;text-transform:none;color:var(--ink)}
+.departments-screen .department-metric-card>strong{margin:12px 0 0;font-size:32px;line-height:1.1;font-variant-numeric:tabular-nums}
+.departments-screen .department-metric-card>small{align-self:end;margin:0 0 3px;font-size:12px;line-height:1.5}
+.departments-screen .department-metric-meta{grid-column:1/-1;align-self:end;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:18px;padding-top:12px;font-size:11px;line-height:1.5;white-space:normal}
+.departments-screen .department-metric-meta span{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;overflow-wrap:anywhere}
+.departments-screen .department-metric-meta b{font-size:16px;line-height:1.25;font-variant-numeric:tabular-nums}
+@media(max-width:1100px){.departments-screen .department-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.departments-screen .department-summary-panel{padding:16px}.departments-screen .department-metric-grid{grid-template-columns:minmax(0,1fr);gap:12px}.departments-screen .department-metric-card{padding:16px}}

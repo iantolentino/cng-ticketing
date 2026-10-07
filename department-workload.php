@@ -81,7 +81,7 @@ usort($departmentSummary, static function (array $left, array $right): int {
 
 $ticketParams = [];
 $ticketScopeSql = ticket_scope_sql($user, $ticketParams);
-$ticketQuery = db()->prepare("SELECT t.id, t.ticket_number, t.subject, t.status, t.department_id, d.name AS current_department,
+$ticketQuery = db()->prepare("SELECT t.id, t.ticket_number, t.subject, t.status, t.department_id, t.created_at, t.updated_at, d.name AS current_department,
     COALESCE(GROUP_CONCAT(DISTINCT dep.name ORDER BY dep.name SEPARATOR ', '), d.name) AS departments,
     COALESCE(GROUP_CONCAT(DISTINCT dep.id ORDER BY dep.name SEPARATOR ','), t.department_id) AS department_ids,
     COALESCE((SELECT GROUP_CONCAT(DISTINCT u.full_name ORDER BY u.full_name SEPARATOR ', ') FROM ticket_assignees ta JOIN users u ON u.id = ta.user_id WHERE ta.ticket_id = t.id), a.full_name) AS assignees
@@ -91,7 +91,7 @@ $ticketQuery = db()->prepare("SELECT t.id, t.ticket_number, t.subject, t.status,
     LEFT JOIN departments dep ON dep.id = td.department_id
     LEFT JOIN users a ON a.id = t.assignee_id
     WHERE t.deleted_at IS NULL $ticketScopeSql
-    GROUP BY t.id, t.ticket_number, t.subject, t.status, t.department_id, d.name, a.full_name
+    GROUP BY t.id, t.ticket_number, t.subject, t.status, t.department_id, t.created_at, t.updated_at, d.name, a.full_name
     ORDER BY FIELD(t.status,'open','in_progress','pending','closed'), t.updated_at DESC, t.id DESC");
 $ticketQuery->execute($ticketParams);
 $tickets = $ticketQuery->fetchAll();

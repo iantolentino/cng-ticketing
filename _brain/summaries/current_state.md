@@ -456,3 +456,10 @@ Last updated: 2026-09-03
 - The current UI/Mine-filter change set does not require a database update.
 
 Last updated: 2026-09-04
+
+## 2026-10-07: launch fixes and live acceptance
+- Responsive department cards, full-edit validation, recovery statement row counts and native department timestamps corrected.
+- Pending registrations and approval actions restricted to Super Admin across Users, Roles & Access and password resets; approved-user access retained.
+- Registration feedback and browser username validation improved; repository domain policy retained and live-only domain variant supplied in deployment/20261007-launch/register.php. Registration feedback deployment is not yet verified live.
+- Final live acceptance: 141 workflow/access checks plus 16 responsive light/dark cases passed across four accounts; QA records cleaned up using normal application actions. Local working-copy regression suite passed 209 checks.
+- Detailed summary and deployment status: reports/2026-10-07-work-summary.md. Older unrelated local changes and private evidence were excluded from this update.

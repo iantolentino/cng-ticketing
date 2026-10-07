@@ -97,7 +97,7 @@ function page_start(string $title, ?array $user = null): void
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/app.css?v=20260903-bulk-mode-ids">
-    <link rel="stylesheet" href="assets/css/ui-fixes.css?v=20260903-bulk-mode-ids">
+    <link rel="stylesheet" href="assets/css/ui-fixes.css?v=20261007-department-workload">
     <script src="assets/js/app.js?v=20260903-bulk-mode-ids" defer></script>
 </head>
 <body class="<?= e($pageClasses[$page] ?? '') ?>">

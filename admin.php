@@ -2,6 +2,7 @@
 require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/layout.php';
 $user = require_permission('manage_roles');
+$canApproveAccounts = ($user['role_slug'] ?? '') === 'super-admin';
 $pdo = db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -25,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         audit_admin_action((int) $user['id'], 'role_permission_changed', 'role', $roleId);
     }
     if ($action === 'approval' && user_can('manage_users')) {
+        if (!$canApproveAccounts) { http_response_code(403); exit('Super Admin access required.'); }
         $approved = ($_POST['status'] ?? '') === 'approved';
         $pdo->prepare('UPDATE users SET approval_status=?,is_active=? WHERE id=?')->execute([$approved ? 'approved' : 'rejected', $approved ? 1 : 0, (int) $_POST['user_id']]);
         audit_admin_action((int) $user['id'], 'user_registration_' . ($approved ? 'approved' : 'rejected'), 'user', (int) $_POST['user_id']);
@@ -32,9 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'user' && user_can('manage_users')) {
         $targetId = (int) ($_POST['user_id'] ?? 0);
         $roleId = (int) ($_POST['role_id'] ?? 0);
-        $target = $pdo->prepare('SELECT u.id, r.slug FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?');
+        $target = $pdo->prepare('SELECT u.id, u.approval_status, r.slug FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?');
         $target->execute([$targetId]);
         $targetRow = $target->fetch();
+        if ($targetRow && !$canApproveAccounts && $targetRow['approval_status'] !== 'approved') { http_response_code(403); exit('Super Admin access required.'); }
         $roleExists = $pdo->prepare('SELECT 1 FROM roles WHERE id = ?');
         $roleExists->execute([$roleId]);
         if (!$targetRow || !$roleExists->fetchColumn()) { http_response_code(400); exit('Invalid user or role.'); }
@@ -53,8 +56,9 @@ $roles = $pdo->query('SELECT * FROM roles ORDER BY id')->fetchAll();
 $permissions = $pdo->query('SELECT * FROM permissions ORDER BY id')->fetchAll();
 $grants = [];
 foreach ($pdo->query('SELECT * FROM role_permissions') as $grant) $grants[$grant['role_id']][$grant['permission_id']] = $grant['granted'];
-$users = $pdo->query('SELECT u.*,r.name role_name FROM users u JOIN roles r ON r.id=u.role_id ORDER BY u.full_name')->fetchAll();
-$pendingUsers = $pdo->query("SELECT u.id,u.full_name,u.username,u.email,r.name role_name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.approval_status='pending' ORDER BY u.created_at")->fetchAll();
+$userVisibilitySql = $canApproveAccounts ? '' : " WHERE u.approval_status='approved'";
+$users = $pdo->query('SELECT u.*,r.name role_name FROM users u JOIN roles r ON r.id=u.role_id' . $userVisibilitySql . ' ORDER BY u.full_name')->fetchAll();
+$pendingUsers = $canApproveAccounts ? $pdo->query("SELECT u.id,u.full_name,u.username,u.email,r.name role_name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.approval_status='pending' ORDER BY u.created_at")->fetchAll() : [];
 $activeApi = $pdo->query('SELECT id FROM api_tokens WHERE revoked_at IS NULL ORDER BY id DESC LIMIT 1')->fetch();
 $activeUserCount=count(array_filter($users,static fn(array $member):bool=>(bool)$member['is_active']));
 $canManageUsers=user_can('manage_users');
