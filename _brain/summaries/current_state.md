@@ -4,6 +4,12 @@
 
 EXECUTION_MODE
 
+## GitHub Source Backup and Admin Cleanup (2026-10-13)
+
+- Published the current local application source and schema migrations to GitHub main, preserving the October 7 commit through a merge. Configuration, credentials, staff files, private evidence and database contents remain excluded.
+- Private Admin scratch archive: `.local/cng-admin-archive-20261013.zip`; 565 files verified by SHA-256. Original scratch files remain because automatic approval review blocked their deletion. Removed the clean October 7 worktree through Git after verifying its history was preserved.
+- Backup validation and the two existing stale regression assertions are recorded in `reports/2026-10-13-source-backup.md`. No production deployment was performed.
+
 ## Live Deploy Accepted (2026-10-13)
 
 The seven-feature roster/leave/calendar release is live and accepted by the user ("all are fine and tested").

@@ -8,4 +8,4 @@ Validation: changed PHP application and test files pass syntax checks; CSV behav
 
 The pending calendar-role and other follow-ups listed in `_brain/summaries/current_state.md` remain open. This backup does not claim they are resolved. Production database and file backups remain separate from GitHub source history.
 
-October 7 scratch scripts and private QA files formerly under `C:/Users/Admin/cng-*` are consolidated into `.local/cng-admin-archive-20261013.zip` before removal. That private archive is intentionally excluded from Git.
+October 7 scratch scripts and private QA files under `C:/Users/Admin/cng-*` are consolidated into `.local/cng-admin-archive-20261013.zip`. All 565 archived files were verified against the originals with SHA-256. The archive is intentionally excluded from Git. Automatic approval review blocked deletion of the scratch originals, so those remain for manual cleanup. The clean `cng-github-20261007` worktree was removed through Git after its commit was confirmed as an ancestor of the published main branch.
