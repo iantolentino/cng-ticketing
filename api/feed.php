@@ -18,6 +18,8 @@ $tokenId = (int) ($tokenLookup->fetchColumn() ?: 0);
 if (!$tokenId) feed_error(401, 'Invalid or revoked token.');
 $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown'; $recent = $pdo->prepare('SELECT COUNT(*) FROM api_feed_access_log WHERE ip_address=? AND created_at >= DATE_SUB(NOW(), INTERVAL 1 MINUTE)'); $recent->execute([$ip]); if ((int)$recent->fetchColumn() >= 60) feed_error(429, 'Rate limit exceeded.', $tokenId);
 $where = ['t.deleted_at IS NULL']; $params = [];
+// API tokens have no admin role; never inherit a browser session's exemption.
+$where[0] .= ticket_visibility_sql($params, 't.id', true, true);
 $allowedFilters = [
     'status' => ['open', 'in_progress', 'pending', 'closed'],
     'priority' => ['low', 'normal', 'high', 'urgent'],

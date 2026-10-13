@@ -13,8 +13,9 @@ if (!$ticket) { http_response_code(404); exit('Deleted ticket not found.'); }
 $pdo = db();
 $pdo->beginTransaction();
 try {
-    $pdo->prepare('UPDATE tickets SET deleted_at=NULL, deleted_by=NULL WHERE id=? AND deleted_at IS NOT NULL')->execute([$id]);
-    if ($pdo->rowCount() !== 1) throw new RuntimeException('Ticket was already restored.');
+    $restore = $pdo->prepare('UPDATE tickets SET deleted_at=NULL, deleted_by=NULL WHERE id=? AND deleted_at IS NOT NULL');
+    $restore->execute([$id]);
+    if ($restore->rowCount() !== 1) throw new RuntimeException('Ticket was already restored.');
     activity($id, (int) $admin['id'], 'restored', ['ticket_number' => $ticket['ticket_number']]);
     audit_admin_action((int) $admin['id'], 'ticket_restored', 'ticket', $id, ['ticket_number' => $ticket['ticket_number']]);
     $pdo->commit();

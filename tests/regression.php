@@ -42,8 +42,8 @@ foreach ($migrationFiles as $file) {
     $migrationNumbers[] = (int) basename($file, '.sql');
 }
 sort($migrationNumbers);
-$expectedNumbers = range(2, 24);
-check($migrationNumbers === $expectedNumbers, 'migrations 002 through 024 are present without gaps');
+$expectedNumbers = range(2, 27);
+check($migrationNumbers === $expectedNumbers, 'migrations 002 through 027 are present without gaps');
 
 $migrationMarkers = [
     '011' => 'password_reset_tokens',
@@ -60,6 +60,9 @@ $migrationMarkers = [
     '022' => 'staff_directory',
     '023' => 'team-member',
     '024' => 'manage_recruitment',
+    '025' => 'cng-admin',
+    '026' => 'employment_status',
+    '027' => 'disabled_at',
 ];
 foreach ($migrationMarkers as $number => $marker) {
     $matches = glob($root . DIRECTORY_SEPARATOR . 'migrations' . DIRECTORY_SEPARATOR . $number . '_*.sql') ?: [];
@@ -80,6 +83,7 @@ $authorizationChecks = [
     'health.php' => 'Super Admin access required.',
     'bulk-tickets.php' => "require_permission('bulk_ticket_actions'",
     'import.php' => "require_permission('manage_users'",
+    'export-tickets.php' => "require_permission('export_tickets'",
 ];
 foreach ($authorizationChecks as $file => $marker) {
     check(source_contains($file, $marker), "authorization boundary present: {$file}");
@@ -89,8 +93,10 @@ check(source_contains('calendar-admin.php', 'verify_csrf'), 'calendar administra
 check(source_contains('create-ticket.php', "require_permission('create_tickets'"), 'ticket creation route requires the create_tickets permission');
 check(source_contains('app/tickets.php', "if (\$role === 'team-member')"), 'Team Member ticket scope is handled explicitly');
 check(source_contains('app/tickets.php', 't.created_by = :scope_user_id'), 'Team Member ticket lists are limited to tickets they created');
-check(source_contains('app/tickets.php', "['team-leader', 'team-member']"), 'Ticket detail visibility covers Team Members and Team Leaders');
+check(source_contains('app/tickets.php', "if (\$role !== 'team-member') return;"), 'Only Team Members have restricted ticket detail visibility');
 check(source_contains('admin.php', "role_slug'] ?? '') !== 'super-admin'"), 'role permission changes require Super Admin');
+check(source_contains('admin.php', "isset(\$_POST['granted']) ? 1 : 0"), 'Super Admin permission toggles persist On and Off states');
+check(source_contains('app/auth.php', 'COALESCE(uo.granted, rp.granted, 0)'), 'permission checks use the saved role grant and user override');
 check(source_contains('admin.php', 'token_hash'), 'API tokens are stored by hash');
 check(source_contains('api/feed.php', 'hash(\'sha256\''), 'API feed validates hashed tokens');
 check(source_contains('ticket.php', 'unlink(ROOT_PATH'), 'failed attachment metadata inserts remove orphaned files');
@@ -100,7 +106,7 @@ check(source_contains('users.php', 'At least one active Super Admin must remain.
 check(source_contains('users.php', 'Only a Super Admin can assign the Super Admin role.'), 'user management protects Super Admin role assignment');
 check(source_contains('leave-requests.php', 'DateTimeImmutable'), 'leave dates are calendar-valid, not only regex-valid');
 check(source_contains('leave-requests.php', 'unlink(ROOT_PATH'), 'failed leave attachment inserts remove orphaned files');
-check(source_contains('reports.php', 'count($row) !== count($expected)'), 'CSV import rejects malformed column counts');
+check(source_contains('app/report_csv.php', 'count($row) !== count($expected)'), 'CSV import rejects malformed column counts');
 check(source_contains('app/security.php', 'function request_string'), 'authentication input rejects array-valued request fields');
 check(source_contains('app/bootstrap.php', "session.use_strict_mode"), 'sessions use strict mode');
 check(source_contains('login.php', "approval_status']!=='approved'"), 'login rejects non-approved account states');
@@ -115,6 +121,9 @@ check(source_contains('api/feed.php', ':ticket_search'), 'API search uses distin
 check(source_contains('api/feed.php', 'offset must be between 0 and 100000'), 'API bounds pagination offset');
 check(source_contains('export-tickets.php', 'MAX_EXPORT_ROWS'), 'exports enforce a bounded row count');
 check(source_contains('export-tickets.php', 'date_from cannot be after date_to'), 'exports reject reversed date ranges');
+check(source_contains('export-tickets.php', "\$filters['employees']"), 'ticket exports accept multiple employee filters');
+check(source_contains('export-tickets.php', 'employee_name IN'), 'ticket exports filter the native ticket list by employees');
+check(source_contains('export-tickets.php', "\$filters['department_name']"), 'ticket exports map department filters for external records');
 check(source_contains('health.php', 'Required database tables'), 'health page checks required database tables');
 check(source_contains('health.php', 'Private storage web protection'), 'health page checks private storage protection');
 check(source_contains('create-ticket.php', "'issue_escalator' => \$user['full_name']"), 'ticket escalator is captured from submitter');
@@ -122,16 +131,48 @@ check(!source_contains('create-ticket.php', 'name="issue_escalator"'), 'ticket e
 check(source_contains('app/tickets.php', 'TICKET_CATEGORY_DEPARTMENT_CODES'), 'ticket categories define department mappings');
 check(source_contains('create-ticket.php', 'categoryDepartmentMap'), 'ticket create filters departments and assignees by category');
 check(source_contains('edit-ticket.php', 'categoryDepartmentMap'), 'ticket edit filters departments and assignees by category');
-check(source_contains('team-attendance.php', "'half_day' => 'Half-day'"), 'attendance uses requested leave statuses');
-check(source_contains('team-attendance.php', "action === 'update'"), 'attendance records support editing');
-check(source_contains('team-attendance.php', 'team_attendance_leave'), 'attendance saves multiple staff on leave');
-check(source_contains('team-attendance.php', 'staff-picker'), 'attendance provides a staff checkbox picker');
-check(source_contains('team-attendance.php', 'attendance-staff-field'), 'attendance staff picker has a labeled field wrapper');
+check(source_contains('create-ticket.php', "subcategory.dispatchEvent(new Event('ui-options-changed'))"), 'ticket create refreshes dependent subcategory options');
+check(source_contains('edit-ticket.php', "subcategory.dispatchEvent(new Event('ui-options-changed'))"), 'ticket edit refreshes dependent subcategory options');
+check(source_contains('create-ticket.php', 'value="<?= e($values[\'subject\'] ?? \'\') ?>"'), 'ticket create preserves entered values after validation errors');
+check(source_contains('app/roster.php', "'half_day' => 'Half-day'"), 'attendance uses requested leave statuses');
+check(source_contains('team-attendance.php', 'ROSTER_LEAVE_TYPES'), 'Team Attendance offers the shared leave statuses');
+// The department attendance log is retired: the logging form and its per-date table
+// are gone, its history stays readable, and the summary is driven by the roster plus
+// the Team Calendar leave entries instead.
+check(!source_contains('team-attendance.php', 'attendance-form-panel'), 'department attendance logging is retired');
+check(!source_contains('team-attendance.php', 'Log department attendance'), 'the department attendance form is gone');
+check(source_contains('team-attendance.php', 'Recent department logs'), 'department attendance history stays readable');
+check(source_contains('team-attendance.php', 'team_attendance_leave'), 'department attendance history still resolves its staff list');
+check(source_contains('team-attendance.php', 'headcountStaff'), 'attendance headcount counts the working roster');
+check(source_contains('team-attendance.php', 'roster_leave_rows'), 'attendance on-leave comes from the Team Calendar');
+check(source_contains('team-attendance.php', 'attendance-roster-card'), 'attendance lists staff as selectable cards');
+check(source_contains('team-attendance.php', 'data-employment-status'), 'attendance sets employment status per staff card');
+// The staff editor is a modal, and leave is filed only on the Team Calendar, so the
+// two screens cannot hold competing copies of the same leave.
+check(source_contains('team-attendance.php', 'attendance-staff-modal'), 'the staff editor opens as a modal');
+check(source_contains('team-attendance.php', 'aria-modal="true"'), 'the staff modal is announced as a dialog');
+check(source_contains('team-attendance.php', 'data-attendance-modal-close'), 'the staff modal can be closed');
+check(source_contains('team-attendance.php', "event.key === 'Escape'"), 'the staff modal closes on Escape');
+check(!source_contains('team-attendance.php', 'attendance-leave-form'), 'Team Attendance no longer files leave');
+check(!source_contains('team-attendance.php', 'attendance-leave-table'), 'Team Attendance no longer keeps its own leave table');
+check(!source_contains('team-attendance.php', "'save_leave'"), 'Team Attendance no longer handles save_leave');
+check(!source_contains('team-attendance.php', "'delete_leave'"), 'Team Attendance no longer handles delete_leave');
+check(source_contains('team-attendance.php', 'Manage leave on the Team Calendar'), 'Team Attendance points at the Team Calendar for leave');
+check(source_contains('team-calendar.php', "'save_leave'"), 'the Team Calendar owns leave filing');
+check(source_contains('team-calendar.php', "'delete_leave'"), 'the Team Calendar owns leave removal');
+check(source_contains('team-attendance.php', 'shift_days[]'), 'Team Attendance edits the five-day shift pattern');
+check(source_contains('team-attendance.php', 'attendance-roster-panel'), 'Team Attendance exposes the staff roster panel');
+check(!source_contains('team-attendance.php', "=== 'cng-admin'"), 'CNG Admin is not hard-blocked from Team Attendance');
+check(source_contains('app/roster.php', 'roster_leave_save'), 'staff leave is stored once for attendance and the calendar');
+check(source_contains('app/roster.php', 'roster_can_manage_attendance'), 'attendance management is capability-gated');
+check(source_contains('app/roster.php', 'ROSTER_STATUSES'), 'roster tracks resigned, pulled-out, and replacement states');
+check(source_contains('migrations/026_roster_leave_and_staff_status.sql', 'uq_calendar_events_staff_leave_start'), 'linked staff leave cannot duplicate a start date and type');
+check(source_contains('app/roster.php', 'roster_event_load'), 'an existing calendar event can be converted into staff leave');
 check(source_contains('team-calendar.php', 'leave_staff'), 'calendar displays staff on leave with attendance');
 check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'stratastaffglobal.com'), 'staff directory records TL email domain');
 check(source_contains('migrations/022_staff_leave_attendance_updates.sql', 'jamesons.com.au'), 'staff directory records employee email domain');
-check(source_contains('register.php', 'jamesons\\.com\\.au'), 'registration accepts Jamesons staff email domain');
-check(source_contains('register.php', 'stratastaffglobal\\.com'), 'registration accepts Strata Staff Global TL email domain');
+check(source_contains('register.php', "'jamesons.com.au'"), 'registration accepts Jamesons staff email domain');
+check(source_contains('register.php', "'stratastaffglobal.com'"), 'registration accepts Strata Staff Global TL email domain');
 check(source_contains('users.php', "create_team_members"), 'Super Admin Users page provides bulk Team Member setup');
 check(source_contains('recruitment.php', 'hired_date'), 'Recruitment page provides hire dates');
 check(source_contains('recruitment.php', 'shift_schedule'), 'Recruitment page provides shift schedules');
@@ -214,6 +255,65 @@ check(count(category_department_ids('Attendance', $testDepartments)) === 5, 'Att
 check(category_department_ids('Resignation', $testDepartments) === [2], 'Resignation category selects Admin');
 $testUsers = [['id' => 10, 'department_id' => 1, 'role_slug' => 'team-member'], ['id' => 11, 'department_id' => null, 'role_slug' => 'team-leader'], ['id' => 12, 'department_id' => 2, 'role_slug' => 'team-member']];
 check(category_assignee_ids('Resignation', $testDepartments, $testUsers) === [11, 12], 'category assignee mapping keeps TLs and matching department users');
+$teamLeaderScopeParams = [];
+check(str_contains(ticket_scope_sql(['id' => 11, 'role_slug' => 'team-leader'], $teamLeaderScopeParams), 'NOT IN') && array_values($teamLeaderScopeParams) === ticket_visibility_ids(), 'Team Leaders see the full ticket register by default');
+$teamLeaderMineParams = [];
+check(str_contains(ticket_scope_sql(['id' => 11, 'role_slug' => 'team-leader'], $teamLeaderMineParams, 'mine'), 't.assignee_id') && count($teamLeaderMineParams) === count(ticket_visibility_ids()) + 2, 'Team Leader Mine scope remains assignment-based');
+check(external_ticket_visible_to_user(['agent' => 'Another Agent'], ['role_slug' => 'team-leader', 'full_name' => 'Codex TL Test']), 'Team Leaders see all external tickets');
+check(!external_ticket_visible_to_user(['agent' => 'Another Agent'], ['role_slug' => 'team-member']), 'Team Members remain excluded from external tickets');
+check(source_contains('migrations/024_recruitment_directory.sql', "'team-leader'"), 'Team Leaders retain Recruitment permission');
+check(source_contains('migrations/025_cng_admin_recruitment_export_permissions.sql', "'manage_recruitment'"), 'CNG Admin receives Recruitment and export permissions');
+check(!source_contains('recruitment.php', "'cng-admin'"), 'Recruitment access follows the manage_recruitment permission for CNG Admin');
+check(!source_contains('index.php', 'Export Tickets CSV'), 'Ticket page does not render export controls');
+check(source_contains('reports.php', 'Export Tickets CSV'), 'Ticket CSV export is available from Reports & CSV');
+check(source_contains('reports.php', 'Export Tickets Excel'), 'Ticket Excel export is available from Reports & CSV');
+check(source_contains('reports.php', 'name="employees[]"'), 'Reports & CSV provides multiple employee selection');
+check(source_contains('reports.php', 'All employees'), 'Reports & CSV provides an all-employees option');
+check(source_contains('assets/js/app.js', 'reportEmployeeSelect'), 'Reports employee selection keeps All employees exclusive');
+check(source_contains('reports.php', 'external_ticket_load_all'), 'Reports employee options include external ticket requesters');
+check(source_contains('reports.php', 'name="department"'), 'Reports & CSV provides department selection');
+check(source_contains('reports.php', '$selectedEmployees'), 'Reports & CSV preserves employee export filters');
+check(source_contains('app/layout.php', "\$canViewCalendar = \$user && user_can('view_all_tickets')"), 'CNG Admin and Team Members both receive the Team Calendar navigation item');
+check(source_contains('app/layout.php', '$canViewAttendance = $canViewCalendar'), 'Team Attendance remains independently restricted from Team Members');
+check(source_contains('team-calendar.php', '$canManageCalendar'), 'Team Calendar distinguishes read-only viewers from calendar managers');
+check(source_contains('team-calendar.php', 'leave-requests.php?start_date='), 'Team Member calendar dates link to a preselected leave request');
+check(source_contains('team-calendar.php', 'permission to update the team calendar'), 'Read-only calendar viewers cannot submit calendar changes');
+check(source_contains('team-calendar.php', 'calendar-day-card'), 'clicking a calendar date opens the add-entry card');
+check(source_contains('team-calendar.php', 'calendar-day-card-kind'), 'the date card offers holiday, company event, and leave');
+check(source_contains('team-calendar.php', 'calendar-modal-leave'), 'the date card opens a leave modal with staff and dates');
+check(source_contains('team-calendar.php', 'data-calendar-edit'), 'calendar entries offer an edit action');
+check(source_contains('team-calendar.php', "action=delete_leave") || source_contains('team-calendar.php', "value=\"delete_leave\""), 'calendar leave entries can be deleted');
+check(source_contains('leave-requests.php', '$requestedStartDate'), 'Leave requests accept a validated calendar date selection');
+check(source_contains('leave-requests.php', 'File leave for a staff member'), 'Team Leaders can file leave on behalf of a staff member');
+check(!source_contains('leave-requests.php', 'leave-filter-bar'), 'Leave requests no longer filter the list by department');
+check(!source_contains('leave-requests.php', '$departmentFilter'), 'the leave department filter plumbing is gone');
+check(source_contains('leave-requests.php', "\$roleSlug === 'team-leader'"), 'My requests is limited to Team Leader accounts');
+check(source_contains('leave-requests.php', 'leave_materialise'), 'an approved leave request creates the shared staff leave entry');
+check(source_contains('index.php', 'name="requestor"'), 'Tickets filter by requestor');
+check(source_contains('dashboard.php', 'data-date-range-picker'), 'Dashboard uses a calendar start and end date range');
+check(source_contains('department-workload.php', 'department-filter-bar'), 'Departments filter each workload category');
+check(source_contains('recruitment.php', 'employment_status'), 'Recruitment marks staff as resigned, pulled out, or for replacement');
+check(source_contains('recruitment.php', 'replacement_for_id'), 'Recruitment records who a replacement covers');
+check(source_contains('assets/js/app.js', "'requestor'"), 'ticket filter actions react to the requestor filter');
+check(source_contains('app/layout.php', "\$canImportReports ? 'Reports & CSV import' : 'Reports'"), 'Reports navigation reflects each role’s import capability');
+check(source_contains('reports.php', '$canExportReports'), 'Report exports are capability-gated');
+check(source_contains('reports.php', '$canImportReports'), 'CSV import controls are capability-gated');
+check(source_contains('migrations/027_user_disabled_at.sql', 'disabled_at'), 'migration 027 records when an account was disabled');
+check(source_contains('users.php', 'user_active_state_update_sql'), 'Users writes the disable timestamp alongside the enabled state');
+check(source_contains('users.php', 'Only a Super Admin can enable or disable an account.'), 'Users hides account enabling from non-Super-Admin viewers');
+check(source_contains('users.php', "\$canApproveAccounts): ?><th>Last updated</th>"), 'Users shows the last-updated and last-disabled columns to Super Admin only');
+check(source_contains('users.php', "\$canApproveAccounts): ?><span class=\"pill pill-"), 'Users replaces Inactive with Disabled for Super Admin only');
+check(!source_contains('users.php', 'These are the 70 employee rows from the staff list.'), 'Team Member setup omits the retired explainer paragraph');
+check(source_contains('users.php', 'data-team-member-row'), 'Team Member setup lists one searchable card per staff member');
+check(source_contains('users.php', 'id="team-member-search"'), 'Team Member setup provides a staff search box');
+check(source_contains('users.php', 'row.hidden = !match'), 'Team Member search hides rows instead of removing the submitted fields');
+check(source_contains('users.php', '$teamMemberDirectory && $canApproveAccounts'), 'Team Member setup is Super Admin only');
+check(source_contains('users.php', "notice = 'User deleted.'"), 'Users keeps the delete account action');
+check(source_contains('users.php', "if (\$action === 'delete' || \$action === 'activate')"), 'deleting an account is limited to the Super Admin');
+check(source_contains('users.php', "Reset password</a><?php if (\$canApproveAccounts): ?><form method=\"post\""), 'the Delete button is hidden from non-Super-Admin viewers');
+check(source_contains('app/notifications.php', 'notification_recipient_is_active'), 'notifications skip disabled or deleted recipients');
+check(source_contains('app/layout.php', "'Team Attendance & Recruitment'"), 'attendance navigation is renamed to Team Attendance & Recruitment');
+check(source_contains('app/roster.php', "'resigned' => 'Resigned'"), 'the roster offers a resigned employment status');
 
 echo "\n{$passed} passed, {$failed} failed\n";
 exit($failed === 0 ? 0 : 1);

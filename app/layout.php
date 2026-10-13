@@ -37,16 +37,21 @@ function page_start(string $title, ?array $user = null): void
         'change-password.php' => 'settings-page',
     ];
     $items = [];
-    $canViewCalendar = $user && user_can('view_all_tickets') && !in_array(($user['role_slug'] ?? ''), ['cng-admin', 'team-member'], true);
+    // CNG Admin manages staff leave and rostering, so the Team Calendar is available to every
+    // role that can read the ticket workspace. Team Members still get the read-only calendar.
+    $canViewCalendar = $user && user_can('view_all_tickets');
+    $canViewAttendance = $canViewCalendar && ($user['role_slug'] ?? '') !== 'team-member';
     $canViewWorkQueue = $user && user_can('view_all_tickets') && !in_array(($user['role_slug'] ?? ''), ['cng-admin', 'team-member'], true);
     $unreadNotifications = 0;
     $notificationItems = [];
     if ($user) {
-        $notificationCount = db()->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL');
-        $notificationCount->execute([(int) $user['id']]);
+        [$notificationClause, $notificationParams] = ticket_visibility_notification_clause();
+        [$notificationListClause, $notificationListParams] = ticket_visibility_notification_clause('n.url');
+        $notificationCount = db()->prepare('SELECT COUNT(*) FROM notifications WHERE user_id = ? AND read_at IS NULL' . $notificationClause);
+        $notificationCount->execute(array_merge([(int) $user['id']], $notificationParams));
         $unreadNotifications = (int) $notificationCount->fetchColumn();
-        $notificationList = db()->prepare('SELECT n.id, n.type, n.title, n.body, n.url, n.read_at, n.created_at, a.full_name AS actor_name FROM notifications n LEFT JOIN users a ON a.id = n.actor_id WHERE n.user_id = ? ORDER BY n.created_at DESC, n.id DESC LIMIT 5');
-        $notificationList->execute([(int) $user['id']]);
+        $notificationList = db()->prepare('SELECT n.id, n.type, n.title, n.body, n.url, n.read_at, n.created_at, a.full_name AS actor_name FROM notifications n LEFT JOIN users a ON a.id = n.actor_id WHERE n.user_id = ?' . $notificationListClause . ' ORDER BY n.created_at DESC, n.id DESC LIMIT 5');
+        $notificationList->execute(array_merge([(int) $user['id']], $notificationListParams));
         $notificationItems = $notificationList->fetchAll();
     }
     if ($user && user_can('view_all_tickets')) {
@@ -58,6 +63,8 @@ function page_start(string $title, ?array $user = null): void
     }
     if ($canViewCalendar) {
         $items[] = ['calendar', 'team-calendar.php', ['team-calendar.php'], 'Team Calendar', 'calendar'];
+    }
+    if ($canViewAttendance) {
         $items[] = ['attendance', 'team-attendance.php', ['team-attendance.php'], 'Team Attendance', 'attendance'];
         if (($user['role_slug'] ?? '') === 'super-admin') $items[] = ['calendar-admin', 'calendar-admin.php', ['calendar-admin.php'], 'Calendar admin', 'calendar'];
     }
@@ -70,12 +77,15 @@ function page_start(string $title, ?array $user = null): void
     if ($user && user_can('manage_users')) {
         $items[] = ['users', 'users.php', ['users.php'], 'Users', 'users'];
     }
-    if ($user && user_can('manage_recruitment')) {
+    if ($user && ($user['role_slug'] ?? '') === 'super-admin') {
         $items[] = ['recruitment', 'recruitment.php', ['recruitment.php'], 'Recruitment', 'users'];
+    }
+    if ($user && user_can('view_all_tickets') && ($user['role_slug'] ?? '') !== 'team-member') {
+        $canImportReports = user_can('manage_users');
+        $items[] = ['reports', 'reports.php', $canImportReports ? ['reports.php', 'import.php'] : ['reports.php'], $canImportReports ? 'Reports & CSV import' : 'Reports', 'dashboard'];
     }
     if ($user && ($user['role_slug'] ?? '') === 'super-admin') {
         $items[] = ['admin-history', 'audit-log.php', ['audit-log.php', 'deleted-tickets.php'], 'Admin history', 'deleted'];
-        $items[] = ['reports', 'reports.php', ['reports.php', 'import.php'], 'Reports & CSV import', 'dashboard'];
         $items[] = ['health', 'health.php', ['health.php'], 'System health', 'dashboard'];
     }
     $active = '';
@@ -96,9 +106,9 @@ function page_start(string $title, ?array $user = null): void
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/app.css?v=20260903-bulk-mode-ids">
-    <link rel="stylesheet" href="assets/css/ui-fixes.css?v=20260903-bulk-mode-ids">
-    <script src="assets/js/app.js?v=20260903-bulk-mode-ids" defer></script>
+    <link rel="stylesheet" href="assets/css/app.css?v=20260911-reports-layout">
+    <link rel="stylesheet" href="assets/css/ui-fixes.css?v=20261012-attendance-modal">
+    <script src="assets/js/app.js?v=20261013-date-range-label" defer></script>
 </head>
 <body class="<?= e($pageClasses[$page] ?? '') ?>">
 <a class="skip-link" href="#main-content">Skip to main content</a>
@@ -119,7 +129,7 @@ function page_start(string $title, ?array $user = null): void
                         <?php foreach ($notificationItems as $notification): ?>
                             <a class="notification-popover-item<?= $notification['read_at'] ? '' : ' unread' ?>" href="notifications.php?open=<?= (int) $notification['id'] ?>">
                                 <span class="notification-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6.75 10.75a5.25 5.25 0 0 1 10.5 0c0 3 1.25 4.5 2 5.5H4.75c.75-1 2-2.5 2-5.5M9.75 18.25a2.25 2.25 0 0 0 4.5 0"/></svg></span>
-                                <span class="notification-popover-copy"><strong><?= e($notification['title']) ?></strong><span><?= e($notification['body']) ?></span><small><?= e($notification['actor_name'] ?? 'System') ?> &middot; <?= e(date('M j, g:i A', strtotime($notification['created_at']))) ?></small></span>
+                                <span class="notification-popover-copy"><strong><?= e($notification['title']) ?></strong><span><?= e($notification['body']) ?></span><small><?= e($notification['actor_name'] ?? 'System') ?> &middot; <?= e(app_datetime_display($notification['created_at'], 'M j, g:i A')) ?></small></span>
                             </a>
                         <?php endforeach; ?>
                         <?php if (!$notificationItems): ?><div class="notification-popover-empty">No notifications yet.</div><?php endif; ?>
@@ -171,8 +181,12 @@ function page_end(): void
             if(event.defaultPrevented)return;
             var button=event.submitter||form.querySelector('button[type="submit"],button');
             if(!button)return;
-           if(!button.dataset.confirm&&!form.dataset.confirm&&!window.confirm('Are you sure you want to continue?')){event.preventDefault();return;}
-            if(storage)storage.setItem('cng_action_success','1');
+            var csvForm=!!form.closest('#csv-import');
+            var csvAction=csvForm?form.querySelector('input[name="action"]'):null;
+            if(csvForm){
+                if(csvAction&&csvAction.value==='import'&&!window.confirm('Import all validated rows?')){event.preventDefault();return;}
+            }else if(!button.dataset.confirm&&!form.dataset.confirm&&!window.confirm('Are you sure you want to continue?')){event.preventDefault();return;}
+            if(storage&&!csvForm)storage.setItem('cng_action_success','1');
             button.disabled=true;button.classList.add('is-processing');button.textContent=button.dataset.processing||button.textContent;
         });});
     })();

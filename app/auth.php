@@ -11,10 +11,32 @@ function current_user(bool $refresh = false): ?array {
     if (empty($_SESSION['user_id'])) return $user = null;
     $q = db()->prepare('SELECT u.*, r.name AS role_name, r.slug AS role_slug FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ? AND u.is_active = 1');
     $q->execute([$_SESSION['user_id']]);
-    return $user = ($q->fetch() ?: null);
+    $user = $q->fetch() ?: null;
+    $_SESSION['role'] = $user['role_slug'] ?? null;
+    return $user;
 }
 function refresh_current_user(): ?array {
     return current_user(true);
+}
+/**
+ * "UPDATE ... SET" fragment that writes a user's enabled state together with users.disabled_at.
+ *
+ * Disabling stamps NOW(), enabling clears the stamp, and re-saving an account that is already
+ * disabled keeps its original stamp — otherwise every unrelated edit would rewrite the
+ * "last disabled" date. An account can therefore never be disabled without a disable timestamp,
+ * nor re-enabled while still carrying one.
+ *
+ * The fragment always binds users.disabled_at, in both directions, so the caller's parameter
+ * list length never depends on which direction the state is moving.
+ *
+ * @param string|null $currentDisabledAt users.disabled_at of the row being written.
+ * @return array{0:string,1:array<int,string|null>} SQL fragment plus the two parameters it expects.
+ */
+function user_active_state_update_sql(bool $isActive, ?string $currentDisabledAt = null): array
+{
+    return $isActive
+        ? ['is_active=?, disabled_at=?', [1, null]]
+        : ['is_active=?, disabled_at=COALESCE(?, NOW())', [0, $currentDisabledAt]];
 }
 function user_can(string $permissionKey): bool {
     $user = current_user(); if ($user === null) return false;

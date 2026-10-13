@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selected) selected.setAttribute('aria-selected', 'true');
     });
 
-    const ticketFilterNames = ['dashboard_view', 'status', 'priority', 'department', 'category', 'subcategory', 'search', 'date_from', 'date_to'];
+    const ticketFilterNames = ['dashboard_view', 'status', 'priority', 'department', 'requestor', 'category', 'subcategory', 'search', 'date_from', 'date_to', 'dashboard_from', 'dashboard_to'];
     const syncFilterActions = (form) => {
         const actions = form?.querySelector('[data-filter-actions]');
         if (!form || !actions) return;
@@ -84,6 +84,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return Boolean(field?.value?.trim());
         });
         actions.hidden = !hasActiveFilter;
+    };
+
+    const syncReportTicketExports = (from, to) => {
+        document.querySelectorAll('a[href*="export-tickets.php?format="]').forEach((link) => {
+            const url = new URL(link.href, window.location.href);
+            if (from) url.searchParams.set('date_from', from); else url.searchParams.delete('date_from');
+            if (to) url.searchParams.set('date_to', to); else url.searchParams.delete('date_to');
+            link.href = url.toString();
+        });
     };
 
     document.querySelectorAll('[data-filter-form]').forEach((form) => {
@@ -202,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (from && to) return `${dateLabel(from)} - ${dateLabel(to)}`;
         if (from) return `From ${dateLabel(from)}`;
         if (to) return `Until ${dateLabel(to)}`;
-        return 'Any date range';
+        return 'Date Range';
     };
 
     const closeDateRangePicker = (picker) => {
@@ -250,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const renderCalendar = () => {
             const from = fromInput.value;
             const to = toInput.value;
+            syncReportTicketExports(from, to);
             const rightMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1);
             label.textContent = formatDateRangeLabel(from, to);
             menu.innerHTML = `<div class="date-range-menu-head"><button type="button" class="date-range-nav" data-date-range-action="prev" aria-label="Previous month">&#8249;</button><div class="date-range-months"><strong>${new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(cursor)}</strong><strong>${new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(rightMonth)}</strong></div><button type="button" class="date-range-nav" data-date-range-action="next" aria-label="Next month">&#8250;</button></div><div class="date-range-calendars">${renderMonth(cursor.getFullYear(), cursor.getMonth(), from, to)}${renderMonth(rightMonth.getFullYear(), rightMonth.getMonth(), from, to)}</div><div class="date-range-menu-foot"><span>${from || to ? formatDateRangeLabel(from, to) : 'Select a start and end date'}</span><button type="button" class="date-range-clear" data-date-range-action="clear">Clear</button></div>`;
@@ -308,6 +318,97 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const reportEmployeeSelect = document.querySelector('.report-employee-field select[name="employees[]"]');
+    const reportEmployeePicker = document.querySelector('[data-report-employee-picker]');
+    if (reportEmployeeSelect && reportEmployeePicker) {
+        const employeeOptions = Array.from(reportEmployeeSelect.options).filter((option) => option.value !== '');
+        const allOption = Array.from(reportEmployeeSelect.options).find((option) => option.value === '');
+        const details = document.createElement('details');
+        details.className = 'report-employee-picker';
+        const summary = document.createElement('summary');
+        summary.id = 'report-employee-summary';
+        summary.className = 'ui-select-trigger';
+        const summaryLabel = document.createElement('span');
+        const chevron = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        chevron.setAttribute('viewBox', '0 0 24 24');
+        chevron.setAttribute('aria-hidden', 'true');
+        const chevronPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        chevronPath.setAttribute('d', 'm7 9 5 5 5-5');
+        chevron.append(chevronPath);
+        summary.append(summaryLabel, chevron);
+        const search = document.createElement('input');
+        search.type = 'search';
+        search.placeholder = 'Search employees';
+        search.setAttribute('aria-label', 'Search employees');
+        search.autocomplete = 'off';
+        const allLabel = document.createElement('label');
+        const allCheckbox = document.createElement('input');
+        allCheckbox.type = 'checkbox';
+        allLabel.append(allCheckbox, document.createTextNode('All employees'));
+        const list = document.createElement('div');
+        list.className = 'report-employee-options';
+        const empty = document.createElement('p');
+        empty.textContent = 'No matching employees.';
+        empty.hidden = true;
+        const selectedLabel = document.createElement('p');
+        selectedLabel.className = 'report-employee-selection';
+        selectedLabel.setAttribute('aria-live', 'polite');
+        const entries = employeeOptions.map((option) => {
+            const label = document.createElement('label');
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = option.selected;
+            label.append(checkbox, document.createTextNode(option.textContent));
+            list.append(label);
+            checkbox.addEventListener('change', () => {
+                option.selected = checkbox.checked;
+                updateSelection();
+            });
+            return {option, checkbox, label};
+        });
+        const updateSelection = () => {
+            const selected = entries.filter(({option}) => option.selected);
+            entries.forEach(({option, checkbox}) => { checkbox.checked = option.selected; });
+            if (allOption) allOption.selected = selected.length === 0;
+            allCheckbox.checked = selected.length === 0;
+            summaryLabel.textContent = selected.length === 1 ? selected[0].option.textContent : selected.length ? selected.length + ' employees selected' : 'All employees';
+            summary.setAttribute('aria-label', 'Employees: ' + summary.textContent);
+            selectedLabel.textContent = selected.length ? selected.map(({option}) => option.textContent).join(', ') : 'All employees included';
+        };
+        allCheckbox.addEventListener('change', () => {
+            employeeOptions.forEach((option) => { option.selected = false; });
+            updateSelection();
+        });
+        search.addEventListener('input', () => {
+            const query = search.value.trim().toLocaleLowerCase();
+            let visible = 0;
+            entries.forEach(({option, label}) => {
+                label.hidden = !option.textContent.toLocaleLowerCase().includes(query);
+                if (!label.hidden) visible++;
+            });
+            empty.hidden = visible > 0;
+        });
+        search.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') event.preventDefault();
+        });
+        details.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') { details.open = false; summary.focus(); }
+        });
+        reportEmployeeSelect.addEventListener('change', updateSelection);
+        const panel = document.createElement('div');
+        panel.className = 'report-employee-menu';
+        panel.append(search, allLabel, list, empty);
+        details.append(summary, panel);
+        document.addEventListener('click', (event) => {
+            if (!details.contains(event.target)) details.open = false;
+        });
+        reportEmployeePicker.append(details, selectedLabel);
+        reportEmployeeSelect.hidden = true;
+        const fieldLabel = reportEmployeeSelect.parentElement.querySelector('label[for="report-employees"]');
+        if (fieldLabel) fieldLabel.removeAttribute('for');
+        reportEmployeePicker.hidden = false;
+        updateSelection();
+    }
     const pickers = Array.from(document.querySelectorAll('[data-filter-picker]'));
 
     const closePicker = (picker) => {
@@ -543,7 +644,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.addEventListener('click', (event) => {
-        if (!event.target.closest('[data-department-picker]')) departmentPickers.forEach(closeDepartmentPicker);
+        // Wrap the callback: forEach passes (item, index), and the index would otherwise
+        // land in closeDepartmentPicker's returnFocus argument and steal focus (scrolling
+        // the page away from whatever was just clicked).
+        if (!event.target.closest('[data-department-picker]')) departmentPickers.forEach((picker) => closeDepartmentPicker(picker));
     });
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
@@ -600,13 +704,28 @@ document.addEventListener('DOMContentLoaded', () => {
             else label.textContent = `${selected[0].textContent} +${selected.length - 1}`;
         };
 
+        // Update the selected state in place. Rebuilding the menu here would detach the
+        // button that is still dispatching its click event, and any document-level
+        // "clicked outside" handler would then fail to recognise the click as inside its
+        // own popover (this is what closed the Team Calendar day card on selection).
+        const syncOptionSelection = () => {
+            const options = Array.from(select.options);
+            Array.from(menu.querySelectorAll('.ui-select-option')).forEach((button) => {
+                const option = options[Number(button.dataset.uiSelectIndex)];
+                const isSelected = Boolean(option && option.selected);
+                button.classList.toggle('is-selected', isSelected);
+                button.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+            });
+        };
+
         const renderOptions = () => {
             menu.innerHTML = '';
-            Array.from(select.options).forEach((option) => {
+            Array.from(select.options).forEach((option, optionIndex) => {
                 const optionButton = document.createElement('button');
                 optionButton.type = 'button';
                 optionButton.className = `ui-select-option${option.selected ? ' is-selected' : ''}`;
                 optionButton.dataset.uiSelectValue = option.value;
+                optionButton.dataset.uiSelectIndex = String(optionIndex);
                 optionButton.setAttribute('role', 'option');
                 optionButton.setAttribute('aria-selected', option.selected ? 'true' : 'false');
                 optionButton.disabled = option.disabled;
@@ -619,8 +738,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         select.value = option.value;
                         Array.from(select.options).forEach((item) => { item.selected = item === option; });
                     }
+                    syncOptionSelection();
                     updateLabel();
-                    renderOptions();
                     select.dispatchEvent(new Event('change', { bubbles: true }));
                     if (!select.multiple) closeUiSelect(select, true);
                 });
@@ -697,6 +816,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectVisible = bulkActions.querySelector('[data-bulk-select-visible]');
         const clearSelection = bulkActions.querySelector('[data-bulk-clear-selection]');
         const ticketCheckboxes = Array.from(document.querySelectorAll('[data-bulk-ticket-checkbox]'));
+        document.querySelectorAll('.ticket-row-external .ticket-id').forEach((cell) => {
+            if (cell.querySelector('.bulk-ticket-checkbox-readonly')) return;
+            const readonlyCheckbox = document.createElement('input');
+            readonlyCheckbox.className = 'bulk-ticket-checkbox bulk-ticket-checkbox-readonly';
+            readonlyCheckbox.type = 'checkbox';
+            readonlyCheckbox.disabled = true;
+            readonlyCheckbox.title = 'External tickets are read-only';
+            readonlyCheckbox.setAttribute('aria-label', (cell.querySelector('a')?.textContent?.trim() || 'External ticket') + ' is read-only');
+            cell.prepend(readonlyCheckbox);
+        });
+        if (!bulkActions.querySelector('[data-bulk-read-only-note]') && document.querySelector('.ticket-row-external')) {
+            const readOnlyNote = document.createElement('p');
+            readOnlyNote.className = 'bulk-actions-note';
+            readOnlyNote.dataset.bulkReadOnlyNote = 'true';
+            readOnlyNote.textContent = 'Only native tickets can be updated here. External tickets are read-only.';
+            bulkActions.querySelector('.bulk-actions-panel')?.insertBefore(readOnlyNote, bulkActions.querySelector('.bulk-actions-form'));
+        }
         const syncSelectedInputs = (selected) => {
             if (!selectedInputs) return;
             selectedInputs.replaceChildren(...selected.map((checkbox) => {
@@ -731,6 +867,71 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         updateSelectionState();
     }
+
+    document.querySelectorAll('.staff-picker').forEach((picker) => {
+        const summary = picker.querySelector('summary > span');
+        const checkboxes = Array.from(picker.querySelectorAll('input[type="checkbox"]'));
+        if (!summary || !checkboxes.length) return;
+        const updateStaffPickerSummary = () => {
+            const selectedCount = checkboxes.filter((checkbox) => checkbox.checked).length;
+            summary.textContent = selectedCount ? selectedCount + ' selected' : 'Select staff';
+        };
+        const search = picker.querySelector('[data-staff-search]');
+        const controls = picker.querySelector('[data-staff-search-controls]');
+        const selection = picker.parentElement.querySelector('[data-staff-selection]');
+        const noResults = picker.querySelector('[data-staff-no-results]');
+        const updateSelectedNames = () => {
+            if (selection) selection.textContent = checkboxes.filter((checkbox) => checkbox.checked)
+                .map((checkbox) => checkbox.closest('label').querySelector('span').textContent.trim()).join(', ');
+        };
+        if (controls) controls.hidden = false;
+        search?.addEventListener('input', () => {
+            const query = search.value.trim().toLocaleLowerCase();
+            let visible = 0;
+            checkboxes.forEach((checkbox) => {
+                const row = checkbox.closest('label');
+                row.hidden = !row.textContent.toLocaleLowerCase().includes(query);
+                if (!row.hidden) visible++;
+            });
+            if (noResults) noResults.hidden = visible > 0;
+        });
+        picker.querySelector('[data-staff-clear]')?.addEventListener('click', () => {
+            checkboxes.forEach((checkbox) => { checkbox.checked = false; });
+            updateStaffPickerSummary();
+            updateSelectedNames();
+        });
+        checkboxes.forEach((checkbox) => checkbox.addEventListener('change', updateSelectedNames));
+        updateSelectedNames();
+        checkboxes.forEach((checkbox) => checkbox.addEventListener('change', updateStaffPickerSummary));
+        updateStaffPickerSummary();
+    });
+
+    document.querySelectorAll('[data-shift-form]').forEach((form) => {
+        const checkboxes = Array.from(form.querySelectorAll('input[name="shift_days[]"]'));
+        form.querySelectorAll('[data-shift-preset]').forEach((button) => {
+            button.addEventListener('click', () => {
+                const wanted = (button.dataset.shiftPreset || '').split(',').map((value) => value.trim()).filter(Boolean);
+                checkboxes.forEach((checkbox) => { checkbox.checked = wanted.includes(checkbox.value); });
+            });
+        });
+    });
+
+    document.querySelectorAll('[data-employment-status]').forEach((select) => {
+        const extra = select.closest('form')?.querySelector('[data-status-extra]');
+        if (!extra) return;
+        const syncStatusExtra = () => { extra.hidden = select.value === 'active'; };
+        select.addEventListener('change', syncStatusExtra);
+        syncStatusExtra();
+    });
+
+    document.querySelectorAll('.recruitment-card').forEach((card) => {
+        card.addEventListener('toggle', () => {
+            if (!card.open) return;
+            document.querySelectorAll('.recruitment-card[open]').forEach((otherCard) => {
+                if (otherCard !== card) otherCard.open = false;
+            });
+        });
+    });
 
     const accountMenu = document.querySelector('[data-account-menu]');
     const accountMenuTrigger = document.querySelector('[data-account-menu-trigger]');

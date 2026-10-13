@@ -51,6 +51,9 @@ body.ticket-form-page .record-form-panel{display:block}
 .calendar-admin-page section>.compact-form .button{min-height:38px;margin:0;justify-self:start;white-space:nowrap}
 .attendance-form>div:last-child{display:flex;grid-column:1/-1;gap:8px;align-items:center}
 .attendance-form>div:last-child .button{min-width:120px;white-space:nowrap}
+.attendance-table-panel .ticket-table td:last-child{white-space:nowrap}
+.attendance-table-panel td:last-child a[href*="edit="]{display:inline-flex;align-items:center;justify-content:center;min-height:30px;padding:0 10px;border:1px solid var(--border);border-radius:var(--radius-control);background:var(--surface);color:var(--blue);font-size:10px;font-weight:600;line-height:1;text-decoration:none;white-space:nowrap}
+.attendance-table-panel td:last-child a[href*="edit="]:hover{border-color:#bfd3ea;background:var(--blue-soft)}
 
 /* Complete dark-theme coverage for shared navigation, controls, cards, tables, and page-specific surfaces. */
 html[data-theme="dark"] .topbar{background:var(--surface);border-right-color:var(--border);box-shadow:8px 0 28px rgba(2,6,23,.22)}
@@ -193,8 +196,8 @@ html[data-theme="dark"] .ticket-table td.muted,html[data-theme="dark"] .ticket-t
 .team-member-setup-table{display:block;width:100%;min-width:0!important;table-layout:auto}
 .team-member-setup-table thead{display:none}
 .team-member-setup-table tbody{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.team-member-setup-table tbody tr{display:grid;gap:9px;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-muted)}
-.team-member-setup-table tbody td{display:grid;grid-template-columns:100px minmax(0,1fr);align-items:center;gap:8px;padding:0;border:0;white-space:normal}
+.team-member-setup-table tbody tr{display:grid;grid-template-columns:minmax(0,1fr);gap:9px;min-width:0;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-muted)}
+.team-member-setup-table tbody td{display:grid;grid-template-columns:100px minmax(0,1fr);align-items:center;gap:8px;width:100%;min-width:0;padding:0;border:0;white-space:normal}
 .team-member-setup-table tbody td::before{content:attr(data-label);color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.06em;text-transform:uppercase}
 .team-member-setup-table tbody td:nth-child(2)::before{content:"Staff team"}
 .team-member-setup-table tbody td:nth-child(3)::before{content:"Company email"}
@@ -202,11 +205,12 @@ html[data-theme="dark"] .ticket-table td.muted,html[data-theme="dark"] .ticket-t
 .team-member-setup-table tbody td:first-child{display:block;padding-bottom:2px}
 .team-member-setup-table tbody td:first-child::before{display:none}
 .team-member-setup-table tbody td:first-child{font-size:12px;font-weight:700}
-.team-member-setup-table tbody td:last-child{white-space:normal}
+.team-member-setup-table tbody td:last-child{width:100%!important;text-align:left!important;white-space:normal}
+.team-member-setup-table tbody td:last-child>a,.team-member-setup-table tbody td:last-child>span{display:block;min-width:0;overflow-wrap:anywhere}
 .team-member-setup-table input[type=email]{min-width:0;margin:0}
 .team-member-setup>form>.button{margin-top:14px}
 
-.recruitment-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.recruitment-card-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
 .recruitment-card{min-width:0;overflow:hidden;border:1px solid var(--border);border-radius:11px;background:var(--surface);box-shadow:0 4px 14px rgba(15,23,42,.025)}
 .recruitment-card>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:62px;padding:14px 15px;color:var(--ink);cursor:pointer;list-style:none}
 .recruitment-card>summary::-webkit-details-marker{display:none}
@@ -221,6 +225,9 @@ html[data-theme="dark"] .ticket-table td.muted,html[data-theme="dark"] .ticket-t
 .recruitment-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 .recruitment-detail-grid label{margin:0;color:#46566c;font-size:10px;font-weight:700}
 .recruitment-detail-grid input:not([type=checkbox]){min-height:38px;margin-top:6px;padding:8px 10px;border-radius:8px;font-size:11px}
+.recruitment-detail-grid select{width:100%;min-height:38px;margin-top:6px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);font-size:11px}
+.recruitment-detail-grid label.is-wide{grid-column:1/-1}
+.recruitment-status-pill{margin-left:auto;flex:0 0 auto;font-size:9px}
 .recruitment-training-field{display:flex!important;align-items:center;gap:8px;min-height:38px;padding-top:19px}
 .recruitment-training-field input{width:16px;height:16px;margin:0}
 .recruitment-card-actions{display:flex;justify-content:flex-end;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
@@ -246,7 +253,7 @@ html[data-theme="dark"] .recruitment-card-context{color:var(--muted)}
 /* Keep privileged bulk actions in the ticket filter toolbar. */
 .tickets-control-grid{position:relative;display:block}
 .tickets-control-grid>.ticket-filter-panel{min-width:0;margin:0}
-.tickets-control-grid .ticket-filter-grid{grid-template-columns:auto repeat(6,minmax(0,1fr)) auto;gap:6px}
+.tickets-control-grid .ticket-filter-grid{grid-template-columns:auto repeat(7,minmax(0,1fr)) auto;gap:6px}
 .bulk-actions-menu{position:absolute;z-index:4;top:52px;right:14px;min-width:0}
 .bulk-actions-trigger{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:30px;padding:5px 9px;border:1px solid #DCE3EC;border-radius:7px;background:var(--surface);color:var(--ink);font-size:10px;font-weight:700;line-height:1;cursor:pointer;list-style:none;white-space:nowrap}
 .bulk-actions-trigger::-webkit-details-marker{display:none}
@@ -257,6 +264,7 @@ html[data-theme="dark"] .recruitment-card-context{color:var(--muted)}
 .bulk-actions-head h2{margin:0;color:var(--ink);font-size:12px;font-weight:700}
 .bulk-actions-head-tools{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
 .bulk-actions-head p{margin:0;color:var(--muted);font-size:10px;white-space:nowrap}
+.bulk-actions-note{margin:-2px 0 10px;color:var(--muted);font-size:10px;line-height:1.4}
 .bulk-selection-button{min-height:26px;padding:0 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--blue);font-size:9px;font-weight:700;line-height:1;cursor:pointer}
 .bulk-selection-button:hover{background:var(--blue-soft);border-color:#AFC7E1}
 .bulk-selection-button:disabled{cursor:not-allowed;opacity:.5}
@@ -271,8 +279,11 @@ html[data-theme="dark"] .recruitment-card-context{color:var(--muted)}
 .tickets-screen .ticket-table th:nth-child(1),.tickets-screen .ticket-table td:nth-child(1){width:7%}
 .tickets-screen .ticket-table th:nth-child(2),.tickets-screen .ticket-table td:nth-child(2){width:12%}
 .tickets-screen .ticket-id a{display:inline-block;min-width:22px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;white-space:nowrap}
+.tickets-screen .ticket-table td:nth-child(4),.tickets-screen .ticket-table td:nth-child(5){overflow:hidden}
+.tickets-screen .ticket-table td:nth-child(4) .pill,.tickets-screen .ticket-table td:nth-child(5) .pill{display:block;max-width:100%;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 input[type="checkbox"].bulk-ticket-checkbox{display:none;width:14px;height:14px;flex:0 0 auto;margin:0 7px 0 0;vertical-align:middle;accent-color:var(--blue);cursor:pointer}
-.bulk-selection-mode input[type="checkbox"].bulk-ticket-checkbox{display:block}
+.bulk-selection-mode input[type="checkbox"].bulk-ticket-checkbox{display:inline-block}
+.bulk-selection-mode input[type="checkbox"].bulk-ticket-checkbox-readonly{cursor:not-allowed;opacity:.45}
 html[data-theme="dark"] .bulk-actions-trigger{border-color:var(--border);background:var(--surface);color:var(--ink)}
 html[data-theme="dark"] .bulk-actions-trigger:hover,html[data-theme="dark"] .bulk-actions-menu[open]>.bulk-actions-trigger{background:var(--surface-muted);border-color:#5c82ad}
 html[data-theme="dark"] .bulk-actions-panel{background:var(--surface);border-color:var(--border)}
@@ -282,3 +293,134 @@ html[data-theme="dark"] .bulk-selection-button{background:var(--surface);border-
 @media(min-width:901px){.tickets-control-grid .ticket-filter-grid{padding-right:110px}}
 @media(max-width:900px){.tickets-control-grid .ticket-filter-grid{display:flex;align-items:center;flex-wrap:wrap}.bulk-actions-menu{position:static;flex:0 0 auto;margin:6px 0 0 auto}.bulk-actions-menu .bulk-actions-panel{position:static;width:auto;margin-top:6px}.bulk-actions-form{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:520px){.bulk-actions-menu{flex-basis:100%;margin-left:0}.bulk-actions-trigger{width:100%}.bulk-actions-head{align-items:flex-start;flex-direction:column}.bulk-actions-head-tools{justify-content:flex-start}.bulk-actions-form{grid-template-columns:1fr}.bulk-actions-form .button{width:100%}}
+
+/* Attendance: readable form, searchable inline staff list, and explicit date navigation. */
+.attendance-screen .attendance-layout{grid-template-columns:minmax(0,1fr)}
+.attendance-screen .attendance-form{grid-template-columns:repeat(4,minmax(0,1fr));gap:18px}
+.attendance-screen .attendance-form label,.attendance-screen .attendance-field-label{font-size:13px;color:var(--ink)}
+.attendance-screen .attendance-field-help{font-size:12px;line-height:1.5}
+.attendance-screen .attendance-form input,.attendance-screen .attendance-form textarea,.attendance-screen .attendance-form .ui-select-trigger{font-size:14px;min-height:44px}
+.attendance-screen .attendance-form .button{min-height:44px;font-size:13px}
+.attendance-screen .staff-picker-options{position:static;max-height:260px;margin-top:8px;box-shadow:none;display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.attendance-screen .staff-picker-options label{min-height:48px;font-size:13px!important}
+.attendance-screen .staff-picker-options label span{white-space:normal;overflow-wrap:anywhere}
+.attendance-screen .staff-picker-options label small{font-size:11px}
+.attendance-screen .staff-picker-options label[hidden],.attendance-screen [hidden]{display:none!important}
+.attendance-staff-search{display:flex;align-items:end;gap:12px;margin-top:10px}
+.attendance-staff-search label{flex:1;min-width:0}
+.attendance-screen .attendance-date-filter{width:300px;flex:0 0 300px}
+.attendance-date-actions,.attendance-day-links{display:flex;align-items:center;gap:10px}
+.attendance-date-actions input{min-width:0;flex:1;min-height:44px}
+.attendance-day-links{justify-content:space-between;flex-wrap:wrap;margin-top:8px;font-size:12px}
+.attendance-screen .attendance-table-panel .ticket-table td{font-size:13px;white-space:normal;overflow-wrap:anywhere}
+.attendance-screen .attendance-table-panel td:last-child a[href*="edit="]{min-height:40px;font-size:13px}
+#attendance-entry{scroll-margin-top:20px}
+@media(max-width:1000px){.attendance-screen .attendance-form{grid-template-columns:repeat(2,minmax(0,1fr))}.attendance-screen .staff-picker-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.attendance-screen .attendance-form,.attendance-screen .staff-picker-options{grid-template-columns:minmax(0,1fr)}.attendance-screen .attendance-date-filter{width:100%;flex-basis:auto}.attendance-staff-search{align-items:stretch;flex-direction:column}.attendance-screen .attendance-form>div:last-child{flex-wrap:wrap}}
+/* Reports guidance and import controls; existing date and export styling is preserved. */
+.report-guidance{margin:0;color:var(--muted);font-size:13px;line-height:1.6}
+.report-employee-field [hidden],.report-employee-picker [hidden]{display:none!important}
+.report-employee-picker{min-width:220px;max-width:340px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink)}
+.report-employee-picker summary{padding:10px;min-height:40px;cursor:pointer;font-size:13px}
+.report-employee-picker>input{width:calc(100% - 16px);margin:8px;min-height:40px}
+.report-employee-picker label{display:flex;align-items:center;gap:8px;padding:9px 10px;font-size:13px;line-height:1.4;cursor:pointer;color:var(--ink)}
+.report-employee-picker input[type=checkbox]{width:18px;height:18px;min-height:18px;margin:0;flex:0 0 18px}
+.report-employee-options{max-height:200px;overflow:auto}
+.report-employee-picker>p{padding:8px;font-size:12px}
+.report-employee-selection{max-width:340px;margin:3px 0 0;font-size:12px;font-weight:400;line-height:1.4;overflow-wrap:anywhere}
+.reports-screen .report-panel-head>span{flex-shrink:1;line-height:1.5}
+.csv-import-content{padding:16px 16px 0;font-size:13px;line-height:1.6}
+.csv-format-guide{border:1px solid var(--border);border-radius:8px;padding:12px}
+.csv-format-guide summary{cursor:pointer;font-weight:600;color:var(--ink)}
+.csv-format-row{display:flex;flex-wrap:wrap;gap:6px 16px;padding:12px 0;border-top:1px solid var(--border)}
+.csv-format-row code,.csv-format-row small{width:100%;overflow-wrap:anywhere;white-space:normal}
+.csv-format-row small{font-size:12px;color:var(--muted)}
+.csv-import-panel .csv-import-form label,.csv-import-panel .csv-preview p,.csv-import-panel .csv-preview h3{font-size:13px}
+.csv-import-panel .csv-import-form input,.csv-import-panel .csv-import-form .ui-select-trigger,.csv-import-panel .button{min-height:42px;font-size:13px}
+.csv-import-panel .csv-preview{background:var(--surface);border-color:var(--border);color:var(--ink)}
+.csv-error-list{max-height:220px;overflow:auto;font-size:13px;line-height:1.6}
+.csv-preview-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+.csv-preview-actions form{margin:0}
+.csv-data-preview{max-height:360px;overflow:auto}
+.csv-data-preview .ticket-table{min-width:600px;table-layout:auto}
+.csv-data-preview .ticket-table td{white-space:normal;overflow-wrap:anywhere;font-size:12px;max-width:300px}
+#csv-import{scroll-margin-top:20px}
+@media(max-width:760px){.report-employee-field,.report-employee-picker{width:100%;max-width:none}.report-employee-selection{max-width:none}.csv-preview-actions,.csv-preview-actions form,.csv-preview-actions .button{width:100%}}
+/* Reports: keep filter controls together and downloads on their own row. */
+.reports-screen .reports-toolbar{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}
+.reports-screen .report-filter-bar{display:grid;grid-template-columns:minmax(240px,1fr) minmax(160px,.8fr) minmax(220px,1fr) auto;align-items:start;gap:12px}
+.reports-screen .report-filter-bar>.report-date-range,.reports-screen .report-filter-submit{margin-top:19px}
+.reports-screen .report-filter-field{min-width:0;font-size:12px}
+.reports-screen .report-filter-field .ui-select-control{width:100%}
+.reports-screen .report-filter-submit{min-height:40px;white-space:nowrap}
+.reports-screen .reports-toolbar>.page-head-actions{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:10px;width:100%;padding-top:14px;border-top:1px solid var(--border)}
+.reports-screen .report-employee-picker{position:relative;width:100%;max-width:none;min-width:0}
+.reports-screen .report-employee-menu{position:absolute;top:calc(100% + 6px);left:0;z-index:150;width:100%;min-width:220px;padding:6px;border:1px solid var(--border);border-radius:10px;background:var(--surface);box-shadow:0 12px 28px rgba(15,23,42,.16)}
+.reports-screen .report-employee-menu>input{width:100%;margin:0 0 6px;min-height:40px}
+.reports-screen .report-employee-menu>p{padding:8px;font-size:12px}
+.reports-screen .report-employee-selection{max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:11px}
+.reports-screen .report-table .empty-table-cell{text-align:center;padding:24px 14px}
+@media(max-width:1200px){.reports-screen .report-filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.reports-screen .report-filter-submit{align-self:start;justify-self:start}}
+@media(max-width:760px){.reports-screen .report-filter-bar{grid-template-columns:minmax(0,1fr)}.reports-screen .report-filter-bar>.report-date-range,.reports-screen .report-filter-submit{margin-top:0}.reports-screen .report-filter-submit{width:100%}.reports-screen .report-employee-menu{min-width:0}.reports-screen .reports-toolbar>.page-head-actions{gap:8px}}
+/* Match the Department trigger while retaining searchable employee selection. */
+.reports-screen .report-employee-picker{border:0;background:transparent;border-radius:0}
+.reports-screen .report-employee-picker summary.ui-select-trigger{display:flex;list-style:none;padding:0 12px;font-size:12px;font-weight:500;min-height:40px}
+.reports-screen .report-employee-picker summary::-webkit-details-marker{display:none}
+.reports-screen .report-employee-picker summary::marker{content:""}
+.reports-screen .report-employee-picker[open] summary.ui-select-trigger{border-color:var(--blue)}
+.reports-screen .report-employee-picker[open] summary svg{transform:rotate(180deg)}
+.reports-screen .report-date-caption{display:block;margin-bottom:6px;color:var(--muted);font-size:12px;font-weight:700}
+.reports-screen .report-filter-bar>.report-date-range{margin-top:0}
+/* Export-first Reports screen with consistently sized filter rows. */
+.report-export-card{padding:22px;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+.report-export-card>h2{margin:0 0 8px;font-size:20px}
+.report-export-help{margin:0 0 22px;font-size:13px;line-height:1.6;color:var(--muted)}
+.reports-screen .report-filter-bar>.report-date-range,.reports-screen .report-filter-field{display:flex;flex-direction:column;gap:6px;margin:0;position:relative}
+.reports-screen .report-date-caption,.reports-screen .report-filter-field>label{display:block;height:18px;line-height:18px;margin:0;padding:0;color:var(--muted);font-size:12px;font-weight:600}
+.reports-screen .report-filter-bar .date-range-trigger,.reports-screen .report-filter-bar .ui-select-trigger{height:44px;min-height:44px;margin:0;padding:0 12px;font-size:12px}
+.reports-screen .report-filter-bar .filter-picker-copy strong{font-size:12px;font-weight:500}
+.reports-screen .report-filter-field .ui-select-control{margin:0}
+.reports-screen .report-filter-bar .report-filter-submit{margin-top:24px;min-height:44px}
+.reports-screen .report-filter-bar .report-employee-picker summary.ui-select-trigger{height:44px;min-height:44px;margin:0}
+.reports-screen .report-secondary-section{border:1px solid var(--border);border-radius:12px;background:var(--surface);min-width:0}
+.report-secondary-section>summary{padding:18px 20px;font-size:14px;font-weight:600;color:var(--ink);cursor:pointer}
+.report-secondary-content{display:grid;gap:16px;padding:0 20px 20px}
+.report-secondary-content>.report-action-button{justify-self:start}
+.report-import-intro{padding:0 16px;margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+@media(max-width:760px){.report-export-card{padding:16px}.reports-screen .report-filter-bar .report-filter-submit{margin-top:0}.report-secondary-content{padding:0 14px 14px}}
+/* Department workload: readable names and aligned statistics at every width. */
+.departments-screen .department-summary-panel{padding:16px}
+.departments-screen .department-section-head{flex-wrap:wrap;gap:8px 16px;margin-bottom:14px}
+.departments-screen .department-section-head h2{font-size:16px}
+.departments-screen .department-section-head p{font-size:12px;line-height:1.5}
+.departments-screen .department-section-count{font-size:11px}
+/* Compact cards: fit more departments per row, scale down with the viewport. */
+.departments-screen .department-metric-grid{grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:10px;align-items:stretch}
+.departments-screen .department-metric-card{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto auto;align-items:start;gap:0 6px;min-width:0;min-height:0;padding:12px 13px;border-radius:10px}
+.departments-screen .department-metric-name{grid-column:1/-1;overflow:visible;white-space:normal;text-overflow:clip;overflow-wrap:anywhere;font-size:12px;line-height:1.35;letter-spacing:0;text-transform:none;color:var(--ink)}
+.departments-screen .department-metric-card>strong{margin:6px 0 0;font-size:22px;line-height:1.05;font-variant-numeric:tabular-nums}
+.departments-screen .department-metric-card>small{align-self:end;margin:0 0 2px;font-size:11px;line-height:1.4}
+.departments-screen .department-metric-meta{grid-column:1/-1;align-self:end;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:9px;padding-top:8px;font-size:10px;line-height:1.35;white-space:normal}
+.departments-screen .department-metric-meta span{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;overflow-wrap:anywhere}
+.departments-screen .department-metric-meta b{font-size:13px;line-height:1.2;font-variant-numeric:tabular-nums}
+@media(max-width:1400px){.departments-screen .department-metric-grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr))}}
+@media(max-width:1100px){.departments-screen .department-metric-grid{grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}}
+@media(max-width:820px){.departments-screen .department-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.departments-screen .department-summary-panel{padding:12px}.departments-screen .department-metric-grid{grid-template-columns:minmax(0,1fr);gap:8px}.departments-screen .department-metric-card{padding:11px 12px}}
+
+/* ---------------------------------------------------------------------------
+   Team Attendance: the staff editor opens as a modal, so choosing someone no
+   longer requires scrolling past the roster to reach their form. Reuses the
+   Team Calendar's .calendar-modal shell.
+   --------------------------------------------------------------------------- */
+.attendance-modal-panel{width:min(1040px,100%);padding:0;overflow:hidden}
+.attendance-modal-panel>.section-head{align-items:flex-start;gap:12px;margin:0;padding:14px 16px;border-bottom:1px solid var(--border)}
+.attendance-modal-head-actions{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.attendance-modal-close{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--ink);font-size:20px;line-height:1;text-decoration:none}
+.attendance-modal-close:hover{background:#eef2f8}
+.attendance-modal-panel .attendance-staff-columns{border-top:0}
+.attendance-modal-notice{margin:0;padding:10px 16px}
+.attendance-leave-summary{display:grid;gap:6px;margin:9px 0 0;padding:0;list-style:none}
+.attendance-leave-summary li{display:flex;align-items:center;gap:8px;font-size:11px;line-height:1.4}
+.attendance-leave-summary .pill{flex-shrink:0}
+@media(max-width:820px){.attendance-modal-panel{width:100%}}

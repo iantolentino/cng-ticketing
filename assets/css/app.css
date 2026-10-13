@@ -468,6 +468,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .dashboard-greeting-head h2{margin-bottom:1px;font-size:18px}
 .dashboard-date{margin:0;color:var(--muted);font-size:12px;font-weight:600}
 .dashboard-filter-form{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:0}
+.dashboard-date-range{position:relative;width:236px;flex:0 0 236px}
+.dashboard-date-range .date-range-trigger{min-height:44px;padding:7px 10px;border-radius:10px}
+.dashboard-date-range .date-range-trigger .filter-picker-copy strong{font-size:11px}
+.dashboard-date-range .date-range-menu{right:0;left:auto}
 .filter-picker{position:relative;min-width:164px}
 .filter-picker-trigger{display:flex;align-items:center;width:100%;min-height:48px;padding:7px 10px;border:1px solid #DCE3EC;border-radius:var(--radius-control);background:var(--surface);color:var(--ink);text-align:left;transition:border-color .2s ease,box-shadow .2s ease,background .2s ease}
 .filter-picker-trigger:hover,.filter-picker.is-open .filter-picker-trigger{border-color:#AFC7E1;background:#FBFDFF;box-shadow:0 0 0 3px rgba(30,90,168,.09)}
@@ -481,6 +485,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .filter-picker-menu{position:absolute;z-index:20;top:calc(100% + 8px);right:0;width:220px;padding:7px;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:0 18px 40px rgba(15,23,42,.14)}
 .filter-picker-menu[hidden]{display:none}
 .filter-menu-label{margin:5px 8px 7px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.filter-menu-empty{margin:4px 8px 6px;color:var(--muted);font-size:11px}
 .filter-option{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:40px;padding:8px 9px;border:0;border-radius:8px;background:transparent;color:var(--ink);font-size:13px;text-align:left;transition:background .15s ease,color .15s ease}
 .filter-option:hover,.filter-option.is-selected{background:var(--blue-soft);color:var(--blue)}
 .filter-option-check{visibility:hidden;font-size:13px;font-weight:800}
@@ -517,6 +522,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   .dashboard-filter-form,.trend-filter-form{width:100%;align-items:stretch;justify-content:stretch;flex-direction:column}
   .dashboard-side .activity-grid{grid-template-columns:1fr}
   .filter-picker,.trend-filter-form .filter-picker{width:100%;min-width:0}
+  .dashboard-date-range{width:100%;flex:1 1 auto}
+  .dashboard-date-range .date-range-menu{left:0;right:0;width:auto!important;max-width:none}
   .filter-picker-menu{left:0;right:auto;width:100%}
   .trend-visual{min-width:560px}
 }
@@ -699,7 +706,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .tickets-screen .table-wrap{border-radius:12px}
 .tickets-screen .ticket-table{width:100%;min-width:0;table-layout:fixed}
 .tickets-screen .ticket-table th{padding:9px 10px;background:#F8FAFC;font-size:9px;letter-spacing:.1em;line-height:1.2;white-space:normal}
-.tickets-screen .ticket-table td{padding:12px;white-space:nowrap;font-size:11px}
+.tickets-screen .ticket-table td{padding:15px 12px;white-space:nowrap;font-size:11px;vertical-align:middle}
 .tickets-screen .ticket-table th:nth-child(1),.tickets-screen .ticket-table td:nth-child(1){width:5%}
 .tickets-screen .ticket-table th:nth-child(2),.tickets-screen .ticket-table td:nth-child(2){width:14%}
 .tickets-screen .ticket-table th:nth-child(3),.tickets-screen .ticket-table td:nth-child(3){width:8%}
@@ -711,13 +718,14 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .tickets-screen .ticket-table th:nth-child(9),.tickets-screen .ticket-table td:nth-child(9){width:10%}
 .tickets-screen .ticket-table th:nth-child(10),.tickets-screen .ticket-table td:nth-child(10){width:11%}
 .tickets-screen .ticket-table th:nth-child(11),.tickets-screen .ticket-table td:nth-child(11){width:11%}
-.tickets-screen .ticket-table .subject{overflow:hidden;text-overflow:ellipsis}
-.tickets-screen .ticket-table .subject a{display:block;overflow:hidden;font-size:12px;font-weight:600;text-overflow:ellipsis;white-space:nowrap}
+.tickets-screen .ticket-table .subject{overflow:hidden;line-height:1.35;white-space:normal}
+.tickets-screen .ticket-table .subject a{display:-webkit-box;overflow:hidden;font-size:12px;font-weight:600;line-height:1.35;text-overflow:ellipsis;white-space:normal;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 .ticket-id a{color:var(--muted);font-weight:600;text-decoration:none}
 .ticket-id a:hover{color:var(--blue)}
 .ticket-row-meta,.ticket-date small,.ticket-sla small{display:block;margin-top:4px;overflow:hidden;color:var(--muted);font-size:10px;font-weight:400;line-height:1.25;text-overflow:ellipsis;white-space:nowrap}
 .ticket-assignee,.ticket-requestor,.ticket-department,.ticket-category{overflow:hidden;text-overflow:ellipsis}
 .ticket-category{color:#526174}
+.tickets-screen .ticket-table td.ticket-category,.tickets-screen .ticket-table td.ticket-sla{line-height:1.35;white-space:normal}
 .ticket-sla small{max-width:150px}
 .ticket-date{color:var(--ink);font-size:11px}
 .ticket-date-inline{font-size:10px;font-variant-numeric:tabular-nums;letter-spacing:-.015em;white-space:nowrap}
@@ -852,7 +860,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .ticket-scope-option.is-active{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(16,24,40,.08)}
 .ticket-scope-option svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.7}
 .ticket-filter-actions .button svg{width:12px;height:12px;margin-right:4px}
-.tickets-screen .ticket-filter-grid{display:grid;grid-template-columns:auto 108px 108px 132px 120px 140px 185px auto;align-items:center;justify-content:start;gap:7px}
+.tickets-screen .ticket-filter-grid{display:grid;grid-template-columns:auto 100px 100px 124px 150px 116px 132px 178px auto;align-items:center;justify-content:start;gap:7px}
 .ticket-filter-row-title{color:var(--muted);font-size:10px;font-weight:600}
 .tickets-screen .ticket-filter-field{min-width:0}
 .tickets-screen .ticket-date-range-field{grid-column:auto;min-width:0}
@@ -864,7 +872,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .ticket-filter-actions .button{min-height:28px;padding:0 7px;font-size:9px;white-space:nowrap}
 
 @media(max-width:1100px){
-  .tickets-screen .ticket-filter-grid{grid-template-columns:auto repeat(5,minmax(72px,1fr)) minmax(145px,1.4fr) auto;gap:6px}
+  .tickets-screen .ticket-filter-grid{grid-template-columns:auto repeat(6,minmax(72px,1fr)) minmax(145px,1.4fr) auto;gap:6px}
 }
 
 @media(max-width:900px){
@@ -965,6 +973,13 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .department-empty-state{grid-column:1/-1;margin:0;padding:18px;text-align:center}
 .department-ticket-panel{min-width:0;overflow:visible}
 .department-ticket-panel>.department-section-head{margin:0;padding:13px 14px}
+.department-filter-bar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:0;padding:12px 14px;border-top:1px solid var(--border);background:#fbfcfe}
+.department-filter-field{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 190px;max-width:250px}
+.department-filter-field .ticket-filter-label{font-size:9px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.department-filter-field .filter-picker{width:100%;min-width:0}
+.department-filter-field .filter-picker-trigger{min-height:38px;padding:7px 9px;border-radius:9px}
+.department-filter-field .filter-picker-copy strong{font-size:11px}
+.department-filter-clear{align-self:flex-end;min-height:38px}
 .department-table-wrap{margin:0;overflow-x:auto;border:0;border-top:1px solid var(--border);border-radius:0 0 10px 10px;box-shadow:none}
 .department-table{min-width:920px;table-layout:fixed}
 .department-table th{padding:9px 10px;background:#f8fafc;font-size:9px;letter-spacing:.09em}
@@ -1114,6 +1129,49 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .team-calendar-screen .calendar-popover-close svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-width:1.8}
 .team-calendar-screen .calendar-popover h2{font-size:14px}
 .team-calendar-screen .calendar-popover p{font-size:10px}
+
+/* Date click card: holiday / company event / staff leave.
+   The card must not clip: its "What do you want to add?" dropdown opens downwards and
+   would otherwise be cut off by the card edge. The entry list scrolls instead. */
+.calendar-day-card{position:fixed;z-index:80;width:min(340px,calc(100vw - 24px));max-height:min(520px,calc(100vh - 24px));overflow:visible;padding:13px;border:1px solid #c9d5e4;border-radius:10px;background:var(--surface);box-shadow:0 18px 48px rgba(17,24,39,.18)}
+.calendar-day-card[hidden]{display:none}
+.calendar-day-card .calendar-popover-head{margin-bottom:6px}
+.calendar-day-card h2{margin:0 0 2px;font-size:14px;line-height:1.25}
+.calendar-day-card p{margin:0 0 8px;font-size:10px}
+.calendar-day-card-items{display:grid;gap:6px;margin:0 0 10px;max-height:min(300px,42vh);overflow-y:auto}
+.calendar-day-card .ui-select-menu{max-height:min(200px,30vh)}
+.calendar-day-card-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 9px;border:1px solid var(--border);border-radius:8px;background:#fbfcfe}
+.calendar-day-card-copy{display:grid;min-width:0;gap:2px}
+.calendar-day-card-copy strong{overflow:hidden;font-size:11px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.calendar-day-card-copy small{color:var(--muted);font-size:9px;line-height:1.4}
+.calendar-day-card-item .table-link{padding:0;border:0;background:none;font-size:11px;font-weight:700;color:var(--blue);cursor:pointer}
+.calendar-day-card-add{display:grid;gap:8px;padding-top:10px;border-top:1px solid var(--border)}
+.calendar-day-card-field{display:grid;gap:4px;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.calendar-day-card-field select{min-height:38px;font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink)}
+.calendar-day-card-add .button{min-height:38px;font-size:11px}
+
+.calendar-modal{position:fixed;z-index:90;inset:0;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px;background:rgba(17,24,39,.42)}
+.calendar-modal[hidden]{display:none}
+.calendar-modal-panel{width:min(560px,100%);margin:auto;padding:16px;border:1px solid #c9d5e4;border-radius:12px;background:var(--surface);box-shadow:0 24px 60px rgba(17,24,39,.28)}
+.calendar-modal-panel h2{margin:0;font-size:16px}
+.calendar-modal-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.calendar-modal-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+.calendar-modal-field{display:grid;gap:4px;min-width:0;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.calendar-modal-field.is-wide{grid-column:1/-1}
+.calendar-modal-field input,.calendar-modal-field select{min-height:40px;font-size:12px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink)}
+.calendar-modal-details{grid-column:1/-1;padding:9px 10px;border:1px solid var(--border);border-radius:9px;background:#fbfcfe}
+.calendar-modal-details summary{color:var(--ink);font-size:11px;font-weight:700;cursor:pointer}
+.calendar-modal-details .calendar-modal-grid{margin-top:9px}
+.calendar-modal-hint{margin:0;font-size:10px;line-height:1.5}
+.calendar-modal-actions{grid-column:1/-1;display:flex;align-items:center;gap:8px}
+.calendar-modal-actions .button{min-height:40px;font-size:11px}
+.calendar-modal-delete{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--border)}
+.calendar-modal-delete[hidden]{display:none}
+.calendar-modal-delete .button{min-height:38px;font-size:11px}
+@media(max-width:600px){
+  .calendar-modal-form,.calendar-modal-grid{grid-template-columns:minmax(0,1fr)}
+  .calendar-modal-field.is-wide{grid-column:auto}
+}
 
 @media(max-width:1100px){
   .team-calendar-lower-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -1268,9 +1326,71 @@ body.ticket-form-page .content-shell,body.ticket-detail-page .content-shell,body
 .attendance-layout{min-width:0}
 .attendance-form-panel,.attendance-table-panel{min-width:0}
 
+/* Attendance roster: staff-first shift and status editing.
+   The staff editor itself lives in a modal (see ui-fixes.css) and leave is filed
+   on the Team Calendar, so there is no .attendance-staff-panel or leave form here. */
+.attendance-roster-panel{min-width:0;margin:0;padding:0;overflow:visible;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card)}
+.attendance-roster-panel>.section-head{margin:0;padding:13px 14px}
+.attendance-filter-bar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:0;padding:12px 14px;border-top:1px solid var(--border);background:#fbfcfe}
+.attendance-filter-field{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 165px;max-width:230px}
+.attendance-filter-field>span{color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+.attendance-filter-field input,.attendance-filter-field select{min-height:36px;font-size:12px}
+.attendance-roster-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:8px;padding:12px 14px}
+.attendance-roster-card{display:grid;gap:3px;min-width:0;padding:10px 11px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--ink);text-decoration:none;transition:border-color .15s ease,box-shadow .15s ease}
+.attendance-roster-card:hover{border-color:#b9cde6;box-shadow:0 2px 8px rgba(16,24,40,.07)}
+.attendance-roster-card.is-selected{border-color:var(--blue);box-shadow:0 0 0 3px rgba(30,90,168,.12)}
+.attendance-roster-card.is-inactive{background:#fbfbfc}
+.attendance-roster-name{overflow:hidden;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.attendance-roster-meta{color:var(--muted);font-size:10px}
+.attendance-roster-shift{color:#334155;font-size:10px;line-height:1.4}
+.attendance-roster-shift.is-missing{color:var(--progress);font-weight:600}
+.attendance-roster-tags{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:3px}
+.attendance-roster-tags .pill{font-size:9px}
+.attendance-roster-leader{color:var(--muted);font-size:9px}
+.attendance-empty-note{margin:0;padding:14px}
+.attendance-staff-columns{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:0;border-top:1px solid var(--border)}
+.attendance-staff-column{min-width:0;padding:14px}
+.attendance-staff-column+.attendance-staff-column{border-left:1px solid var(--border)}
+.attendance-subhead{margin:0 0 4px;font-size:13px}
+.attendance-hint{margin:0 0 10px;font-size:10px;line-height:1.5}
+.attendance-shift-form{display:grid;gap:11px;margin:0}
+.attendance-shift-form label{display:flex;flex-direction:column;gap:4px;min-width:0;font-size:10px;font-weight:600;color:#4b5563}
+.attendance-shift-form input,.attendance-shift-form select{min-height:36px;font-size:12px;font-weight:500}
+.attendance-weekdays{margin:0;padding:9px 10px;border:1px solid var(--border);border-radius:10px;background:#fbfcfe}
+.attendance-weekdays legend{padding:0 4px;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+.attendance-weekday-row{display:flex;flex-wrap:wrap;gap:5px}
+.attendance-weekday{display:flex!important;align-items:center;gap:5px;min-height:32px;padding:0 9px;border:1px solid var(--border);border-radius:999px;background:#fff;font-size:11px;font-weight:600;cursor:pointer}
+.attendance-weekday:has(input:checked){border-color:var(--blue);background:var(--blue-soft);color:var(--blue)}
+.attendance-weekday input{width:14px;height:14px;min-height:14px;margin:0}
+.attendance-weekday-presets{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.attendance-weekday-presets .table-link{padding:0;border:0;background:none;font-size:10px;cursor:pointer;color:var(--blue)}
+.attendance-form-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.attendance-form-row .is-wide{grid-column:span 2}
+.attendance-form-actions{display:flex;align-items:center;gap:8px}
+.attendance-form-actions .button{min-height:38px;font-size:11px}
+.attendance-replacement-note{margin:0;padding:8px 10px;border-radius:9px;background:var(--blue-soft);color:var(--ink);font-size:10px}
+.pill-leave{background:var(--blue-soft);color:var(--blue)}
+.table-link.is-danger{color:var(--danger)}
+@media(max-width:1100px){
+  .attendance-staff-columns{grid-template-columns:minmax(0,1fr)}
+  .attendance-staff-column+.attendance-staff-column{border-top:1px solid var(--border);border-left:0}
+}
+@media(max-width:700px){
+  .attendance-form-row{grid-template-columns:minmax(0,1fr)}
+  .attendance-form-row .is-wide{grid-column:auto}
+  .attendance-filter-field{max-width:none;flex-basis:100%}
+  .attendance-roster-grid{grid-template-columns:minmax(0,1fr)}
+}
+
 /* Leave requests */
 .leave-summary-panel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px!important}.leave-summary-card{position:relative;min-height:92px;padding:14px;border:1px solid var(--border);border-radius:11px;background:#fbfcfe}.leave-summary-card::before{position:absolute;top:14px;right:14px;width:7px;height:7px;border-radius:999px;background:var(--blue);content:""}.leave-summary-card.is-alert{border-color:#f1d3d3;background:#fffafa}.leave-summary-card.is-alert::before{background:#c84b4b}.leave-summary-card strong{display:block;margin-top:7px;font-size:26px;line-height:1;letter-spacing:-.04em}.leave-summary-card small{display:block;margin-top:7px;color:var(--muted);font-size:10px}
 .leave-request-form{display:grid;grid-template-columns:minmax(250px,.75fr) minmax(260px,1fr);gap:14px}.leave-range-picker{position:relative}.leave-range-picker .date-range-menu{right:auto;left:0}.leave-form-actions{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:2px}.leave-form-actions small{color:var(--muted);font-size:9px}.leave-form-actions .button{min-height:38px;font-size:11px}.leave-table-panel .row-actions{flex-wrap:nowrap}.leave-table-panel .row-actions .button{min-height:30px;padding:0 9px;font-size:9px}
+.leave-filter-bar{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:0!important;padding:11px 13px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:var(--shadow-card)}
+.leave-filter-label{margin-right:3px;color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.leave-filter-chip{padding:6px 11px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:#46566c;font-size:10px;font-weight:700;text-decoration:none}
+.leave-filter-chip:hover{border-color:#bcd2ea;background:#f8fbff;color:var(--blue)}
+.leave-filter-chip.is-active{border-color:rgba(30,90,168,.35);background:var(--blue-soft);color:var(--blue)}
+.action-notice.is-warning{border-color:#f0dcb4;background:#fffaf0;color:var(--progress)}
 
 /* Notifications */
 .notifications-panel{padding:0!important;overflow:hidden}.notifications-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;border-bottom:1px solid var(--border);background:#fbfcfe}.notifications-toolbar>div{display:flex;align-items:baseline;gap:7px}.notifications-toolbar strong{font-size:21px;letter-spacing:-.04em}.notifications-toolbar span{color:var(--muted);font-size:11px}.notifications-toolbar .button{min-height:34px;font-size:10px}.notifications-panel .notification-list{gap:0}.notifications-panel .notification-item{display:grid;grid-template-columns:34px minmax(0,1fr) 18px;gap:11px;align-items:center;padding:13px 18px;border:0;border-bottom:1px solid #edf1f5;background:#fff}.notifications-panel .notification-item:last-child{border-bottom:0}.notifications-panel .notification-item.unread{border-left:3px solid var(--blue);background:#f8fbff;padding-left:15px}.notification-icon{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:#f1f5f9;color:#65758b}.notification-item.unread .notification-icon{background:var(--blue-soft);color:var(--blue)}.notification-icon svg,.notification-arrow{fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.notification-icon svg{width:16px;height:16px}.notification-arrow{width:16px;color:#99a3b1}.notification-copy>div{display:flex;align-items:center;gap:8px}.notification-copy strong{font-size:11px}.notification-copy .pill{font-size:8px}.notification-copy p{overflow:hidden;margin:3px 0;color:#4f5d72;font-size:10px;text-overflow:ellipsis;white-space:nowrap}.notification-copy small{font-size:9px}.notifications-empty{padding:70px 20px;text-align:center}.notifications-empty span{display:flex;align-items:center;justify-content:center;width:42px;height:42px;margin:0 auto 12px;border-radius:999px;background:var(--green-soft);color:var(--green);font-weight:800}.notifications-empty h2{margin:0;font-size:15px}.notifications-empty p{margin:4px 0 0;color:var(--muted);font-size:11px}
@@ -1404,10 +1524,16 @@ body.auth-page{position:relative;display:block;overflow-x:hidden;padding:0;backg
 /* Reports and CSV import */
 .reports-screen{display:grid;gap:14px}
 .reports-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
-.report-filter-bar{margin:0}
+.report-filter-bar{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;margin:0}
 .report-date-range{position:relative;min-width:240px}
 .report-date-range .date-range-trigger{min-width:240px;min-height:36px;padding:7px 10px;border-radius:8px;text-align:left}
+.reports-toolbar .report-date-range .date-range-menu{left:12px;right:auto}
 .report-date-range .date-range-trigger .filter-picker-copy strong{font-size:11px}
+.report-filter-field{display:grid;gap:4px;color:var(--muted);font-size:10px;font-weight:700}
+.report-filter-field select{min-width:160px;min-height:36px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;font-size:11px}
+.report-employee-field select{min-width:220px;min-height:86px}
+.report-filter-field small{font-size:9px;font-weight:500}
+.report-filter-submit{min-height:36px;font-size:11px}
 .report-action-button{gap:6px;min-height:36px;padding:0 11px;font-size:11px}
 .report-action-button svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.8}
 .report-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
@@ -1437,5 +1563,5 @@ body.auth-page{position:relative;display:block;overflow-x:hidden;padding:0;backg
 .csv-import-note{margin:0;padding:0 15px 14px;font-size:10px}
 .csv-import-panel .csv-preview{margin:0 15px 15px;padding:12px;border:1px solid #cfe0f4;border-radius:8px;background:#f7fbff}
 .csv-import-panel .csv-preview h3{margin:0;color:var(--ink);font-size:12px}.csv-import-panel .csv-preview p{margin:4px 0;color:var(--muted);font-size:10px}
-@media(max-width:760px){.reports-toolbar{align-items:stretch;flex-direction:column}.report-date-range,.report-date-range .date-range-trigger{width:100%;min-width:0}.report-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.report-grid{grid-template-columns:1fr}.report-panel-wide{grid-column:auto}.csv-import-form{grid-template-columns:1fr}.csv-import-form .button{width:100%}}
+@media(max-width:760px){.reports-toolbar{align-items:stretch;flex-direction:column}.report-date-range,.report-date-range .date-range-trigger{width:100%;min-width:0}.reports-toolbar .report-date-range .date-range-menu{left:0;right:0;width:auto!important;max-width:none}.report-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.report-grid{grid-template-columns:1fr}.report-panel-wide{grid-column:auto}.csv-import-form{grid-template-columns:1fr}.csv-import-form .button{width:100%}}
 @media(max-width:420px){.report-metrics{grid-template-columns:1fr}.report-panel-head{align-items:flex-start;flex-direction:column}}

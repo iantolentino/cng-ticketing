@@ -17,6 +17,10 @@ $filters = [];
 foreach (['dashboard_range', 'dashboard_view', 'scope', 'status', 'priority', 'department', 'category', 'subcategory', 'search', 'date_from', 'date_to'] as $key) {
     $filters[$key] = trim(request_string($_GET, $key));
 }
+$filters['employees'] = $_GET['employees'] ?? [];
+if (!is_array($filters['employees'])) $filters['employees'] = [$filters['employees']];
+$filters['employees'] = array_values(array_unique(array_filter(array_map(static fn($value): string => is_scalar($value) ? trim((string) $value) : '', $filters['employees']), static fn(string $value): bool => $value !== '')));
+$filters['employees'] = array_slice($filters['employees'], 0, 100);
 $dashboardRanges = [
     'today' => ['Today', 'Today'],
     'all' => ['All tickets', null],
@@ -33,6 +37,8 @@ if (!in_array($filters['scope'], ['', 'mine'], true)) $filters['scope'] = '';
 if (!isset($statuses[$filters['status']])) $filters['status'] = '';
 if (!isset(TICKET_PRIORITIES[$filters['priority']])) $filters['priority'] = '';
 if (!ctype_digit($filters['department']) || !in_array((int) $filters['department'], $departmentIds, true)) $filters['department'] = '';
+$filters['department_name'] = '';
+if ($filters['department'] !== '') foreach ($departments as $department) if ((int) $department['id'] === (int) $filters['department']) { $filters['department_name'] = (string) $department['name']; break; }
 if (!array_key_exists($filters['category'], TICKET_CATEGORIES)) $filters['category'] = '';
 $subcategoryOptions = $filters['category'] ? TICKET_CATEGORIES[$filters['category']] : array_merge(...array_values(TICKET_CATEGORIES));
 if (!in_array($filters['subcategory'], $subcategoryOptions, true)) $filters['subcategory'] = '';
@@ -57,8 +63,17 @@ if ($filters['department'] !== '') {
     $params['department_pivot'] = (int) $filters['department'];
 }
 if ($filters['search'] !== '') {
-    $where[] = '(t.ticket_number LIKE :ticket_search OR t.subject LIKE :subject_search OR t.employee_name LIKE :employee_search)';
-    $params['ticket_search'] = $params['subject_search'] = $params['employee_search'] = '%' . $filters['search'] . '%';
+    $where[] = '(t.ticket_number LIKE :ticket_search OR t.subject LIKE :subject_search OR creator.full_name LIKE :requestor_search OR t.employee_name LIKE :employee_search)';
+    $params['requestor_search'] = $params['ticket_search'] = $params['subject_search'] = $params['employee_search'] = '%' . $filters['search'] . '%';
+}
+if ($filters['employees']) {
+    $employeePlaceholders = [];
+    foreach ($filters['employees'] as $employeeIndex => $employeeName) {
+        $placeholder = 'employee_filter_' . $employeeIndex;
+        $employeePlaceholders[] = ':' . $placeholder;
+        $params[$placeholder] = $employeeName;
+    }
+    $where[] = 't.employee_name IN (' . implode(',', $employeePlaceholders) . ')';
 }
 if ($filters['date_from'] !== '') { $where[] = 't.created_at >= :date_from'; $params['date_from'] = $filters['date_from'] . ' 00:00:00'; }
 if ($filters['date_to'] !== '') { $where[] = 't.created_at < DATE_ADD(:date_to, INTERVAL 1 DAY)'; $params['date_to'] = $filters['date_to']; }
@@ -75,12 +90,12 @@ if ($filters['dashboard_view'] !== '') {
 }
 $whereSql = implode(' AND ', $where) . ticket_scope_sql($user, $params, $filters['scope']);
 
-$stmt = db()->prepare("SELECT t.*, d.name department,
+$stmt = db()->prepare("SELECT t.*, creator.full_name AS creator_name, d.name department,
     COALESCE((SELECT GROUP_CONCAT(DISTINCT dep.name ORDER BY dep.name SEPARATOR ', ') FROM ticket_departments td JOIN departments dep ON dep.id = td.department_id WHERE td.ticket_id = t.id), d.name) AS departments,
     COALESCE((SELECT GROUP_CONCAT(DISTINCT u.full_name ORDER BY u.full_name SEPARATOR ', ') FROM ticket_assignees ta JOIN users u ON u.id = ta.user_id WHERE ta.ticket_id = t.id), a.full_name) AS assignees
     FROM tickets t
     JOIN departments d ON d.id = t.department_id
-    LEFT JOIN users a ON a.id = t.assignee_id
+    LEFT JOIN users a ON a.id = t.assignee_id LEFT JOIN users creator ON creator.id = t.created_by
     WHERE $whereSql
     ORDER BY t.updated_at DESC");
 $stmt->execute($params);
@@ -96,12 +111,16 @@ usort($tickets, static function (array $left, array $right): int {
 $tickets = array_slice($tickets, 0, MAX_EXPORT_ROWS + 1);
 if (count($tickets) > MAX_EXPORT_ROWS) { http_response_code(413); exit('Export exceeds the 10,000-row limit. Narrow the filters and try again.'); }
 
-$headers = ['Status', 'Priority', 'Subject', 'Departments', 'Category', 'Subcategory', 'Date Created', 'Date Updated', 'Date Closed', 'Assignees', 'Employee'];
+$headers = ['ID', 'Title', 'Requestor', 'Assigned Department', 'SLA', 'Status', 'Priority', 'Category', 'Subcategory', 'Date Created', 'Date Updated', 'Date Closed', 'Assignees'];
 $rows = [];
-foreach ($tickets as $ticket) $rows[] = [
-    $ticket['status_label'] ?? ($statuses[$ticket['status']] ?? $ticket['status']), $ticket['priority_label'] ?? (TICKET_PRIORITIES[$ticket['priority'] ?? 'normal'] ?? 'Normal'), $ticket['subject'], $ticket['departments'], $ticket['category'], $ticket['subcategory'] ?? '',
-    $ticket['created_at'], $ticket['updated_at'] ?? '', $ticket['closed_at'] ?? '', $ticket['assignees'] ?? 'Unassigned', $ticket['employee_name'],
-];
+foreach ($tickets as $ticket) {
+    $sla = ticket_sla_state($ticket);
+    $rows[] = [
+        ticket_display_id($ticket), $ticket['subject'], ticket_requestor_name($ticket), $ticket['departments'] ?? ($ticket['department'] ?? '—'), $sla[1],
+        $ticket['status_label'] ?? ($statuses[$ticket['status']] ?? $ticket['status']), $ticket['priority_label'] ?? (TICKET_PRIORITIES[$ticket['priority'] ?? 'normal'] ?? 'Normal'), $ticket['category'], $ticket['subcategory'] ?? '',
+        $ticket['created_at'], $ticket['updated_at'] ?? '', $ticket['closed_at'] ?? '', $ticket['assignees'] ?? ($ticket['agent'] ?? 'Unassigned'),
+    ];
+}
 function export_csv_value(string $value): string { return preg_match('/^[=+\-@]/', $value) ? "'" . $value : $value; }
 function xlsx_xml(string $value): string { return htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8'); }
 function xlsx_col(int $column): string { $name = ''; while ($column > 0) { $column--; $name = chr(65 + $column % 26) . $name; $column = intdiv($column, 26); } return $name; }

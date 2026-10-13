@@ -50,7 +50,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $categoryAssigneeIds = category_assignee_ids($values['category'], $departments, $users);
 
     if (
-        empty($values['issue_escalator']) ||
         empty($values['subject']) ||
         empty($values['issue']) ||
         $subcategories === null ||
@@ -97,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (user_can('assign_tickets')) notify_many(array_diff($assigneeIds, $selectedAssignees), (int) $user['id'], 'assignment', 'Ticket assigned: ' . $ticket['ticket_number'], $values['subject'], 'ticket.php?id=' . $id);
         activity($id, $user['id'], 'details_updated', ['issue' => $values['issue'], 'resolution' => $values['resolution'], 'status' => $newStatus]);
         $pdo->commit();
-        notify_management('Ticket updated: ' . $ticket['ticket_number'], $values['subject']);
+        notify_management('Ticket updated: ' . $ticket['ticket_number'], $values['subject'], $id);
         redirect('ticket.php?id=' . $id);
     } catch (Throwable $exception) {
         $pdo->rollBack();
@@ -138,6 +137,7 @@ function applyCategoryDefaults() {
   const allowedAssignees = (categoryAssigneeMap[category.value] || []).map(String);
   Array.from(department.options).forEach(option => { option.hidden = allowedDepartments.length > 0 && !allowedDepartments.includes(option.value); });
   if (allowedDepartments.length > 0 && !allowedDepartments.includes(department.value)) department.value = allowedDepartments[0];
+  department.dispatchEvent(new Event('change', { bubbles: true }));
   Array.from(departments.options).forEach(option => { const allowed = allowedDepartments.length === 0 || allowedDepartments.includes(option.value); option.hidden = !allowed; if (!allowed) option.selected = false; });
   if (assignees) Array.from(assignees.options).forEach(option => { const allowed = allowedAssignees.length === 0 || allowedAssignees.includes(option.value); option.hidden = !allowed; if (!allowed) option.selected = false; });
 }
@@ -147,6 +147,7 @@ function updateSubcategories(keepCurrent) {
   values.forEach(value => subcategory.add(new Option(value, value)));
   if (keepCurrent && values.includes(currentSubcategory)) subcategory.value = currentSubcategory;
   subcategory.required = values.length > 0;
+  subcategory.dispatchEvent(new Event('ui-options-changed'));
 }
 category.addEventListener('change', () => { updateSubcategories(false); applyCategoryDefaults(); });
 updateSubcategories(true);

@@ -1,5 +1,8 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../ticket_visibility.php';
+
+require_once __DIR__ . '/tl-filter.php';
 
 /**
  * Read-only adapters for the four external ticket databases.
@@ -108,7 +111,7 @@ function external_ticket_rows(PDO $pdo, array $source): array
              JOIN {$tables['statuses']} s ON t.status = s.id
              LEFT JOIN {$tables['priorities']} p ON t.priority = p.id
              LEFT JOIN {$tables['categories']} cat ON t.category = cat.id
-             WHERE " . external_filter_sql($source, $params) . "
+             WHERE " . external_filter_sql($source, $params) . ticket_visibility_sql($params) . "
              ORDER BY t.date_created DESC";
     $statement = $pdo->prepare($sql);
     $statement->execute($params);
@@ -153,6 +156,7 @@ function fetch_stratast_requisition_tickets(PDO $pdo, array $source): array
 
 function external_thread_rows(PDO $pdo, array $source, int $ticketId): array
 {
+    guard_ticket_access($ticketId);
     if ($ticketId < 1) throw new InvalidArgumentException('Invalid external ticket ID.');
     $tables = external_table_names($source);
     $statement = $pdo->prepare("SELECT type, body, date_created FROM {$tables['threads']} WHERE ticket = :ticket_id AND type = 'report' ORDER BY date_created ASC");
@@ -301,11 +305,8 @@ function external_normalize_ticket(array $ticket, string $sourceKey): array
 
 function external_ticket_visible_to_user(array $ticket, array $user): bool
 {
-    if (($user['role_slug'] ?? '') === 'team-member') return false;
-    if (($user['role_slug'] ?? '') !== 'team-leader') return true;
-    $agent = strtolower(trim((string) ($ticket['agent'] ?? '')));
-    $name = strtolower(trim((string) ($user['full_name'] ?? '')));
-    return $agent !== '' && $name !== '' && str_contains($agent, $name);
+    return ($user['role_slug'] ?? '') !== 'team-member'
+        && (!is_ticket_hidden((int) ($ticket['external_id'] ?? $ticket['id'] ?? 0)) || can_view_hidden());
 }
 
 function external_ticket_load_source(string $sourceKey): array
@@ -317,7 +318,8 @@ function external_ticket_load_source(string $sourceKey): array
         throw new InvalidArgumentException('Invalid external list adapter.');
     }
     $pdo = external_connection($source);
-    return array_map(static fn(array $ticket): array => external_normalize_ticket($ticket, $sourceKey), $listFunction($pdo, $source));
+    $tickets = array_map(static fn(array $ticket): array => external_normalize_ticket($ticket, $sourceKey), $listFunction($pdo, $source));
+    return tl_filter_tickets($tickets);
 }
 
 function external_ticket_load_all(array $user): array
@@ -342,6 +344,7 @@ function external_ticket_load_all(array $user): array
 
 function external_ticket_find(string $sourceKey, int $ticketId, array $user): ?array
 {
+    if (!ticket_access_allowed($ticketId)) return null;
     if (($user['role_slug'] ?? '') === 'team-member') return null;
     foreach (external_ticket_load_source($sourceKey) as $ticket) {
         if ((int) $ticket['external_id'] === $ticketId && external_ticket_visible_to_user($ticket, $user)) return $ticket;
@@ -364,8 +367,21 @@ function external_ticket_matches_filters(array $ticket, array $filters, string $
 {
     if ($filters['status'] !== '' && $ticket['status'] !== $filters['status']) return false;
     if ($filters['priority'] !== '' && $ticket['priority'] !== $filters['priority']) return false;
-    if ($filters['department'] !== '' || $filters['subcategory'] !== '') return false;
+    if ($filters['subcategory'] !== '') return false;
+    if ($filters['department'] !== '') {
+        $departmentName = trim((string) ($filters['department_name'] ?? ''));
+        if ($departmentName === '' || strcasecmp((string) ($ticket['department'] ?? ''), $departmentName) !== 0) return false;
+    }
+    if (!empty($filters['employees'])) {
+        $employeeName = trim((string) ($ticket['employee_name'] ?? $ticket['requester'] ?? ''));
+        $matchesEmployee = false;
+        foreach ($filters['employees'] as $selectedEmployee) {
+            if (strcasecmp($employeeName, (string) $selectedEmployee) === 0) { $matchesEmployee = true; break; }
+        }
+        if (!$matchesEmployee) return false;
+    }
     if ($filters['category'] !== '' && strcasecmp((string) $ticket['category'], $filters['category']) !== 0) return false;
+    if (($filters['requestor'] ?? '') !== '' && strcasecmp(trim((string) ($ticket['requester'] ?? '')), $filters['requestor']) !== 0) return false;
     if (($filters['scope'] ?? '') === 'mine') {
         $agent = strtolower(trim((string) ($ticket['agent'] ?? '')));
         $name = strtolower(trim((string) ($user['full_name'] ?? '')));
@@ -377,13 +393,24 @@ function external_ticket_matches_filters(array $ticket, array $filters, string $
     }
     if ($filters['date_from'] !== '' && (!$ticket['created_at'] || $ticket['created_at'] < $filters['date_from'] . ' 00:00:00')) return false;
     if ($filters['date_to'] !== '' && (!$ticket['created_at'] || $ticket['created_at'] >= date('Y-m-d 00:00:00', strtotime($filters['date_to'] . ' +1 day')))) return false;
-    if (($filters['dashboard_range'] ?? 'all') !== 'all' && (!$ticket['created_at'] || $ticket['created_at'] < $dashboardStart)) return false;
+    if (($filters['dashboard_from'] ?? '') !== '' && (!$ticket['created_at'] || $ticket['created_at'] < $filters['dashboard_from'] . ' 00:00:00')) return false;
+    if (($filters['dashboard_to'] ?? '') !== '' && (!$ticket['created_at'] || $ticket['created_at'] >= date('Y-m-d 00:00:00', strtotime($filters['dashboard_to'] . ' +1 day')))) return false;
+    if (in_array($filters['dashboard_range'] ?? 'all', ['today', '7d', '30d', '3m', '6m', '1y'], true) && (!$ticket['created_at'] || $ticket['created_at'] < $dashboardStart)) return false;
     if ($filters['dashboard_view'] === '') return true;
     return match ($filters['dashboard_view']) {
         'total' => true,
         'open_work' => $ticket['status'] !== 'closed',
         'urgent' => $ticket['status'] !== 'closed' && $ticket['priority'] === 'urgent',
-        'overdue', 'idle' => false,
+        'overdue', 'idle' => (function () use ($ticket, $filters): bool {
+            if (($ticket['status'] ?? '') === 'closed' || empty($ticket['created_at'])) return false;
+            $rules = [];
+            try { $rules = db()->query('SELECT priority,open_days,idle_days FROM sla_rules')->fetchAll(PDO::FETCH_UNIQUE); } catch (Throwable) { }
+            $rule = $rules[$ticket['priority'] ?? ''] ?? ['open_days' => 7, 'idle_days' => 3];
+            $ageDays = max(0, (int) floor((time() - (strtotime((string) $ticket['created_at']) ?: time())) / 86400));
+            if ($filters['dashboard_view'] === 'overdue') return $ageDays >= (int) $rule['open_days'];
+            $updatedAt = strtotime((string) ($ticket['updated_at'] ?? '')) ?: 0;
+            return $updatedAt > 0 && $ageDays < (int) $rule['open_days'] && max(0, (int) floor((time() - $updatedAt) / 86400)) >= (int) $rule['idle_days'];
+        })(),
         'unassigned' => empty($ticket['agent']),
         default => true,
     };

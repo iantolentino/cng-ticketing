@@ -1,12 +1,17 @@
 <?php
 declare(strict_types=1);
 
-function notify_management(string $subject, string $body): void
+function notify_management(string $subject, string $body, ?int $ticketId = null): void
 {
     global $config;
     $smtp = $config['smtp'];
     if (empty($smtp['host']) || empty($smtp['from_email'])) return;
-    $recipients = db()->query("SELECT u.email FROM users u JOIN roles r ON r.id=u.role_id WHERE r.slug='management' AND u.is_active=1 AND u.email IS NOT NULL AND u.email<>''")->fetchAll(PDO::FETCH_COLUMN);
+    // Management recipients are checked independently of the actor's role.
+    global $ADMIN_ROLES;
+    if ($ticketId !== null && is_ticket_restricted($ticketId) && !in_array('management', $ADMIN_ROLES, true)) return;
+    $recipientQuery = db()->prepare("SELECT u.email FROM users u JOIN roles r ON r.id=u.role_id WHERE r.slug='management' AND u.is_active=1 AND u.email IS NOT NULL AND u.email<>''");
+    $recipientQuery->execute();
+    $recipients = $recipientQuery->fetchAll(PDO::FETCH_COLUMN);
     if (!$recipients) return;
     require_once ROOT_PATH . '/vendor/PHPMailer/src/Exception.php';
     require_once ROOT_PATH . '/vendor/PHPMailer/src/PHPMailer.php';

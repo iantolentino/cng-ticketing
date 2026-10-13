@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 require __DIR__ . '/app/bootstrap.php';
+// This route also loads pagination directly so it works with older live bootstraps.
+require_once __DIR__ . '/app/pagination.php';
 require __DIR__ . '/app/tickets.php';
 require __DIR__ . '/app/external_tickets.php';
 require __DIR__ . '/app/layout.php';
@@ -34,9 +36,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $notice = ($_GET['notice'] ?? '') === 'departments_logged' ? 'Department log updated.' : '';
+$statuses = ['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pending', 'closed' => 'Closed'];
+$filters = [
+    'category' => trim((string) ($_GET['category'] ?? '')),
+    'subcategory' => trim((string) ($_GET['subcategory'] ?? '')),
+    'status' => trim((string) ($_GET['status'] ?? '')),
+];
+if (!array_key_exists($filters['category'], TICKET_CATEGORIES)) $filters['category'] = '';
+$subcategoryOptions = $filters['category'] ? TICKET_CATEGORIES[$filters['category']] : array_merge(...array_values(TICKET_CATEGORIES));
+if (!in_array($filters['subcategory'], $subcategoryOptions, true)) $filters['subcategory'] = '';
+if (!isset($statuses[$filters['status']])) $filters['status'] = '';
+$hasFilters = $filters['category'] !== '' || $filters['subcategory'] !== '' || $filters['status'] !== '';
+$externalResult = external_ticket_load_all($user);
+// The same filters narrow both the native query and the federated external list.
+$filteredExternalTickets = array_values(array_filter($externalResult['tickets'], static fn(array $ticket): bool => external_ticket_matches_filters($ticket, [
+    'status' => $filters['status'], 'priority' => '', 'department' => '', 'department_name' => '',
+    'category' => $filters['category'], 'subcategory' => $filters['subcategory'], 'scope' => '',
+    'search' => '', 'date_from' => '', 'date_to' => '',
+    'dashboard_range' => 'all', 'dashboard_view' => '',
+], TICKET_WINDOW_OPEN_START, $user)));
+
 $scopeParams = [];
 $scopeSql = ticket_scope_sql($user, $scopeParams);
-$externalResult = external_ticket_load_all($user);
+$filterSql = '';
+$filterParams = [];
+foreach (['category' => 'category', 'subcategory' => 'subcategory', 'status' => 'status'] as $key => $column) {
+    if ($filters[$key] !== '') { $filterSql .= ' AND t.' . $column . ' = :filter_' . $key; $filterParams['filter_' . $key] = $filters[$key]; }
+}
 
 $summary = db()->prepare("SELECT d.id, d.name,
     COUNT(DISTINCT CASE WHEN t.department_id = d.id THEN t.id END) AS current_count,
@@ -44,17 +70,17 @@ $summary = db()->prepare("SELECT d.id, d.name,
     COUNT(DISTINCT CASE WHEN t.status <> 'closed' AND (t.department_id = d.id OR td.department_id = d.id) THEN t.id END) AS open_count,
     COUNT(DISTINCT CASE WHEN t.status <> 'closed' AND t.created_at < DATE_SUB(NOW(), INTERVAL 7 DAY) AND (t.department_id = d.id OR td.department_id = d.id) THEN t.id END) AS overdue_count
     FROM departments d
-    LEFT JOIN tickets t ON t.deleted_at IS NULL AND (t.department_id = d.id OR EXISTS (SELECT 1 FROM ticket_departments td_match WHERE td_match.ticket_id = t.id AND td_match.department_id = d.id)) $scopeSql
+    LEFT JOIN tickets t ON t.deleted_at IS NULL AND (t.department_id = d.id OR EXISTS (SELECT 1 FROM ticket_departments td_match WHERE td_match.ticket_id = t.id AND td_match.department_id = d.id)) $scopeSql$filterSql
     LEFT JOIN ticket_departments td ON td.ticket_id = t.id AND td.department_id = d.id
     GROUP BY d.id, d.name
     ORDER BY open_count DESC, involved_count DESC, d.name");
-$summary->execute($scopeParams);
+$summary->execute($scopeParams + $filterParams);
 $departmentSummary = $summary->fetchAll();
 $departmentSummaryByName = [];
 foreach ($departmentSummary as $department) {
     $departmentSummaryByName[(string) $department['name']] = $department;
 }
-foreach ($externalResult['tickets'] as $ticket) {
+foreach ($filteredExternalTickets as $ticket) {
     $departmentName = trim((string) ($ticket['department'] ?? '')) ?: 'External source';
     if (!isset($departmentSummaryByName[$departmentName])) {
         $departmentSummaryByName[$departmentName] = [
@@ -81,27 +107,29 @@ usort($departmentSummary, static function (array $left, array $right): int {
 
 $ticketParams = [];
 $ticketScopeSql = ticket_scope_sql($user, $ticketParams);
-$ticketQuery = db()->prepare("SELECT t.id, t.ticket_number, t.subject, t.status, t.department_id, d.name AS current_department,
+$ticketQuery = db()->prepare("SELECT t.id, t.ticket_number, t.subject, t.status, t.department_id, t.created_at, t.updated_at, d.name AS current_department,
     COALESCE(GROUP_CONCAT(DISTINCT dep.name ORDER BY dep.name SEPARATOR ', '), d.name) AS departments,
-    COALESCE(GROUP_CONCAT(DISTINCT dep.id ORDER BY dep.name SEPARATOR ','), t.department_id) AS department_ids,
+    COALESCE(GROUP_CONCAT(DISTINCT dep.id ORDER BY dep.id SEPARATOR ','), t.department_id) AS department_ids,
     COALESCE((SELECT GROUP_CONCAT(DISTINCT u.full_name ORDER BY u.full_name SEPARATOR ', ') FROM ticket_assignees ta JOIN users u ON u.id = ta.user_id WHERE ta.ticket_id = t.id), a.full_name) AS assignees
     FROM tickets t
     JOIN departments d ON d.id = t.department_id
     LEFT JOIN ticket_departments td ON td.ticket_id = t.id
     LEFT JOIN departments dep ON dep.id = td.department_id
     LEFT JOIN users a ON a.id = t.assignee_id
-    WHERE t.deleted_at IS NULL $ticketScopeSql
-    GROUP BY t.id, t.ticket_number, t.subject, t.status, t.department_id, d.name, a.full_name
+    WHERE t.deleted_at IS NULL $ticketScopeSql$filterSql
+    GROUP BY t.id, t.ticket_number, t.subject, t.status, t.department_id, t.created_at, t.updated_at, d.name, a.full_name
     ORDER BY FIELD(t.status,'open','in_progress','pending','closed'), t.updated_at DESC, t.id DESC");
-$ticketQuery->execute($ticketParams);
+$ticketQuery->execute($ticketParams + $filterParams);
 $tickets = $ticketQuery->fetchAll();
-$tickets = array_merge($tickets, $externalResult['tickets']);
+$tickets = array_merge($tickets, $filteredExternalTickets);
 usort($tickets, static function (array $left, array $right): int {
     $leftTime = strtotime((string) ($left['sort_at'] ?? $left['updated_at'] ?? $left['created_at'] ?? '')) ?: 0;
     $rightTime = strtotime((string) ($right['sort_at'] ?? $right['updated_at'] ?? $right['created_at'] ?? '')) ?: 0;
     return ($rightTime <=> $leftTime) ?: ((int) ($right['id'] ?? 0) <=> (int) ($left['id'] ?? 0));
 });
-$tickets = array_slice($tickets, 0, 40);
+$perPage = 20;
+$pagination = pagination_state(count($tickets), $perPage, pagination_requested_page());
+$tickets = array_slice($tickets, $pagination['offset'], $pagination['perPage']);
 
 function department_ticket_url(array $ticket): string
 {
@@ -129,12 +157,18 @@ page_start('Departments', $user);
         </div>
     </section>
     <section class="department-ticket-panel" aria-labelledby="department-ticket-title">
-        <div class="department-section-head"><div><h2 id="department-ticket-title">Ticket involvement</h2><p>Review routing and update supporting departments.</p></div><span class="department-section-count"><?= count($tickets) ?> tickets</span></div>
+        <div class="department-section-head"><div><h2 id="department-ticket-title">Ticket involvement</h2><p>Review routing and update supporting departments.</p></div><span class="department-section-count"><?= (int) $pagination['total'] ?> tickets<?= $pagination['totalPages'] > 1 ? ' · page ' . (int) $pagination['current'] . ' of ' . (int) $pagination['totalPages'] : '' ?></span></div>
+        <form method="get" class="department-filter-bar" data-filter-form>
+            <div class="department-filter-field"><span class="ticket-filter-label">Category</span><div class="filter-picker" data-filter-picker><input type="hidden" name="category" value="<?= e($filters['category']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['category'] ?: 'All categories') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Category</p><button type="button" class="filter-option<?= $filters['category'] === '' ? ' is-selected' : '' ?>" data-filter-target="category" data-filter-value="" data-filter-label="All categories"><span>All categories</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach (array_keys(TICKET_CATEGORIES) as $category): ?><button type="button" class="filter-option<?= $filters['category'] === $category ? ' is-selected' : '' ?>" data-filter-target="category" data-filter-value="<?= e($category) ?>" data-filter-label="<?= e($category) ?>"><span><?= e($category) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
+            <div class="department-filter-field"><span class="ticket-filter-label">Subcategory</span><div class="filter-picker" data-filter-picker><input type="hidden" name="subcategory" value="<?= e($filters['subcategory']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['subcategory'] ?: 'All subcategories') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Subcategory</p><button type="button" class="filter-option<?= $filters['subcategory'] === '' ? ' is-selected' : '' ?>" data-filter-target="subcategory" data-filter-value="" data-filter-label="All subcategories"><span>All subcategories</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($subcategoryOptions as $subcategory): ?><button type="button" class="filter-option<?= $filters['subcategory'] === $subcategory ? ' is-selected' : '' ?>" data-filter-target="subcategory" data-filter-value="<?= e($subcategory) ?>" data-filter-label="<?= e($subcategory) ?>"><span><?= e($subcategory) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
+            <div class="department-filter-field"><span class="ticket-filter-label">Status</span><div class="filter-picker" data-filter-picker><input type="hidden" name="status" value="<?= e($filters['status']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['status'] ? ($statuses[$filters['status']] ?? $filters['status']) : 'All statuses') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Status</p><button type="button" class="filter-option<?= $filters['status'] === '' ? ' is-selected' : '' ?>" data-filter-target="status" data-filter-value="" data-filter-label="All statuses"><span>All statuses</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($statuses as $value => $label): ?><button type="button" class="filter-option<?= $filters['status'] === $value ? ' is-selected' : '' ?>" data-filter-target="status" data-filter-value="<?= e($value) ?>" data-filter-label="<?= e($label) ?>"><span><?= e($label) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
+            <?php if ($hasFilters): ?><a class="button button-secondary department-filter-clear" href="department-workload.php">Clear</a><?php endif; ?>
+        </form>
         <div class="table-wrap department-table-wrap"><table class="ticket-table department-table"><thead><tr><?php foreach (['ID', 'Title', 'Status', 'Current department', 'Departments involved', 'Assignees', 'Manage'] as $heading): ?><th><?= e($heading) ?></th><?php endforeach; ?></tr></thead><tbody>
         <?php foreach ($tickets as $ticket): $isExternal = !empty($ticket['is_external']); $ticketUrl = department_ticket_url($ticket); $currentDepartment = (string) ($ticket['department'] ?? $ticket['current_department'] ?? '-'); $ticket['current_department'] = $currentDepartment; $ticket['department_ids'] = $ticket['department_ids'] ?? ''; $ticket['department_id'] = (int) ($ticket['department_id'] ?? 0); $selected = array_values(array_unique(array_map('intval', array_filter(explode(',', (string) $ticket['department_ids']))))); if (!$isExternal && !in_array((int) $ticket['department_id'], $selected, true)) $selected[] = (int) $ticket['department_id']; $involvedNames = array_filter(array_map('trim', explode(',', (string) ($ticket['departments'] ?? $currentDepartment)))); $statusKey = (string) ($ticket['status'] ?? 'external'); $statusLabel = (string) ($ticket['status_label'] ?? ucwords(str_replace('_', ' ', $statusKey))); ?>
-            <tr data-ticket-href="<?= e($ticketUrl) ?>" tabindex="0" aria-label="Open <?= e($ticket['ticket_number']) ?>: <?= e($ticket['subject']) ?>">
-                <td class="ticket-id"><a href="<?= e($ticketUrl) ?>"><?= e(ticket_display_id($ticket)) ?></a></td>
-                <td class="subject"><a href="<?= e($ticketUrl) ?>"><?= e($ticket['subject']) ?></a><span class="ticket-row-meta"><?= e($ticket['current_department']) ?> &middot; <?= e($ticket['assignees'] ?? $ticket['agent'] ?? 'Unassigned') ?></span></td>
+            <tr <?= ticket_row_navigation_attributes($ticketUrl) ?> aria-label="Open <?= e($ticket['ticket_number']) ?>: <?= e($ticket['subject']) ?>">
+                <td class="ticket-id"><a <?= ticket_link_attributes($ticketUrl) ?>><?= e(ticket_display_id($ticket)) ?></a></td>
+                <td class="subject"><a <?= ticket_link_attributes($ticketUrl) ?>><?= e($ticket['subject']) ?></a><span class="ticket-row-meta"><?= e($ticket['current_department']) ?> &middot; <?= e($ticket['assignees'] ?? $ticket['agent'] ?? 'Unassigned') ?></span></td>
                 <td><span class="pill pill-<?= e(str_replace('_', '-', $statusKey)) ?>"><?= e($statusLabel) ?></span></td>
                 <td><span class="department-primary-chip"><?= e($ticket['current_department']) ?></span></td>
                 <td><div class="department-chip-list"><?php foreach ($involvedNames as $departmentName): ?><span><?= e($departmentName) ?></span><?php endforeach; ?></div></td>
@@ -162,6 +196,7 @@ page_start('Departments', $user);
         <?php endforeach; ?>
         <?php if (!$tickets): ?><tr><td colspan="7" class="muted department-empty-row">No tickets are available for department logging.</td></tr><?php endif; ?>
         </tbody></table></div>
+        <?= pagination_nav('department-workload.php', $filters, $pagination, 'Department ticket pages') ?>
     </section>
 </div>
 <?php page_end();

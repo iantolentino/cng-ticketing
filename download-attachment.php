@@ -9,7 +9,7 @@ $id = (int) ($_GET['id'] ?? 0);
 $stmt = db()->prepare('SELECT ta.*, t.id AS ticket_id FROM ticket_attachments ta JOIN tickets t ON t.id = ta.ticket_id WHERE ta.id = ? AND t.deleted_at IS NULL');
 $stmt->execute([$id]);
 $attachment = $stmt->fetch();
-if (!$attachment) { http_response_code(404); exit('Attachment not found.'); }
+if (!$attachment || !ticket_access_allowed((int) $attachment['ticket_id'])) { http_response_code(404); exit('Attachment not found.'); }
 require_ticket_visible($user, (int) $attachment['ticket_id']);
 
 $path = ROOT_PATH . '/' . ltrim((string) ($attachment['file_path'] ?: ''), '/\\');
