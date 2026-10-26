@@ -15,14 +15,14 @@ require_non_team_member($user);
 
 $departments = active_internal_departments();
 $departmentIds = array_map('intval', array_column($departments, 'id'));
-$departmentFilterOptions = array_values(array_filter($departments, static function (array $department): bool {
-    $testMarker = 'qa-codex-all-20261023';
-    return stripos((string) ($department['name'] ?? ''), $testMarker) !== 0
-        && stripos((string) ($department['code'] ?? ''), $testMarker) !== 0;
-}));
-$departmentFilterIds = array_map('intval', array_column($departmentFilterOptions, 'id'));
-$departmentFilterById = [];
-foreach ($departmentFilterOptions as $departmentOption) $departmentFilterById[(int) $departmentOption['id']] = $departmentOption;
+$departmentFilterOptions = ticket_department_filter_options($departments);
+$departmentFilterGroups = [];
+$departmentFilterNames = [];
+foreach ($departmentFilterOptions as $key => $departmentOption) {
+    $departmentId = $departmentOption['department_id'];
+    $departmentFilterGroups[$key] = $departmentId === null ? [] : [(int) $departmentId];
+    $departmentFilterNames[$key] = (string) $departmentOption['name'];
+}
 $notice = '';
 $error = '';
 
@@ -63,30 +63,47 @@ $filters = [
     'category' => trim((string) ($_GET['category'] ?? '')),
     'status' => trim((string) ($_GET['status'] ?? '')),
 ];
-if ($filters['department'] !== '') {
-    $filterDepartmentId = (int) $filters['department'];
-    $filters['department'] = in_array($filterDepartmentId, $departmentFilterIds, true) ? (string) $filterDepartmentId : '';
-}
+if (!array_key_exists($filters['department'], $departmentFilterOptions)) $filters['department'] = '';
 if (!in_array($filters['category'], $categoryOptions, true)) $filters['category'] = '';
 if (!isset($statuses[$filters['status']])) $filters['status'] = '';
 $hasFilters = $filters['department'] !== '' || $filters['category'] !== '' || $filters['status'] !== '';
-$departmentFilterName = $filters['department'] !== '' ? (string) $departmentFilterById[(int) $filters['department']]['name'] : '';
+$departmentFilterName = $filters['department'] !== '' ? $departmentFilterNames[$filters['department']] : '';
+$externalDepartmentNames = $departmentFilterName !== '' ? [$departmentFilterName] : [];
 // The same filters narrow both the native query and the federated external list.
-$filteredExternalTickets = array_values(array_filter($externalResult['tickets'], static fn(array $ticket): bool => external_ticket_matches_filters($ticket, [
-    'status' => $filters['status'], 'priority' => '', 'department' => $departmentFilterName !== '' ? 'selected' : '', 'department_name' => $departmentFilterName,
-    'category' => $filters['category'], 'subcategory' => '', 'scope' => '',
-    'search' => '', 'date_from' => '', 'date_to' => '',
-    'dashboard_range' => 'all', 'dashboard_view' => '',
-], $user)));
+$filteredExternalTickets = array_values(array_filter($externalResult['tickets'], static function (array $ticket) use ($filters, $departmentFilterName, $externalDepartmentNames, $user): bool {
+    if (!external_ticket_matches_filters($ticket, [
+        'status' => $filters['status'], 'priority' => '', 'department' => '', 'department_name' => '',
+        'category' => $filters['category'], 'subcategory' => '', 'scope' => '',
+        'search' => '', 'date_from' => '', 'date_to' => '',
+        'dashboard_range' => 'all', 'dashboard_view' => '',
+    ], $user)) return false;
+    if ($departmentFilterName === '') return true;
+    $departmentName = trim((string) ($ticket['department'] ?? ''));
+    return strcasecmp($departmentName, $departmentFilterName) === 0
+        || in_array($departmentName, $externalDepartmentNames, true);
+}));
 
 $scopeParams = [];
 $scopeSql = ticket_scope_sql($user, $scopeParams);
 $filterSql = '';
 $filterParams = [];
 if ($filters['department'] !== '') {
-    $filterSql .= ' AND (t.department_id = :filter_department_current OR EXISTS (SELECT 1 FROM ticket_departments td_filter_department WHERE td_filter_department.ticket_id=t.id AND td_filter_department.department_id = :filter_department_involved))';
-    $filterParams['filter_department_current'] = (int) $filters['department'];
-    $filterParams['filter_department_involved'] = (int) $filters['department'];
+    $departmentValues = $departmentFilterGroups[$filters['department']];
+    if (!$departmentValues) {
+        $filterSql .= ' AND 1 = 0';
+    } else {
+    $currentPlaceholders = [];
+    $involvedPlaceholders = [];
+    foreach ($departmentValues as $index => $departmentId) {
+        $currentKey = 'filter_department_current_' . $index;
+        $involvedKey = 'filter_department_involved_' . $index;
+        $currentPlaceholders[] = ':' . $currentKey;
+        $involvedPlaceholders[] = ':' . $involvedKey;
+        $filterParams[$currentKey] = $departmentId;
+        $filterParams[$involvedKey] = $departmentId;
+    }
+    $filterSql .= ' AND (t.department_id IN (' . implode(',', $currentPlaceholders) . ') OR EXISTS (SELECT 1 FROM ticket_departments td_filter_department WHERE td_filter_department.ticket_id=t.id AND td_filter_department.department_id IN (' . implode(',', $involvedPlaceholders) . ')))';
+    }
 }
 if ($filters['category'] !== '') { $filterSql .= ' AND LOWER(TRIM(t.category)) = LOWER(:filter_category)'; $filterParams['filter_category'] = trim($filters['category']); }
 if ($filters['status'] !== '') { $filterSql .= ' AND t.status = :filter_status'; $filterParams['filter_status'] = $filters['status']; }
@@ -239,7 +256,7 @@ page_start('Departments', $user);
     <section class="department-ticket-panel" aria-labelledby="department-ticket-title">
         <div class="department-section-head"><div><h2 id="department-ticket-title">Ticket involvement</h2><p>Review routing and update supporting departments.</p></div><span class="department-section-count"><?= (int) $pagination['total'] ?> tickets<?= $pagination['totalPages'] > 1 ? ' · page ' . (int) $pagination['current'] . ' of ' . (int) $pagination['totalPages'] : '' ?></span></div>
         <form method="get" class="department-filter-bar" data-filter-form>
-            <div class="department-filter-field"><span class="ticket-filter-label">Department involved</span><div class="filter-picker" data-filter-picker><input type="hidden" name="department" value="<?= e($filters['department']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($departmentFilterName ?: 'All departments') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Department involved</p><button type="button" class="filter-option<?= $filters['department'] === '' ? ' is-selected' : '' ?>" data-filter-target="department" data-filter-value="" data-filter-label="All departments"><span>All departments</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($departmentFilterOptions as $departmentOption): $departmentOptionId = (int) $departmentOption['id']; $departmentOptionName = (string) $departmentOption['name']; ?><button type="button" class="filter-option<?= $filters['department'] === (string) $departmentOptionId ? ' is-selected' : '' ?>" data-filter-target="department" data-filter-value="<?= $departmentOptionId ?>" data-filter-label="<?= e($departmentOptionName) ?>"><span><?= e($departmentOptionName) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
+            <div class="department-filter-field"><span class="ticket-filter-label">Department involved</span><div class="filter-picker" data-filter-picker><input type="hidden" name="department" value="<?= e($filters['department']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($departmentFilterName ?: 'All departments') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Department involved</p><button type="button" class="filter-option<?= $filters['department'] === '' ? ' is-selected' : '' ?>" data-filter-target="department" data-filter-value="" data-filter-label="All departments"><span>All departments</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($departmentFilterOptions as $departmentOptionId => $departmentOption): $departmentOptionId = (string) $departmentOptionId; $departmentOptionName = (string) $departmentOption['name']; ?><button type="button" class="filter-option<?= $filters['department'] === (string) $departmentOptionId ? ' is-selected' : '' ?>" data-filter-target="department" data-filter-value="<?= e($departmentOptionId) ?>" data-filter-label="<?= e($departmentOptionName) ?>"><span><?= e($departmentOptionName) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
             <div class="department-filter-field"><span class="ticket-filter-label">Category</span><div class="filter-picker" data-filter-picker><input type="hidden" name="category" value="<?= e($filters['category']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['category'] ?: 'All categories') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Category</p><button type="button" class="filter-option<?= $filters['category'] === '' ? ' is-selected' : '' ?>" data-filter-target="category" data-filter-value="" data-filter-label="All categories"><span>All categories</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($categoryOptions as $category): ?><button type="button" class="filter-option<?= $filters['category'] === $category ? ' is-selected' : '' ?>" data-filter-target="category" data-filter-value="<?= e($category) ?>" data-filter-label="<?= e($category) ?>"><span><?= e($category) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
             <div class="department-filter-field"><span class="ticket-filter-label">Status</span><div class="filter-picker" data-filter-picker><input type="hidden" name="status" value="<?= e($filters['status']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['status'] ? ($statuses[$filters['status']] ?? $filters['status']) : 'All statuses') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Status</p><button type="button" class="filter-option<?= $filters['status'] === '' ? ' is-selected' : '' ?>" data-filter-target="status" data-filter-value="" data-filter-label="All statuses"><span>All statuses</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($statuses as $value => $label): ?><button type="button" class="filter-option<?= $filters['status'] === $value ? ' is-selected' : '' ?>" data-filter-target="status" data-filter-value="<?= e($value) ?>" data-filter-label="<?= e($label) ?>"><span><?= e($label) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
             <?php if ($hasFilters): ?><a class="button button-secondary department-filter-clear" href="department-workload.php">Clear</a><?php endif; ?>
