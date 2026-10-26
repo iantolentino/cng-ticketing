@@ -31,7 +31,10 @@ if (($argv[1] ?? '') === 'worker') {
     exit;
 }
 $originalIds = $HIDDEN_TICKET_IDS;
-check_visibility(count(ticket_visibility_ids()) === 30, '30 hidden IDs');
+// Use deterministic synthetic policy IDs so this test stays independent of the live/local list.
+$HIDDEN_TICKET_IDS = array_merge([6119, 5156, 511], range(7000, 7026));
+$LOCKED_TICKET_IDS = array_merge([90, 91], range(8000, 8021));
+check_visibility(count(ticket_visibility_ids()) === 30, '30 synthetic hidden IDs');
 foreach ([6119,5156] as $id) check_visibility(is_ticket_hidden($id), 'configured ID ' . $id);
 $_SESSION['role'] = 'team-leader';
 check_visibility(!can_view_hidden(), 'normal role has no exemption');
@@ -56,7 +59,7 @@ check_visibility(!external_ticket_visible_to_user(['external_id'=>6119],['role_s
 $_SESSION['role']='super-admin';
 check_visibility(external_ticket_visible_to_user(['external_id'=>6119],['role_slug'=>'super-admin']), 'external admin exception');
 $_SESSION['role']='team-leader';
-check_visibility(count(ticket_locked_ids()) === 24 && !in_array(511,ticket_locked_ids(),true) && is_ticket_hidden(511),'24 locked IDs; 511 is fully hidden');
+check_visibility(count(ticket_locked_ids()) === 24 && !in_array(511,ticket_locked_ids(),true) && is_ticket_hidden(511),'24 synthetic locked IDs; 511 is fully hidden');
 foreach (ticket_locked_ids() as $lockedId) {
     check_visibility(!is_ticket_hidden($lockedId) && !ticket_access_allowed($lockedId),'listed but locked ID '.$lockedId);
 }

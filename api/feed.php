@@ -6,7 +6,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 function feed_error(int $status, string $message, ?int $tokenId = null): never {
     http_response_code($status);
-    if (isset($GLOBALS['feedPdo'])) $GLOBALS['feedPdo']->prepare('INSERT INTO api_feed_access_log(token_id,ip_address,query_params,status_code) VALUES(?,?,?,?)')->execute([$tokenId, $_SERVER['REMOTE_ADDR'] ?? 'unknown', json_encode($_GET), $status]);
+    if (isset($GLOBALS['feedPdo'])) $GLOBALS['feedPdo']->prepare('INSERT INTO api_feed_access_log(token_id,ip_address,query_params,status_code) VALUES(?,?,?,?)')->execute([$tokenId, $_SERVER['REMOTE_ADDR'] ?? 'unknown', json_encode(array_diff_key($_GET, ['token' => true])), $status]);
     echo json_encode(['error' => $message]); exit;
 }
 $pdo = $GLOBALS['feedPdo'] = db();
@@ -67,5 +67,5 @@ $limit = $limitValue === '' ? 50 : (int) $limitValue;
 $offset = $offsetValue === '' ? 0 : (int) $offsetValue;
 $sql='SELECT t.id,t.ticket_number,t.issue_escalator,t.subject,t.issue,t.priority,t.category,t.subcategory,t.department_id,t.employee_name,t.description,t.resolution,t.status,t.assignee_id,t.created_by,t.created_at,t.updated_at,t.closed_at,(SELECT COUNT(*) FROM ticket_comments c WHERE c.ticket_id=t.id AND c.visibility="shared") AS comment_count FROM tickets t WHERE '.implode(' AND ',$where).' ORDER BY t.created_at DESC LIMIT '.$limit.' OFFSET '.$offset;
 $q=$pdo->prepare($sql); $q->execute($params); $data=$q->fetchAll();
-$pdo->prepare('INSERT INTO api_feed_access_log(token_id,ip_address,query_params,status_code) VALUES(?,?,?,?)')->execute([$tokenId,$ip,json_encode($_GET),200]);
+$pdo->prepare('INSERT INTO api_feed_access_log(token_id,ip_address,query_params,status_code) VALUES(?,?,?,?)')->execute([$tokenId,$ip,json_encode(array_diff_key($_GET, ['token' => true])),200]);
 echo json_encode(['data'=>$data,'pagination'=>['limit'=>$limit,'offset'=>$offset,'count'=>count($data)]], JSON_UNESCAPED_SLASHES);

@@ -7,9 +7,19 @@ if (($argv[1] ?? '') === 'page') {
     $root=$argv[2]; $role=$argv[3]; $page=$argv[4];
     if (!preg_match('/visibility-15-[a-f0-9]{12}$/',$root)) exit(2);
     chdir($root);$cfg=require $root.'/config/config.local.php';
-    session_save_path($root.'/.local/sessions');session_name($cfg['app']['session_name']);
+    require_once $root.'/app/security.php';
+    $sessions=app_runtime_directory($root).'/sessions';
+    if(!is_dir($sessions))mkdir($sessions,0700,true);
+    session_save_path($sessions);session_name($cfg['app']['session_name']);
     session_id('scenario'.bin2hex(random_bytes(12)));session_start();
-    $_SESSION['user_id']=$role==='super-admin'?2:1;session_write_close();
+    $_SESSION['user_id']=$role==='super-admin'?2:1;
+    $fixtureDb=$cfg['db'];
+    $fixturePdo=new PDO(sprintf('mysql:host=%s;port=%s;dbname=%s;charset=utf8mb4',$fixtureDb['host'],$fixtureDb['port'],$fixtureDb['database']),$fixtureDb['username'],$fixtureDb['password'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+    $fixtureUser=$fixturePdo->prepare('SELECT password_hash FROM users WHERE id=?');
+    $fixtureUser->execute([$_SESSION['user_id']]);
+    $_SESSION['auth_password_hash']=$fixtureUser->fetchColumn();
+    $fixturePdo=null;
+    session_write_close();
     $_SERVER['REQUEST_METHOD']='GET';$_SERVER['PHP_SELF']='/'.$page;$_SERVER['SCRIPT_FILENAME']=$root.'/'.$page;
     $_SERVER['HTTP_HOST']='localhost';$_SERVER['SERVER_NAME']='localhost';$_SERVER['REMOTE_ADDR']='127.0.0.1';
     $_GET=[];parse_str($argv[5]??'',$_GET);
@@ -24,7 +34,7 @@ if (($argv[1] ?? '') === 'page') {
         $classes=[];foreach($xp->query('//table[contains(@class,"ticket-table")]/tbody/tr[1]/td') as $td)$classes[]=$td->getAttribute('class');
         $result=['page'=>$page,'role'=>$role,'status'=>$status,'fatal'=>(bool)$fatal,'ids'=>$ids,'links'=>$links,'row_handlers'=>$xp->query('//*[@data-ticket-href]')->length,
             'disabled_links'=>$xp->query('//a[@aria-disabled="true" and not(@href)]')->length,'headers'=>$headers,'cell_classes'=>$classes,
-            'total'=>$GLOBALS['totalTickets']??$GLOBALS['dashboardTotal']??null,'pages'=>$GLOBALS['totalPages']??null,
+            'total'=>$GLOBALS['totalTickets']??$GLOBALS['dashboardTotal']??null,'pages'=>$GLOBALS['pagination']['totalPages']??null,
             'comments'=>isset($GLOBALS['recentComments'])?count($GLOBALS['recentComments']):null,
             'response'=>$status!==200?$html:null,'csv_rows'=>$page==='export-tickets.php'?max(0,count(preg_split('/\r?\n/',trim($html)))-1):null];
         file_put_contents($root.'/evidence/'.str_replace('/','-',$page).'-'.$role.'.html',$html);
@@ -55,7 +65,7 @@ $sourceDb='`'.str_replace('`','``',$db['database']).'`';
 $originalConfigHash=hash_file('sha256',$project.'/ticket_visibility.php');
 $designFiles=glob($project.'/assets/css/*.css');$designFiles=array_merge($designFiles,glob($project.'/assets/js/*.js'));$designHashes=[];
 foreach($designFiles as $file)$designHashes[$file]=hash_file('sha256',$file);
-mkdir($root,0775,true);foreach(['app','config','.local/sessions','storage/private','evidence'] as $dir)mkdir($root.'/'.$dir,0775,true);
+mkdir($root,0775,true);foreach(['app','config','.local/sessions','storage/private/ticket-attachments','evidence'] as $dir)mkdir($root.'/'.$dir,0775,true);
 foreach(array_merge(glob($project.'/*.php'),glob($project.'/app/*.php')) as $file){$rel=substr($file,strlen($project)+1);copy($file,$root.'/'.$rel);}
 file_put_contents($root.'/config/config.local.php',"<?php\n\$config=require ".var_export($project.'/config/config.local.php',true).";\n\$config['db']['database']=".var_export($database,true).";\n\$config['external_sources']=[];\n\$config['smtp']['host']='';\nreturn \$config;\n");
 $helper=file_get_contents($project.'/ticket_visibility.php');
@@ -76,9 +86,9 @@ try {
         $pdo->prepare('INSERT INTO tickets(id,ticket_number,issue_escalator,subject,category,department_id,employee_name,description,status,assignee_id,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?)')->execute([$id,'LOCAL-15-'.$i,'Local QA','Local test ticket '.$i,'Performance',$dept,'Fixture Employee','Private fixture description '.$i,'open',1,2]);
         $pdo->prepare('INSERT INTO ticket_comments(ticket_id,user_id,body) VALUES(?,?,?)')->execute([$id,2,'PRIVATE-FIXTURE-COMMENT-'.$i]);
         $pdo->prepare('INSERT INTO notifications(user_id,actor_id,type,title,body,url) VALUES(?,?,?,?,?,?)')->execute([1,2,'assignment','Fixture ticket '.$i,'PRIVATE-FIXTURE-NOTIFICATION-'.$i,'ticket.php?id='.$id]);
-        $pdo->prepare('INSERT INTO ticket_attachments(ticket_id,uploaded_by,file_name,file_path,stored_name,original_name,mime_type,file_size) VALUES(?,?,?,?,?,?,?,?)')->execute([$id,2,'fixture.txt','storage/private/fixture.txt','fixture.txt','fixture.txt','text/plain',7]);
+        $pdo->prepare('INSERT INTO ticket_attachments(ticket_id,uploaded_by,file_name,file_path,stored_name,original_name,mime_type,file_size) VALUES(?,?,?,?,?,?,?,?)')->execute([$id,2,'fixture.txt','storage/private/ticket-attachments/fixture.txt','fixture.txt','fixture.txt','text/plain',7]);
     }
-    $pdo->commit();file_put_contents($root.'/storage/private/fixture.txt','fixture');
+    $pdo->commit();file_put_contents($root.'/storage/private/ticket-attachments/fixture.txt','fixture');
     scenario_check((int)$pdo->query('SELECT COUNT(*) FROM tickets')->fetchColumn()===15,'Created exactly 15 tickets in isolated local application database');
     $baseline=scenario_page($root,'cng-admin','index.php');$baseDash=scenario_page($root,'cng-admin','dashboard.php');
     scenario_check($baseline['status']===200&&$baseline['total']===15&&$baseline['pages']===2,'Before restrictions: CNG Admin list counts 15 across two pages');

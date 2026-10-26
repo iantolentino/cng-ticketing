@@ -4,33 +4,40 @@ require __DIR__ . '/app/tickets.php';
 require __DIR__ . '/app/external_tickets.php';
 require __DIR__ . '/app/layout.php';
 require __DIR__ . '/app/report_csv.php';
+require __DIR__ . '/app/report_workload.php';
 
 $user = require_permission('view_all_tickets');
 require_non_team_member($user);
 $canExportReports = user_can('export_tickets');
 $canImportReports = user_can('manage_users');
 $pdo = db();
+$hasDepartmentTypes = app_schema_has('departments', 'department_type', $pdo);
 $error = '';
 $preview = $_SESSION['csv_preview'] ?? null;
 $types = ['users' => 'Users', 'departments' => 'Departments', 'holidays' => 'Holidays'];
+if (($user['role_slug'] ?? '') !== 'super-admin') unset($types['users']);
 $headers = [
     'users' => ['full_name', 'username', 'email', 'role', 'department'],
-    'departments' => ['name', 'code'],
+    'departments' => ['name', 'code', 'department_type'],
     'holidays' => ['date', 'label', 'country_code'],
 ];
+if (!$hasDepartmentTypes) $headers['departments'] = ['name', 'code'];
 
 $importNotice = $_SESSION['csv_import_notice'] ?? '';
 unset($_SESSION['csv_import_notice']);
+$importCredentials = $_SESSION['csv_import_credentials'] ?? [];
+unset($_SESSION['csv_import_credentials']);
 if (!is_array($preview) || !isset($types[$preview['type'] ?? '']) || !isset($preview['token'])) {
     $preview = null;
     unset($_SESSION['csv_preview']);
 }
 $selectedImportType = request_string($_POST, 'type') ?: ($preview['type'] ?? 'users');
-if (!isset($types[$selectedImportType])) $selectedImportType = 'users';
+if (!isset($types[$selectedImportType])) $selectedImportType = array_key_first($types);
 $templateType = request_string($_GET, 'csv_template');
 if ($templateType !== '') {
     if (!$canImportReports) { http_response_code(403); exit('You do not have permission to download import templates.'); }
     if (!isset($types[$templateType])) { http_response_code(400); exit('Choose a supported import type.'); }
+    audit_admin_action((int) $user['id'], 'import_template_downloaded', 'csv_template', null, ['type' => $templateType]);
     header('Content-Type: text/csv; charset=UTF-8');
     header('Content-Disposition: attachment; filename="' . $templateType . '-import-template.csv"');
     $out = fopen('php://output', 'w');
@@ -80,10 +87,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             try {
                 $pdo->beginTransaction();
+                $createdCredentials = [];
                 foreach ($preview['rows'] as $row) {
-                    if ($preview['type'] === 'departments') $pdo->prepare('INSERT INTO departments(name,code) VALUES(?,?)')->execute([$row['name'], $row['code']]);
+                    if ($preview['type'] === 'departments') {
+                        if ($hasDepartmentTypes) $pdo->prepare('INSERT INTO departments(name,code,department_type) VALUES(?,?,?)')->execute([$row['name'], $row['code'], $row['department_type']]);
+                        else $pdo->prepare('INSERT INTO departments(name,code) VALUES(?,?)')->execute([$row['name'], $row['code']]);
+                    }
                     elseif ($preview['type'] === 'holidays') $pdo->prepare('INSERT INTO company_holidays(`date`,label,country_code,holiday_type) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE label=VALUES(label),holiday_type=VALUES(holiday_type)')->execute([$row['date'], $row['label'], $row['country_code'] ?: 'COMPANY', $row['country_code'] === 'COMPANY' ? 'company' : 'public']);
                     elseif ($preview['type'] === 'users') {
+                        if (($user['role_slug'] ?? '') !== 'super-admin') throw new InvalidArgumentException('Only Super Admin can import user accounts and assign roles.');
+                        $duplicatePerson = $pdo->prepare('SELECT id FROM users WHERE LOWER(TRIM(full_name))=LOWER(?) LIMIT 1');
+                        $duplicatePerson->execute([$row['full_name']]);
+                        if ($duplicatePerson->fetchColumn()) throw new InvalidArgumentException('This person already has an account. Update the existing account instead.');
                         $role = $pdo->prepare('SELECT id FROM roles WHERE slug=?');
                         $role->execute([$row['role']]);
                         $roleId = (int) $role->fetchColumn();
@@ -91,20 +106,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $dept = $pdo->prepare('SELECT id FROM departments WHERE code=?');
                         $dept->execute([$row['department']]);
                         $deptId = $dept->fetchColumn() ?: null;
-                        $temporary = strtoupper(bin2hex(random_bytes(5)));
+                        $temporary = strtoupper(bin2hex(random_bytes(8)));
                         $pdo->prepare('INSERT INTO users(role_id,department_id,username,full_name,email,password_hash,must_change_password) VALUES(?,?,?,?,?,?,1)')->execute([$roleId, $deptId, $row['username'], $row['full_name'], $row['email'], password_hash($temporary, PASSWORD_DEFAULT)]);
+                        $createdCredentials[] = ['username'=>$row['username'], 'password'=>$temporary];
                     }
                 }
-                $pdo->commit();
                 $importedCount = count($preview['rows']);
                 $importedType = $preview['type'];
+                audit_admin_action((int) $user['id'], 'csv_imported', $importedType, null, ['rows' => $importedCount]);
+                $pdo->commit();
+                if ($createdCredentials) $_SESSION['csv_import_credentials'] = $createdCredentials;
                 unset($_SESSION['csv_preview']);
                 $preview = null;
-                try {
-                    audit_admin_action((int) $user['id'], 'csv_imported', $importedType, null, ['rows' => $importedCount]);
-                } catch (Throwable $exception) {
-                    error_log('CSV import completed; audit entry could not be recorded.');
-                }
                 $_SESSION['csv_import_notice'] = 'Import complete: ' . $importedCount . ' ' . strtolower($types[$importedType]) . ' records processed successfully.';
                 $returnQuery = http_build_query(array_intersect_key($_GET, array_flip(['from', 'to', 'department', 'employees'])));
                 redirect('reports.php' . ($returnQuery !== '' ? '?' . $returnQuery : '') . '#csv-import');
@@ -117,11 +130,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Choose Validate CSV to review a file before importing.';
     }
 }
-$from = trim((string) ($_GET['from'] ?? date('Y-m-01')));
-$to = trim((string) ($_GET['to'] ?? date('Y-m-d')));
-if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from)) $from = date('Y-m-01');
-if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) $to = date('Y-m-d');
-$reportDepartments = active_departments();
+$reportTimezone = new DateTimeZone(APP_DISPLAY_TIMEZONE);
+$defaultReportFrom = (new DateTimeImmutable('first day of this month', $reportTimezone))->format('Y-m-d');
+$defaultReportTo = (new DateTimeImmutable('today', $reportTimezone))->format('Y-m-d');
+$from = ticket_valid_date(trim((string) ($_GET['from'] ?? ''))) ?: $defaultReportFrom;
+$to = ticket_valid_date(trim((string) ($_GET['to'] ?? ''))) ?: $defaultReportTo;
+$reportWindow = ticket_window_bounds($from, $to, 'all');
+$from = $reportWindow['from'];
+$to = $reportWindow['to'];
+$reportDepartments = active_internal_departments();
 $reportDepartmentIds = array_map('intval', array_column($reportDepartments, 'id'));
 $selectedDepartment = trim((string) ($_GET['department'] ?? ''));
 if (!ctype_digit($selectedDepartment) || !in_array((int) $selectedDepartment, $reportDepartmentIds, true)) $selectedDepartment = '';
@@ -146,9 +163,10 @@ $reportFilterParams = ['from' => $from, 'to' => $to, 'department' => $selectedDe
 $reportQueryParams = array_filter($reportFilterParams, static fn($value): bool => $value !== '' && $value !== []);
 $reportCsvQuery = http_build_query($reportQueryParams + ['format' => 'csv']);
 $ticketExportQuery = http_build_query(['date_from' => $from, 'date_to' => $to, 'department' => $selectedDepartment, 'employees' => $selectedEmployees]);
-$params = ['from' => $from . ' 00:00:00', 'to' => $to . ' 23:59:59'];
+$params = [];
+$reportDateClauses = ticket_window_sql($reportWindow, $params, 't.created_at', 'report_date');
 $scope = ticket_scope_sql($user, $params);
-$base = 't.deleted_at IS NULL AND t.created_at BETWEEN :from AND :to' . $scope;
+$base = 't.deleted_at IS NULL' . ($reportDateClauses ? ' AND ' . implode(' AND ', $reportDateClauses) : '') . $scope;
 if ($selectedDepartment !== '') {
     $base .= ' AND (t.department_id = :report_department OR EXISTS (SELECT 1 FROM ticket_departments report_department_filter WHERE report_department_filter.ticket_id=t.id AND report_department_filter.department_id=:report_department_pivot))';
     $params['report_department'] = (int) $selectedDepartment;
@@ -163,12 +181,7 @@ if ($selectedEmployees) {
     }
     $base .= ' AND t.employee_name IN (' . implode(',', $employeePlaceholders) . ')';
 }
-$byDepartment = $pdo->prepare('SELECT d.name,COUNT(*) count,SUM(t.status="closed") closed FROM tickets t JOIN departments d ON d.id=t.department_id WHERE ' . $base . ' GROUP BY d.id,d.name ORDER BY count DESC');
-$byDepartment->execute($params);
-$departmentRows = $byDepartment->fetchAll();
-$byAssignee = $pdo->prepare('SELECT COALESCE(a.full_name,"Unassigned") name,COUNT(DISTINCT t.id) count FROM tickets t LEFT JOIN users a ON a.id=t.assignee_id LEFT JOIN ticket_assignees ta ON ta.ticket_id=t.id WHERE ' . $base . ' GROUP BY COALESCE(a.id,0),a.full_name ORDER BY count DESC');
-$byAssignee->execute($params);
-$assigneeRows = $byAssignee->fetchAll();
+[$departmentRows, $assigneeRows] = report_native_workload($pdo, $base, $params);
 // Apply the same normalized external-ticket filters used by ticket downloads.
 $externalFilters = array_fill_keys(['status', 'priority', 'subcategory', 'category', 'scope', 'search', 'dashboard_view'], '');
 $externalFilters += ['date_from' => $from, 'date_to' => $to, 'department' => $selectedDepartment, 'department_name' => '', 'employees' => $selectedEmployees, 'dashboard_range' => 'all'];
@@ -178,11 +191,10 @@ foreach ($reportDepartments as $department) {
 $externalDepartmentRows = [];
 $externalAssigneeRows = [];
 foreach ($reportExternalTickets['tickets'] ?? [] as $ticket) {
-    if (!external_ticket_matches_filters($ticket, $externalFilters, '1970-01-01 00:00:00', $user)) continue;
+    if (!external_ticket_matches_filters($ticket, $externalFilters, $user)) continue;
     $departmentName = trim((string) ($ticket['department'] ?? '')) ?: 'Unassigned';
-    $assigneeName = trim((string) ($ticket['assignees'] ?? '')) ?: 'Unassigned';
     $externalDepartmentRows[] = ['name' => $departmentName, 'count' => 1, 'closed' => ($ticket['status'] ?? '') === 'closed' ? 1 : 0];
-    $externalAssigneeRows[] = ['name' => $assigneeName, 'count' => 1];
+    foreach (external_assignee_names($ticket) as $assigneeName) $externalAssigneeRows[] = ['name' => $assigneeName, 'count' => 1];
 }
 $mergeWorkloadRows = static function (array $nativeRows, array $externalRows): array {
     $groups = [];
@@ -200,12 +212,19 @@ $departmentRows = $mergeWorkloadRows($departmentRows, $externalDepartmentRows);
 $assigneeRows = $mergeWorkloadRows($assigneeRows, $externalAssigneeRows);
 $workloadSourcesIncomplete = !empty($reportExternalTickets['errors']);
 
-$leave = $pdo->prepare('SELECT status,COUNT(*) count FROM leave_requests WHERE submitted_at BETWEEN ? AND ? GROUP BY status ORDER BY status');
-$leave->execute([$params['from'], $params['to']]);
+$leaveParams = [];
+$leaveDateClauses = ticket_window_sql($reportWindow, $leaveParams, 'submitted_at', 'report_leave_date');
+if (app_schema_has('leave_requests', 'deleted_at', $pdo)) array_unshift($leaveDateClauses, 'deleted_at IS NULL');
+$leaveSql = 'SELECT status,COUNT(*) count FROM leave_requests';
+if ($leaveDateClauses) $leaveSql .= ' WHERE ' . implode(' AND ', $leaveDateClauses);
+$leaveSql .= ' GROUP BY status ORDER BY status';
+$leave = $pdo->prepare($leaveSql);
+$leave->execute($leaveParams);
 $leaveRows = $leave->fetchAll();
 
 if (($_GET['format'] ?? '') === 'csv') {
     if (!$canExportReports) { http_response_code(403); exit('You do not have permission to export reports.'); }
+    audit_admin_action((int) $user['id'], 'workload_report_downloaded', 'report', null, ['filters' => $reportFilterParams]);
     header('Content-Type:text/csv');
     header('Content-Disposition:attachment; filename="ticket-report.csv"');
     $out = fopen('php://output', 'w');
@@ -220,16 +239,14 @@ if (($_GET['format'] ?? '') === 'csv') {
 
 page_start('Reports', $user);
 ?>
-<div class="reports-screen"><section class="report-export-card"><h2>Export tickets</h2><p class="report-export-help">Choose a date range, optionally narrow by department or employee, then apply filters and download.</p><div class="reports-toolbar"><form method="get" class="report-filter-bar"><div class="report-date-range" data-date-range-picker><span class="report-date-caption">Select Date Range</span><input type="hidden" name="from" data-date-from value="<?= e($from) ?>"><input type="hidden" name="to" data-date-to value="<?= e($to) ?>"><button type="button" class="filter-picker-trigger date-range-trigger" data-date-range-trigger aria-label="Select Date Range" aria-expanded="false"><span class="filter-picker-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M8 3.5v3M16 3.5v3M3.5 9.5h17"/></svg></span><span class="filter-picker-copy"><strong data-date-range-label>Any date range</strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu date-range-menu" data-date-range-menu hidden></div></div><div class="report-filter-field"><label for="report-department">Department</label><select id="report-department" name="department"><option value="">All departments</option><?php foreach ($reportDepartments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= $selectedDepartment === (string) $department['id'] ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select></div><div class="report-filter-field report-employee-field"><label for="report-employees">Employees</label><select id="report-employees" data-native-select name="employees[]" multiple size="4" aria-label="Select one or more employees"><option value=""<?= $selectedEmployees ? '' : ' selected' ?>>All employees</option><?php foreach ($reportEmployeeOptions as $employeeName): ?><option value="<?= e($employeeName) ?>"<?= in_array($employeeName, $selectedEmployees, true) ? ' selected' : '' ?>><?= e($employeeName) ?></option><?php endforeach; ?></select><div data-report-employee-picker hidden></div></div><button class="button button-secondary report-filter-submit" type="submit">Apply filters</button></form><div class="page-head-actions"><?php if ($canExportReports): ?><a class="button report-action-button" href="export-tickets.php?format=xlsx&amp;<?= e($ticketExportQuery) ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>Export Tickets Excel</a><a class="button button-secondary report-action-button" href="export-tickets.php?format=csv&amp;<?= e($ticketExportQuery) ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>Export Tickets CSV</a><?php endif; ?></div></div>
-</section><details class="report-secondary-section"><summary>View workload reports</summary><div class="report-secondary-content"><p class="report-guidance">Workload includes local and connected tickets matching your selected filters. Departments and assignees use the names recorded for each ticket.</p><?php if ($canExportReports): ?><a class="button button-secondary report-action-button" href="reports.php?<?= e($reportCsvQuery) ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>Export Report CSV</a><?php endif; ?>
-<?php if ($workloadSourcesIncomplete): ?><p class="auth-error" role="status">Some connected ticket sources are unavailable. Workload figures are incomplete; try again later.</p><?php endif; ?><div class="report-grid"><section class="report-panel"><div class="report-panel-head"><h2>Workload by department</h2><span><?= count($departmentRows) ?> departments</span></div><div class="table-wrap report-table-wrap"><table class="ticket-table report-table"><thead><tr><th>Department</th><th>Tickets</th><th>Closed</th></tr></thead><tbody><?php foreach ($departmentRows as $row): ?><tr><td><?= e($row['name']) ?></td><td><?= $row['count'] ?></td><td><?= $row['closed'] ?></td></tr><?php endforeach; ?><?php if (!$departmentRows): ?><tr><td colspan="3" class="empty-table-cell">No tickets match these filters.</td></tr><?php endif; ?></tbody></table></div></section><section class="report-panel"><div class="report-panel-head"><h2>Workload by assignee</h2><span><?= count($assigneeRows) ?> assignees</span></div><div class="table-wrap report-table-wrap"><table class="ticket-table report-table"><thead><tr><th>Assignee</th><th>Tickets</th></tr></thead><tbody><?php foreach ($assigneeRows as $row): ?><tr><td><?= e($row['name']) ?></td><td><?= $row['count'] ?></td></tr><?php endforeach; ?><?php if (!$assigneeRows): ?><tr><td colspan="2" class="empty-table-cell">No tickets match these filters.</td></tr><?php endif; ?></tbody></table></div></section><section class="report-panel report-panel-wide"><div class="report-panel-head"><h2>Leave request activity</h2><span>Submission date only; no department/employee filtering or attendance logs</span></div><div class="table-wrap report-table-wrap"><table class="ticket-table report-table"><thead><tr><th>Status</th><th>Requests</th></tr></thead><tbody><?php foreach ($leaveRows as $row): ?><tr><td><?= e($row['status']) ?></td><td><?= $row['count'] ?></td></tr><?php endforeach; ?><?php if (!$leaveRows): ?><tr><td colspan="2" class="empty-table-cell">No leave requests in this date range.</td></tr><?php endif; ?></tbody></table></div></section></div>
-</div></details>
-<?php if ($canImportReports): ?>
+<div class="reports-screen"><div class="reports-left-column"><section class="report-export-card"><h2>Export tickets</h2><div class="reports-toolbar"><form method="get" class="report-filter-bar"><div class="report-date-range" data-date-range-picker><span class="report-date-caption">Select Date Range</span><input type="hidden" name="from" data-date-from value="<?= e($from) ?>"><input type="hidden" name="to" data-date-to value="<?= e($to) ?>"><button type="button" class="filter-picker-trigger date-range-trigger" data-date-range-trigger aria-label="Select Date Range" aria-expanded="false"><span class="filter-picker-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M8 3.5v3M16 3.5v3M3.5 9.5h17"/></svg></span><span class="filter-picker-copy"><strong data-date-range-label>Any date range</strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu date-range-menu" data-date-range-menu hidden></div></div><div class="report-filter-field"><label for="report-department">Department</label><select id="report-department" name="department"><option value="">All departments</option><?php foreach ($reportDepartments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= $selectedDepartment === (string) $department['id'] ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select></div><div class="report-filter-field report-employee-field"><label for="report-employees">Employees</label><select id="report-employees" data-native-select name="employees[]" multiple size="4" aria-label="Select one or more employees"><option value=""<?= $selectedEmployees ? '' : ' selected' ?>>All employees</option><?php foreach ($reportEmployeeOptions as $employeeName): ?><option value="<?= e($employeeName) ?>"<?= in_array($employeeName, $selectedEmployees, true) ? ' selected' : '' ?>><?= e($employeeName) ?></option><?php endforeach; ?></select><div data-report-employee-picker hidden></div></div><button class="button button-secondary report-filter-submit" type="submit">Apply filters</button></form><div class="page-head-actions"><?php if ($canExportReports): ?><a class="button report-action-button" href="export-tickets.php?format=xlsx&amp;<?= e($ticketExportQuery) ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>Export Tickets Excel</a><a class="button button-secondary report-action-button" href="export-tickets.php?format=csv&amp;<?= e($ticketExportQuery) ?>"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>Export Tickets CSV</a><?php endif; ?></div></div>
+</section><?php if ($canImportReports): ?>
 <details id="csv-import" class="report-panel csv-import-panel report-secondary-section"<?= ($error || $importNotice || is_array($preview)) ? ' open' : '' ?>>
     <summary>Import data from CSV</summary><p class="report-import-intro">Add users, departments or holidays from a file. This is separate from downloading tickets.</p>
     <div class="csv-import-content">
         <?php if ($error): ?><p class="auth-error" role="alert"><?= e($error) ?></p><?php endif; ?>
         <?php if ($importNotice): ?><p class="action-notice" role="status"><?= e($importNotice) ?></p><?php endif; ?>
+        <?php if ($importCredentials && ($user['role_slug'] ?? '') === 'super-admin'): ?><div class="temporary-import-credentials"><h3>Temporary passwords</h3><p>Save these now. They are shown once; each person must change their password at first sign-in.</p><div class="table-wrap"><table class="ticket-table"><thead><tr><th>Username</th><th>Temporary password</th></tr></thead><tbody><?php foreach ($importCredentials as $credential): ?><tr><td><?= e($credential['username']) ?></td><td><code><?= e($credential['password']) ?></code></td></tr><?php endforeach; ?></tbody></table></div></div><?php endif; ?>
         <p class="muted">Use this only to add many users, departments or holidays from a spreadsheet instead of entering them individually. It does not import tickets and is not needed for ticket downloads.</p>
         <details class="csv-format-guide">
             <summary>1. Prepare your CSV — formats and templates</summary>
@@ -237,7 +254,7 @@ page_start('Reports', $user);
             <?php foreach ($types as $key => $label): ?>
                 <div class="csv-format-row"><strong><?= e($label) ?></strong><a href="reports.php?csv_template=<?= e($key) ?>">Download <?= e(strtolower($label)) ?> template</a><code><?= e(implode(',', $headers[$key])) ?></code>
                 <?php if ($key === 'users'): ?><small>Use an existing role slug and department code. After import, use Users to set up account access.</small>
-                <?php elseif ($key === 'departments'): ?><small>Use a unique department name and code.</small>
+                <?php elseif ($key === 'departments'): ?><small>Use a unique department name and code.<?php if (app_schema_has('departments', 'department_type')): ?> department_type must be internal or cng_staff.<?php endif; ?></small>
                 <?php else: ?><small>Dates: YYYY-MM-DD. Use COMPANY for company holidays, or the country code for public holidays. Existing matching holidays are updated.</small><?php endif; ?>
                 </div>
             <?php endforeach; ?>
@@ -282,5 +299,10 @@ page_start('Reports', $user);
         </div>
     <?php endif; ?>
 </details>
-<?php endif; ?></div>
+<?php endif; ?>
+</div>
+<section class="report-workload-panel" aria-labelledby="workload-reports-title"><div class="report-workload-head"><div><h2 id="workload-reports-title">View workload reports</h2></div><?php if ($canExportReports): ?><a class="button button-secondary report-action-button" href="reports.php?<?= e($reportCsvQuery) ?>" aria-label="Export workload report as CSV"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14"/></svg>Export</a><?php endif; ?></div><div class="report-workload-content">
+<?php if ($workloadSourcesIncomplete): ?><p class="auth-error" role="status">Some connected ticket sources are unavailable. Workload figures are incomplete; try again later.</p><?php endif; ?><div class="report-grid"><section class="report-panel"><div class="report-panel-head"><h2>Workload by department</h2><span><?= count($departmentRows) ?> departments</span></div><div class="table-wrap report-table-wrap"><table class="ticket-table report-table"><thead><tr><th>Department</th><th>Tickets</th><th>Closed</th></tr></thead><tbody><?php foreach ($departmentRows as $row): ?><tr><td><?= e($row['name']) ?></td><td><?= $row['count'] ?></td><td><?= $row['closed'] ?></td></tr><?php endforeach; ?><?php if (!$departmentRows): ?><tr><td colspan="3" class="empty-table-cell">No tickets match these filters.</td></tr><?php endif; ?></tbody></table></div></section><section class="report-panel"><div class="report-panel-head"><h2>Workload by assignee</h2><span><?= count($assigneeRows) ?> assignees</span></div><div class="table-wrap report-table-wrap"><table class="ticket-table report-table"><thead><tr><th>Assignee</th><th>Tickets</th></tr></thead><tbody><?php foreach ($assigneeRows as $row): ?><tr><td><?= e($row['name']) ?></td><td><?= $row['count'] ?></td></tr><?php endforeach; ?><?php if (!$assigneeRows): ?><tr><td colspan="2" class="empty-table-cell">No tickets match these filters.</td></tr><?php endif; ?></tbody></table></div></section><section class="report-panel report-panel-wide"><div class="report-panel-head"><h2>Leave request activity</h2><span>Submission date only; no department/employee filtering or attendance logs</span></div><div class="table-wrap report-table-wrap"><table class="ticket-table report-table"><thead><tr><th>Status</th><th>Requests</th></tr></thead><tbody><?php foreach ($leaveRows as $row): ?><tr><td><?= e($row['status']) ?></td><td><?= $row['count'] ?></td></tr><?php endforeach; ?><?php if (!$leaveRows): ?><tr><td colspan="2" class="empty-table-cell">No leave requests in this date range.</td></tr><?php endif; ?></tbody></table></div></section></div>
+</div></section>
+</div>
 <?php page_end(); ?>

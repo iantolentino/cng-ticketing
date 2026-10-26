@@ -50,15 +50,13 @@ $externalDashboardTickets = array_values(array_filter($externalResult['tickets']
     return ticket_window_matches($ticket['created_at'] ?? null, $dashboardWindow);
 }));
 $dashboardOtherStatusCount = 0;
-$dashboardExternalOpenWork = 0;
 foreach ($externalDashboardTickets as $ticket) {
     if (isset($dashboardStatusCounts[$ticket['status']])) $dashboardStatusCounts[$ticket['status']]++;
     else $dashboardOtherStatusCount++;
-    if (($ticket['status'] ?? '') !== 'closed') $dashboardExternalOpenWork++;
 }
 $dashboardStatusCounts['other'] = $dashboardOtherStatusCount;
 $dashboardTotal = array_sum($dashboardStatusCounts);
-$dashboardOpenWork = $dashboardStatusCounts['open'] + $dashboardStatusCounts['in_progress'] + $dashboardStatusCounts['pending'] + $dashboardExternalOpenWork;
+$dashboardOpenWork = $dashboardStatusCounts['open'] + $dashboardStatusCounts['in_progress'] + $dashboardStatusCounts['pending'] + $dashboardStatusCounts['other'];
 $dashboardUnassignedQuery = db()->prepare('SELECT COUNT(*) FROM tickets t WHERE ' . $dashboardWhereSql . ' AND t.assignee_id IS NULL AND NOT EXISTS (SELECT 1 FROM ticket_assignees ta_dash WHERE ta_dash.ticket_id = t.id)');
 $dashboardUnassignedQuery->execute($dashboardParams);
 $dashboardUnassigned = (int) $dashboardUnassignedQuery->fetchColumn();
@@ -287,7 +285,7 @@ page_start('Dashboard', $user);
         </section>
         <section class="dashboard-panel dashboard-recent-panel" aria-labelledby="recent-title">
             <div class="dashboard-head"><div><h2 id="recent-title">Recent tickets</h2><p class="muted">Latest activity</p></div></div>
-            <div class="recent-ticket-list"><?php foreach (array_slice($recentUpdates, 0, 4) as $ticket): ?><a class="recent-ticket-item" <?= ticket_link_attributes(dashboard_ticket_url($ticket)) ?>><span class="recent-ticket-copy"><span class="recent-ticket-number"><?= e($ticket['ticket_number']) ?></span><small class="recent-ticket-department"><?= e($ticket['department'] ?? '—') ?></small></span><span class="recent-ticket-status"><span class="pill pill-<?= e(str_replace('_', '-', $ticket['status'])) ?>"><?= e($ticket['status_label'] ?? ($statuses[$ticket['status']] ?? $ticket['status'])) ?></span><small><?= e(app_datetime_display($ticket['updated_at'], 'M j, g:i A')) ?></small></span></a><?php endforeach; ?><?php if (!$recentUpdates): ?><p class="muted">No recent tickets yet.</p><?php endif; ?></div>
+            <div class="recent-ticket-list"><?php foreach (array_slice($recentUpdates, 0, 3) as $ticket): ?><a class="recent-ticket-item" <?= ticket_link_attributes(dashboard_ticket_url($ticket)) ?>><span class="recent-ticket-copy"><span class="recent-ticket-number"><?= e($ticket['ticket_number']) ?></span><small class="recent-ticket-department"><?= e($ticket['department'] ?? '—') ?></small></span><span class="recent-ticket-status"><span class="pill pill-<?= e(str_replace('_', '-', $ticket['status'])) ?>"><?= e($ticket['status_label'] ?? ($statuses[$ticket['status']] ?? $ticket['status'])) ?></span><small><?= e(app_datetime_display($ticket['updated_at'], 'M j, g:i A')) ?></small></span></a><?php endforeach; ?><?php if (!$recentUpdates): ?><p class="muted">No recent tickets yet.</p><?php endif; ?></div>
         </section>
     </div>
 </div>

@@ -907,10 +907,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.querySelectorAll('[data-shift-form]').forEach((form) => {
-        const checkboxes = Array.from(form.querySelectorAll('input[name="shift_days[]"]'));
-        form.querySelectorAll('[data-shift-preset]').forEach((button) => {
+        const checkboxes = Array.from(form.querySelectorAll('input[name="days_off[]"]'));
+        form.querySelectorAll('[data-day-off-preset]').forEach((button) => {
             button.addEventListener('click', () => {
-                const wanted = (button.dataset.shiftPreset || '').split(',').map((value) => value.trim()).filter(Boolean);
+                const wanted = (button.dataset.dayOffPreset || '').split(',').map((value) => value.trim()).filter(Boolean);
                 checkboxes.forEach((checkbox) => { checkbox.checked = wanted.includes(checkbox.value); });
             });
         });
@@ -932,38 +932,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     });
-
-    const accountMenu = document.querySelector('[data-account-menu]');
-    const accountMenuTrigger = document.querySelector('[data-account-menu-trigger]');
-    if (accountMenu && accountMenuTrigger) {
-        const accountMenuItems = accountMenu.querySelectorAll('[role="menuitem"]');
-        const closeAccountMenu = (returnFocus = false) => {
-            accountMenu.hidden = true;
-            accountMenuTrigger.setAttribute('aria-expanded', 'false');
-            if (returnFocus) accountMenuTrigger.focus();
-        };
-
-        accountMenuTrigger.addEventListener('click', () => {
-            const isOpen = accountMenuTrigger.getAttribute('aria-expanded') === 'true';
-            if (isOpen) {
-                closeAccountMenu(true);
-                return;
-            }
-            accountMenu.hidden = false;
-            accountMenuTrigger.setAttribute('aria-expanded', 'true');
-            accountMenuItems[0]?.focus();
-        });
-        accountMenuItems.forEach((item) => item.addEventListener('click', () => closeAccountMenu()));
-        document.addEventListener('click', (event) => {
-            if (!event.target.closest('[data-account-menu-trigger], [data-account-menu]')) closeAccountMenu();
-        });
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && accountMenuTrigger.getAttribute('aria-expanded') === 'true') {
-                event.preventDefault();
-                closeAccountMenu(true);
-            }
-        });
-    }
 
     const themeChoices = document.querySelectorAll('[data-theme-choice]');
     const themeStatus = document.querySelector('[data-theme-status]');

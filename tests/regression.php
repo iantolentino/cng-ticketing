@@ -42,8 +42,8 @@ foreach ($migrationFiles as $file) {
     $migrationNumbers[] = (int) basename($file, '.sql');
 }
 sort($migrationNumbers);
-$expectedNumbers = range(2, 27);
-check($migrationNumbers === $expectedNumbers, 'migrations 002 through 027 are present without gaps');
+$expectedNumbers = range(2, 32);
+check($migrationNumbers === $expectedNumbers, 'migrations 002 through 032 are present without gaps');
 
 $migrationMarkers = [
     '011' => 'password_reset_tokens',
@@ -78,7 +78,7 @@ $authorizationChecks = [
     'deleted-tickets.php' => "role_slug'] ?? '') !== 'super-admin'",
     'restore-ticket.php' => "role_slug'] ?? '') !== 'super-admin'",
     'audit-log.php' => "role_slug'] ?? '') !== 'super-admin'",
-    'recruitment.php' => "user_can('manage_recruitment'",
+    'recruitment.php' => 'Super Admin access required.',
     'calendar-admin.php' => 'Super Admin access required.',
     'health.php' => 'Super Admin access required.',
     'bulk-tickets.php' => "require_permission('bulk_ticket_actions'",
@@ -109,7 +109,7 @@ check(source_contains('leave-requests.php', 'unlink(ROOT_PATH'), 'failed leave a
 check(source_contains('app/report_csv.php', 'count($row) !== count($expected)'), 'CSV import rejects malformed column counts');
 check(source_contains('app/security.php', 'function request_string'), 'authentication input rejects array-valued request fields');
 check(source_contains('app/bootstrap.php', "session.use_strict_mode"), 'sessions use strict mode');
-check(source_contains('login.php', "approval_status']!=='approved'"), 'login rejects non-approved account states');
+check((bool) preg_match("~\\['approval_status'\\]\\s*!==\\s*'approved'~", (string) file_get_contents($root . '/login.php')), 'login rejects non-approved account states');
 check(source_contains('app/layout.php', 'Skip to main content'), 'layout provides a keyboard skip link');
 check(source_contains('app/layout.php', 'id="main-content"'), 'layout exposes a main-content landmark');
 check(source_contains('app/layout.php', 'window.sessionStorage'), 'layout tolerates unavailable session storage');
@@ -160,7 +160,7 @@ check(!source_contains('team-attendance.php', "'delete_leave'"), 'Team Attendanc
 check(source_contains('team-attendance.php', 'Manage leave on the Team Calendar'), 'Team Attendance points at the Team Calendar for leave');
 check(source_contains('team-calendar.php', "'save_leave'"), 'the Team Calendar owns leave filing');
 check(source_contains('team-calendar.php', "'delete_leave'"), 'the Team Calendar owns leave removal');
-check(source_contains('team-attendance.php', 'shift_days[]'), 'Team Attendance edits the five-day shift pattern');
+check(source_contains('team-attendance.php', 'days_off[]') && source_contains('team-attendance.php', 'roster_shift_days_from_day_off_post'), 'Team Attendance derives editable working days from days off');
 check(source_contains('team-attendance.php', 'attendance-roster-panel'), 'Team Attendance exposes the staff roster panel');
 check(!source_contains('team-attendance.php', "=== 'cng-admin'"), 'CNG Admin is not hard-blocked from Team Attendance');
 check(source_contains('app/roster.php', 'roster_leave_save'), 'staff leave is stored once for attendance and the calendar');
@@ -184,10 +184,9 @@ check(source_contains('users.php', "team_member_credentials"), 'Team Member setu
 check(source_contains('users.php', 'must_change_password'), 'Team Member setup forces a password change');
 check(source_contains('app/auth.php', 'require_non_team_member'), 'restricted workspace routes block Team Members');
 check(source_contains('app/layout.php', "'change-password.php'"), 'authenticated users have a Settings password-change link');
-check(source_contains('app/layout.php', 'data-account-menu-trigger'), 'authenticated users have an upper-right account menu trigger');
-check(source_contains('app/layout.php', 'data-account-menu'), 'the account menu exposes Settings');
-check(source_contains('app/layout.php', 'href="logout.php"'), 'the account menu exposes Sign out');
-check(!source_contains('app/layout.php', '<div class="sidebar-footer">'), 'the sidebar no longer renders the account footer');
+check(source_contains('app/layout.php', 'header-settings-link') && source_contains('app/layout.php', 'href="change-password.php"'), 'authenticated users have a direct Settings icon link');
+check(source_contains('app/layout.php', 'header-signout-link') && source_contains('app/layout.php', 'href="logout.php"'), 'authenticated users have a direct Sign out icon link');
+check(source_contains('app/layout.php', '<div class="sidebar-footer"') && source_contains('app/layout.php', 'sidebar-account-copy'), 'the sidebar footer shows the signed-in account identity');
 check(!source_contains('login.php', 'ACCOUNT ACCESS'), 'login card omits the redundant access eyebrow');
 check(!source_contains('login.php', 'Access the CNG / Jamesons ticketing portal.'), 'login card omits the redundant portal subtitle');
 check(!source_contains('login.php', 'Access is managed through your assigned role.'), 'login card omits the redundant role footnote');
@@ -253,8 +252,8 @@ require_once $root . DIRECTORY_SEPARATOR . 'app' . DIRECTORY_SEPARATOR . 'ticket
 $testDepartments = [['id' => 1, 'name' => 'R&M', 'code' => 'rm'], ['id' => 2, 'name' => 'Admin', 'code' => 'admin'], ['id' => 3, 'name' => 'Compliance', 'code' => 'compliance'], ['id' => 4, 'name' => 'Customer Care', 'code' => 'customer-care'], ['id' => 5, 'name' => 'Insurance', 'code' => 'insurance']];
 check(count(category_department_ids('Attendance', $testDepartments)) === 5, 'Attendance category selects all departments');
 check(category_department_ids('Resignation', $testDepartments) === [2], 'Resignation category selects Admin');
-$testUsers = [['id' => 10, 'department_id' => 1, 'role_slug' => 'team-member'], ['id' => 11, 'department_id' => null, 'role_slug' => 'team-leader'], ['id' => 12, 'department_id' => 2, 'role_slug' => 'team-member']];
-check(category_assignee_ids('Resignation', $testDepartments, $testUsers) === [11, 12], 'category assignee mapping keeps TLs and matching department users');
+$testUsers = [['id' => 10, 'department_id' => 1, 'role_slug' => 'team-member','is_assignable'=>false], ['id' => 11, 'department_id' => null, 'role_slug' => 'team-leader','is_assignable'=>true], ['id' => 12, 'department_id' => 2, 'role_slug' => 'team-member','is_assignable'=>false], ['id'=>13,'department_id'=>null,'role_slug'=>'super-admin','is_assignable'=>true]];
+check(category_assignee_ids('Resignation', $testDepartments, $testUsers) === [11, 13], 'assignee choices retain TL and approved admin roles and exclude Team Members');
 $teamLeaderScopeParams = [];
 check(str_contains(ticket_scope_sql(['id' => 11, 'role_slug' => 'team-leader'], $teamLeaderScopeParams), 'NOT IN') && array_values($teamLeaderScopeParams) === ticket_visibility_ids(), 'Team Leaders see the full ticket register by default');
 $teamLeaderMineParams = [];
@@ -288,7 +287,7 @@ check(source_contains('leave-requests.php', 'File leave for a staff member'), 'T
 check(!source_contains('leave-requests.php', 'leave-filter-bar'), 'Leave requests no longer filter the list by department');
 check(!source_contains('leave-requests.php', '$departmentFilter'), 'the leave department filter plumbing is gone');
 check(source_contains('leave-requests.php', "\$roleSlug === 'team-leader'"), 'My requests is limited to Team Leader accounts');
-check(source_contains('leave-requests.php', 'leave_materialise'), 'an approved leave request creates the shared staff leave entry');
+check(source_contains('leave-requests.php', 'leave_request_decide') && source_contains('app/leave_workflow.php', 'roster_leave_save'), 'final Team Leader approval creates the linked shared staff leave entry');
 check(source_contains('index.php', 'name="requestor"'), 'Tickets filter by requestor');
 check(source_contains('dashboard.php', 'data-date-range-picker'), 'Dashboard uses a calendar start and end date range');
 check(source_contains('department-workload.php', 'department-filter-bar'), 'Departments filter each workload category');
@@ -312,7 +311,7 @@ check(source_contains('users.php', "notice = 'User deleted.'"), 'Users keeps the
 check(source_contains('users.php', "if (\$action === 'delete' || \$action === 'activate')"), 'deleting an account is limited to the Super Admin');
 check(source_contains('users.php', "Reset password</a><?php if (\$canApproveAccounts): ?><form method=\"post\""), 'the Delete button is hidden from non-Super-Admin viewers');
 check(source_contains('app/notifications.php', 'notification_recipient_is_active'), 'notifications skip disabled or deleted recipients');
-check(source_contains('app/layout.php', "'Team Attendance & Recruitment'"), 'attendance navigation is renamed to Team Attendance & Recruitment');
+check(source_contains('app/layout.php', "'Team Attendance'"), 'attendance navigation uses the requested Team Attendance label');
 check(source_contains('app/roster.php', "'resigned' => 'Resigned'"), 'the roster offers a resigned employment status');
 
 echo "\n{$passed} passed, {$failed} failed\n";

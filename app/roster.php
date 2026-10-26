@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/schema.php';
 
 /**
  * Shared roster, shift and leave helpers for the Team Attendance and Team Calendar pages.
@@ -12,6 +13,7 @@ declare(strict_types=1);
 /** Employment status vocabulary for a roster staff member. */
 const ROSTER_STATUSES = [
     'active' => 'Active',
+    'inactive' => 'Inactive',
     'for_replacement' => 'For replacement',
     'pulled_out' => 'Pulled out from account',
     'resigned' => 'Resigned',
@@ -43,12 +45,12 @@ const ROSTER_WORKING_STATUSES = ['active', 'for_replacement'];
 function roster_can_manage_attendance(array $user): bool
 {
     $role = (string) ($user['role_slug'] ?? '');
-    return in_array($role, ['super-admin', 'management', 'pod-leader', 'team-leader'], true) || user_can('manage_roles');
+    return in_array($role, ['super-admin', 'pod-leader', 'team-leader'], true) || user_can('manage_roles');
 }
 
 function roster_can_manage_calendar(array $user): bool
 {
-    return (string) ($user['role_slug'] ?? '') !== 'team-member';
+    return !in_array((string) ($user['role_slug'] ?? ''), ['team-member', 'cng-admin', 'management'], true);
 }
 
 function roster_status_label(string $status): string
@@ -73,6 +75,35 @@ function roster_shift_days(?string $raw): array
         }
     }
     return array_values(array_filter(ROSTER_WEEKDAYS, static fn(string $weekday): bool => isset($wanted[$weekday])));
+}
+
+/** Days not scheduled as work days; an empty schedule is shown as all days off. */
+function roster_day_off_days(?string $shiftDays): array
+{
+    return array_values(array_diff(ROSTER_WEEKDAYS, roster_shift_days($shiftDays)));
+}
+
+/** De-duplicate posted day-off checkboxes in week order. */
+function roster_day_off_days_from_post(array $source): array
+{
+    $posted = $source['days_off'] ?? [];
+    if (!is_array($posted)) return [];
+    $wanted = [];
+    foreach ($posted as $value) {
+        if (!is_scalar($value)) continue;
+        $token = trim((string) $value);
+        foreach (ROSTER_WEEKDAYS as $weekday) {
+            if (strcasecmp($token, $weekday) === 0) { $wanted[$weekday] = true; break; }
+        }
+    }
+    return array_values(array_filter(ROSTER_WEEKDAYS, static fn(string $weekday): bool => isset($wanted[$weekday])));
+}
+
+/** Convert posted day-off checkboxes into the stored working-day list. */
+function roster_shift_days_from_day_off_post(array $source): string
+{
+    $daysOff = roster_day_off_days_from_post($source);
+    return implode(',', array_values(array_filter(ROSTER_WEEKDAYS, static fn(string $weekday): bool => !in_array($weekday, $daysOff, true))));
 }
 
 /** Merge posted weekday checkboxes into the stored form, keeping week order. */
@@ -146,6 +177,8 @@ function roster_shift_summary(?array $staff): string
 {
     if (!$staff) return '';
     $parts = [];
+    $shiftLabel = trim((string) ($staff['shift_label'] ?? ''));
+    if ($shiftLabel !== '') $parts[] = $shiftLabel;
     $days = roster_shift_days((string) ($staff['shift_days'] ?? ''));
     if ($days) $parts[] = roster_shift_day_range($days);
     $start = roster_time_label($staff['shift_start'] ?? null);
@@ -153,6 +186,13 @@ function roster_shift_summary(?array $staff): string
     if ($start !== '' && $end !== '') $parts[] = $start . ' - ' . $end;
     elseif ($start !== '') $parts[] = 'from ' . $start;
     elseif ($end !== '') $parts[] = 'until ' . $end;
+    $dstStart = roster_time_label($staff['shift_dst_start'] ?? null);
+    $dstEnd = roster_time_label($staff['shift_dst_end'] ?? null);
+    if ($dstStart !== '' && $dstEnd !== '') $parts[] = 'DST ' . $dstStart . ' - ' . $dstEnd;
+    if ($days) {
+        $daysOff = roster_day_off_days((string) ($staff['shift_days'] ?? ''));
+        if ($daysOff) $parts[] = 'Off ' . roster_shift_day_range($daysOff);
+    }
     $summary = implode(' · ', $parts);
     if ($summary === '') $summary = trim((string) ($staff['shift_schedule'] ?? ''));
     if ($summary !== '' && (int) ($staff['break_minutes'] ?? 0) > 0) $summary .= ' · ' . (int) $staff['break_minutes'] . 'm break';
@@ -160,9 +200,10 @@ function roster_shift_summary(?array $staff): string
 }
 
 /** Keep the legacy free-text shift_schedule column readable for non-attendance screens. */
-function roster_shift_schedule_string(string $days, ?string $start, ?string $end): string
+function roster_shift_schedule_string(string $days, ?string $start, ?string $end, string $shiftLabel = ''): string
 {
     $parts = [];
+    if (trim($shiftLabel) !== '') $parts[] = trim($shiftLabel);
     $range = roster_shift_day_range(roster_shift_days($days));
     if ($range !== '') $parts[] = $range;
     $startLabel = roster_time_label($start);
@@ -213,16 +254,21 @@ function roster_staff_rows(array $options = []): array
         $params['search_team'] = $needle;
         $params['search_department'] = $needle;
     }
-    $sql = 'SELECT sd.*, d.name AS department, d.code AS department_code, leader.full_name AS team_leader_name,
+    $activeCalendarLeave = app_schema_has('calendar_events', 'deleted_at') ? ' AND ce.deleted_at IS NULL' : '';
+    $leaderSql = app_schema_has('staff_directory', 'team_leader_name') ? "COALESCE(NULLIF(sd.team_leader_name, ''), leader.full_name)" : 'leader.full_name';
+    $sql = 'SELECT sd.*, d.name AS department, d.code AS department_code,
+        account_status.account_count AS linked_account_count, account_status.account_active AS linked_account_active,
+        ' . $leaderSql . ' AS team_leader_display,
         repl.full_name AS replacement_for_name,
-        (SELECT COUNT(*) FROM calendar_events ce WHERE ce.staff_id = sd.id AND ce.event_type = \'leave\' AND COALESCE(ce.end_date, ce.event_date) >= CURDATE()) AS upcoming_leave,
-        (SELECT MIN(ce.event_date) FROM calendar_events ce WHERE ce.staff_id = sd.id AND ce.event_type = \'leave\' AND COALESCE(ce.end_date, ce.event_date) >= CURDATE()) AS next_leave_date
+        (SELECT COUNT(*) FROM calendar_events ce WHERE ce.staff_id = sd.id AND ce.event_type = \'leave\' AND COALESCE(ce.end_date, ce.event_date) >= CURDATE()' . $activeCalendarLeave . ') AS upcoming_leave,
+        (SELECT MIN(ce.event_date) FROM calendar_events ce WHERE ce.staff_id = sd.id AND ce.event_type = \'leave\' AND COALESCE(ce.end_date, ce.event_date) >= CURDATE()' . $activeCalendarLeave . ') AS next_leave_date
         FROM staff_directory sd
         LEFT JOIN departments d ON d.id = sd.department_id
+        LEFT JOIN (SELECT LOWER(TRIM(full_name)) AS name_key, COUNT(*) AS account_count, MAX(is_active) AS account_active FROM users GROUP BY LOWER(TRIM(full_name))) account_status ON account_status.name_key = LOWER(TRIM(sd.full_name))
         LEFT JOIN staff_directory leader ON leader.id = sd.team_leader_id
         LEFT JOIN staff_directory repl ON repl.id = sd.replacement_for_id'
         . ($where ? ' WHERE ' . implode(' AND ', $where) : '')
-        . " ORDER BY FIELD(sd.employment_status,'active','for_replacement','pulled_out','resigned'), sd.team_label, sd.full_name";
+        . " ORDER BY FIELD(sd.employment_status,'active','for_replacement','inactive','pulled_out','resigned'), sd.team_label, sd.full_name";
     $statement = db()->prepare($sql);
     $statement->execute($params);
     return $statement->fetchAll();
@@ -249,6 +295,7 @@ function roster_team_labels(): array
 function roster_leave_rows(array $filters = []): array
 {
     $where = ["ce.event_type = 'leave'", 'ce.staff_id IS NOT NULL'];
+    if (app_schema_has('calendar_events', 'deleted_at')) $where[] = 'ce.deleted_at IS NULL';
     $params = [];
     if (!empty($filters['event_id'])) {
         $where[] = 'ce.id = :event_id';
@@ -291,11 +338,15 @@ function roster_leave_rows(array $filters = []): array
         }
         $where[] = 'sd.employment_status IN (' . implode(',', $placeholders) . ')';
     }
-    $statement = db()->prepare('SELECT ce.id, ce.title, ce.event_date, ce.end_date, ce.leave_type, ce.notes, ce.staff_id,
+    $hasLink = app_schema_has('calendar_events', 'leave_request_id');
+    $linkSql = $hasLink ? 'ce.leave_request_id, lr.reason AS request_reason' : 'NULL AS leave_request_id, NULL AS request_reason';
+    $joinSql = $hasLink ? 'LEFT JOIN leave_requests lr ON lr.id = ce.leave_request_id' : '';
+    $statement = db()->prepare('SELECT ce.id, ce.title, ce.event_date, ce.end_date, ce.leave_type, ce.notes, ce.staff_id, ' . $linkSql . ',
         sd.full_name, sd.team_label, sd.employment_status, sd.department_id, d.name AS department,
         u.full_name AS recorded_by
         FROM calendar_events ce
         JOIN staff_directory sd ON sd.id = ce.staff_id
+        ' . $joinSql . '
         LEFT JOIN departments d ON d.id = sd.department_id
         LEFT JOIN users u ON u.id = ce.created_by
         WHERE ' . implode(' AND ', $where) . '
@@ -315,7 +366,8 @@ function roster_leave_load(int $eventId): ?array
 function roster_event_load(int $eventId): ?array
 {
     if ($eventId < 1) return null;
-    $statement = db()->prepare('SELECT * FROM calendar_events WHERE id = ?');
+    $where = app_schema_has('calendar_events', 'deleted_at') ? ' AND deleted_at IS NULL' : '';
+    $statement = db()->prepare('SELECT * FROM calendar_events WHERE id = ?' . $where);
     $statement->execute([$eventId]);
     return $statement->fetch() ?: null;
 }
@@ -367,23 +419,40 @@ function roster_leave_save(array $input, array $user, int $eventId = 0): array
 
     $title = 'Leave: ' . $staff['full_name'] . ' - ' . roster_leave_type_label($type);
     $pdo = db();
-    $pdo->beginTransaction();
+    $ownsTransaction = !$pdo->inTransaction();
+    if (!empty($input['leave_request_id']) && ($ownsTransaction || !in_array(($user['role_slug'] ?? ''), ['team-leader', 'super-admin'], true))) {
+        return ['ok'=>false, 'error'=>'A request can be linked only through its Team Leader approval.', 'id'=>0];
+    }
+    if (!empty($input['leave_request_id']) && !app_linked_leave_available($pdo)) return ['ok'=>false, 'error'=>'This request uses the existing two-stage leave approval.', 'id'=>0];
+    if ($ownsTransaction) $pdo->beginTransaction();
     try {
         if ($eventId > 0) {
             $existing = roster_event_load($eventId);
             if (!$existing) throw new InvalidArgumentException('That calendar entry no longer exists.');
+            if (!app_schema_has('calendar_events', 'leave_request_id', $pdo) && preg_match('/\AApproved leave request #[0-9]+\z/', (string) ($existing['notes'] ?? '')) && !(($user['role_slug'] ?? '') === 'super-admin' && !empty($input['admin_request_edit']))) throw new InvalidArgumentException('Approved request dates can only be changed from the leave request record.');
+            if (!empty($existing['leave_request_id']) && (int)$existing['staff_id'] !== $staffId) throw new InvalidArgumentException('This approved request belongs to its original staff member. Cancel it and create new leave for another person.');
             $pdo->prepare('UPDATE calendar_events SET title=?, staff_id=?, event_date=?, end_date=?, leave_type=?, notes=?, event_type=\'leave\' WHERE id=?')
                 ->execute([$title, $staffId, $start, $end === $start ? null : $end, $type, $notes !== '' ? $notes : null, $eventId]);
+            if (!empty($existing['leave_request_id'])) {
+                $pdo->prepare('UPDATE leave_requests SET staff_id=?, start_date=?, end_date=?, leave_type=? WHERE id=?')
+                    ->execute([$staffId, $start, $end, $type, (int) $existing['leave_request_id']]);
+                audit_admin_action((int) $user['id'], 'approved_leave_updated', 'leave_request', (int) $existing['leave_request_id'], ['calendar_event_id' => $eventId, 'before' => ['staff_id' => $existing['staff_id'], 'start_date' => $existing['event_date'], 'end_date' => $existing['end_date'] ?: $existing['event_date'], 'leave_type' => $existing['leave_type']], 'after' => ['staff_id' => $staffId, 'start_date' => $start, 'end_date' => $end, 'leave_type' => $type]]);
+            }
             audit_admin_action((int) $user['id'], 'staff_leave_updated', 'calendar_event', $eventId, ['staff_id' => $staffId, 'start_date' => $start, 'end_date' => $end, 'leave_type' => $type]);
         } else {
-            $pdo->prepare('INSERT INTO calendar_events(title, staff_id, event_date, end_date, leave_type, notes, event_type, created_by) VALUES(?,?,?,?,?,?,?,?)')
-                ->execute([$title, $staffId, $start, $end === $start ? null : $end, $type, $notes !== '' ? $notes : null, 'leave', (int) $user['id']]);
+            $columns = 'title, staff_id, event_date, end_date, leave_type, notes, event_type, created_by';
+            $values = [$title, $staffId, $start, $end === $start ? null : $end, $type, $notes !== '' ? $notes : null, 'leave', (int) $user['id']];
+            if (app_schema_has('calendar_events', 'leave_request_id', $pdo)) {
+                $columns .= ', leave_request_id';
+                $values[] = ((int) ($input['leave_request_id'] ?? 0)) ?: null;
+            }
+            $pdo->prepare('INSERT INTO calendar_events(' . $columns . ') VALUES(' . implode(',', array_fill(0, count($values), '?')) . ')')->execute($values);
             $eventId = (int) $pdo->lastInsertId();
             audit_admin_action((int) $user['id'], 'staff_leave_created', 'calendar_event', $eventId, ['staff_id' => $staffId, 'start_date' => $start, 'end_date' => $end, 'leave_type' => $type]);
         }
-        $pdo->commit();
+        if ($ownsTransaction) $pdo->commit();
     } catch (PDOException $exception) {
-        $pdo->rollBack();
+        if ($ownsTransaction && $pdo->inTransaction()) $pdo->rollBack();
         // uq_calendar_events_staff_leave_start: the same staff member cannot start the same
         // leave type twice on one day. Catching it here turns a double submit into a notice
         // instead of a fatal error.
@@ -392,10 +461,43 @@ function roster_leave_save(array $input, array $user, int $eventId = 0): array
         }
         throw $exception;
     } catch (Throwable $exception) {
-        $pdo->rollBack();
+        if ($ownsTransaction && $pdo->inTransaction()) $pdo->rollBack();
         return ['ok' => false, 'error' => $exception->getMessage(), 'id' => 0];
     }
     return ['ok' => true, 'error' => '', 'id' => $eventId];
+}
+
+/** @return array{ok:bool,error:string} */
+function roster_leave_request_soft_delete(int $requestId, array $actor): array
+{
+    if (!in_array(($actor['role_slug'] ?? ''), ['super-admin', 'team-leader'], true)) return ['ok'=>false, 'error'=>'Super Admin or Team Leader access required.'];
+    if (!app_schema_has('leave_requests', 'deleted_at') || !app_schema_has('calendar_events', 'deleted_at')) return ['ok'=>false, 'error'=>'Apply the additive leave removal migration before removing requests.'];
+    $pdo = db();
+    $pdo->beginTransaction();
+    try {
+        $query = $pdo->prepare('SELECT * FROM leave_requests WHERE id=? AND deleted_at IS NULL FOR UPDATE');
+        $query->execute([$requestId]);
+        $request = $query->fetch();
+        if (!$request) throw new InvalidArgumentException('Leave request not found.');
+        if (app_schema_has('calendar_events', 'leave_request_id', $pdo)) {
+            $event = $pdo->prepare("SELECT id FROM calendar_events WHERE leave_request_id=? AND event_type='leave' AND deleted_at IS NULL FOR UPDATE");
+            $event->execute([$requestId]);
+        } else {
+            $event = $pdo->prepare("SELECT id FROM calendar_events WHERE event_type='leave' AND notes=? AND staff_id <=> ? AND deleted_at IS NULL FOR UPDATE");
+            $event->execute(['Approved leave request #' . $requestId, $request['staff_id']]);
+        }
+        $eventIds = array_map('intval', $event->fetchAll(PDO::FETCH_COLUMN));
+        $pdo->prepare('UPDATE leave_requests SET deleted_at=NOW() WHERE id=?')->execute([$requestId]);
+        if ($eventIds) {
+            $pdo->prepare('UPDATE calendar_events SET deleted_at=NOW() WHERE id IN (' . implode(',', array_fill(0, count($eventIds), '?')) . ')')->execute($eventIds);
+        }
+        audit_admin_action((int)$actor['id'], 'leave_request_soft_deleted', 'leave_request', $requestId, ['status'=>$request['status'], 'calendar_event_ids'=>$eventIds, 'rows_retained'=>true]);
+        $pdo->commit();
+        return ['ok'=>true, 'error'=>''];
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        return ['ok'=>false, 'error'=>$exception instanceof InvalidArgumentException ? $exception->getMessage() : 'The leave request could not be removed.'];
+    }
 }
 
 /** @return array{ok:bool,error:string} */
@@ -403,9 +505,32 @@ function roster_leave_delete(int $eventId, array $user): array
 {
     $leave = roster_leave_load($eventId);
     if (!$leave) return ['ok' => false, 'error' => 'Leave record not found.'];
-    db()->prepare("DELETE FROM calendar_events WHERE id = ? AND event_type = 'leave'")->execute([$eventId]);
-    audit_admin_action((int) $user['id'], 'staff_leave_deleted', 'calendar_event', $eventId, ['staff_id' => (int) $leave['staff_id'], 'start_date' => $leave['event_date']]);
-    return ['ok' => true, 'error' => ''];
+    $requestId = (int) ($leave['leave_request_id'] ?? 0);
+    $legacyRequest = preg_match('/\AApproved leave request #([0-9]+)\z/', (string) ($leave['notes'] ?? ''), $matches) === 1;
+    if ($requestId === 0 && $legacyRequest) $requestId = (int) $matches[1];
+    if ($requestId > 0) {
+        if (in_array(($user['role_slug'] ?? ''), ['super-admin', 'team-leader'], true)) {
+            $result = roster_leave_request_soft_delete($requestId, $user);
+            if ($result['ok']) $result['message'] = 'Leave request hidden. Its request and calendar records were retained.';
+            return $result;
+        }
+        return ['ok'=>false, 'error'=>'Only Super Admins and Team Leaders can remove an approved leave request.'];
+    }
+    $pdo = db();
+    $pdo->beginTransaction();
+    try {
+        if (!empty($leave['leave_request_id'])) {
+            $pdo->prepare("UPDATE leave_requests SET status='cancelled' WHERE id=?")->execute([(int) $leave['leave_request_id']]);
+            audit_admin_action((int) $user['id'], 'approved_leave_cancelled', 'leave_request', (int) $leave['leave_request_id'], ['calendar_event_id' => $eventId]);
+        }
+        $pdo->prepare("DELETE FROM calendar_events WHERE id = ? AND event_type = 'leave'")->execute([$eventId]);
+        audit_admin_action((int) $user['id'], 'staff_leave_deleted', 'calendar_event', $eventId, ['staff_id' => (int) $leave['staff_id'], 'start_date' => $leave['event_date']]);
+        $pdo->commit();
+        return ['ok' => true, 'error' => ''];
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        return ['ok' => false, 'error' => 'The leave could not be removed.'];
+    }
 }
 
 /** Staff eligible to be picked as a replacement for the given staff member. */

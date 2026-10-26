@@ -14,18 +14,20 @@ $ticket = $stmt->fetch();
 if (!$ticket) { http_response_code(404); exit('Ticket not found.'); }
 require_ticket_visible($user, $id);
 
-$departments = active_departments();
-$departmentIds = array_map('intval', array_column($departments, 'id'));
-$users = active_users();
+$staffDepartments = active_departments();
+$internalDepartments = active_internal_departments();
+$departmentIds = array_map('intval', array_column($staffDepartments, 'id'));
+$internalDepartmentIds = array_map('intval', array_column($internalDepartments, 'id'));
+$selectedAssignees = selected_ids('ticket_assignees', 'user_id', $id) ?: array_filter([(int) ($ticket['assignee_id'] ?? 0)]);
+$users = active_ticket_assignees($selectedAssignees);
 $userIds = array_map('intval', array_column($users, 'id'));
 $categoryDepartmentMap = [];
 $categoryAssigneeMap = [];
 foreach (array_keys(TICKET_CATEGORIES) as $category) {
-    $categoryDepartmentMap[$category] = category_department_ids($category, $departments);
-    $categoryAssigneeMap[$category] = category_assignee_ids($category, $departments, $users);
+    $categoryDepartmentMap[$category] = category_department_ids($category, $staffDepartments);
+    $categoryAssigneeMap[$category] = category_assignee_ids($category, $staffDepartments, $users);
 }
-$selectedDepartments = selected_ids('ticket_departments', 'department_id', $id) ?: [(int) $ticket['department_id']];
-$selectedAssignees = selected_ids('ticket_assignees', 'user_id', $id) ?: array_filter([(int) ($ticket['assignee_id'] ?? 0)]);
+$selectedDepartments = array_values(array_intersect(selected_ids('ticket_departments', 'department_id', $id), $internalDepartmentIds));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
@@ -44,10 +46,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $subcategories = TICKET_CATEGORIES[$values['category'] ?? ''] ?? null;
     $departmentId = (int) ($values['department_id'] ?? 0);
     $departmentSelection = posted_ids('department_ids');
-    if ($departmentId > 0 && !in_array($departmentId, $departmentSelection, true)) $departmentSelection[] = $departmentId;
     $assigneeIds = user_can('assign_tickets') ? posted_ids('assignee_ids') : $selectedAssignees;
-    $categoryDepartmentIds = category_department_ids($values['category'], $departments);
-    $categoryAssigneeIds = category_assignee_ids($values['category'], $departments, $users);
+    $categoryDepartmentIds = category_department_ids($values['category'], $staffDepartments);
+    $categoryAssigneeIds = array_values(array_unique(array_merge(category_assignee_ids($values['category'], $staffDepartments, $users), $selectedAssignees)));
 
     if (
         empty($values['subject']) ||
@@ -55,9 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $subcategories === null ||
         !array_key_exists($values['priority'], TICKET_PRIORITIES) ||
         !in_array($departmentId, $departmentIds, true) ||
-        !valid_ids($departmentSelection, $departmentIds) ||
+        !valid_ids($departmentSelection, $internalDepartmentIds) ||
         !in_array($departmentId, $categoryDepartmentIds, true) ||
-        !valid_ids($departmentSelection, $categoryDepartmentIds) ||
         !valid_ids($assigneeIds, $userIds) ||
         (user_can('assign_tickets') && !valid_ids($assigneeIds, $categoryAssigneeIds)) ||
         empty($values['employee_name']) ||
@@ -94,7 +94,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         sync_ticket_departments($id, $departmentSelection);
         if (user_can('assign_tickets')) sync_ticket_assignees($id, $assigneeIds);
         if (user_can('assign_tickets')) notify_many(array_diff($assigneeIds, $selectedAssignees), (int) $user['id'], 'assignment', 'Ticket assigned: ' . $ticket['ticket_number'], $values['subject'], 'ticket.php?id=' . $id);
-        activity($id, $user['id'], 'details_updated', ['issue' => $values['issue'], 'resolution' => $values['resolution'], 'status' => $newStatus]);
+        $fields = array_fill_keys(['subject','issue','priority','category','subcategory','department_id','employee_name','description','resolution','status'], true);
+        $before = array_intersect_key($ticket, $fields) + ['assignee_ids' => $selectedAssignees, 'department_ids' => $selectedDepartments];
+        $after = array_intersect_key($values, $fields) + ['department_id' => $departmentId, 'assignee_ids' => $assigneeIds, 'department_ids' => $departmentSelection];
+        activity($id, $user['id'], 'details_updated', ['before' => $before, 'after' => $after]);
         $pdo->commit();
         notify_management('Ticket updated: ' . $ticket['ticket_number'], $values['subject'], $id);
         redirect('ticket.php?id=' . $id);
@@ -118,10 +121,10 @@ page_start('Edit ticket', $user);
     <label>Status<select name="status" required data-ui-select><?php foreach (['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pending', 'closed' => 'Closed'] as $value => $label): ?><option value="<?= e($value) ?>"<?= ($ticket['status'] ?? 'open') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
     <label>Category<select name="category" id="category" required data-ui-select><?php foreach (TICKET_CATEGORIES as $category => $subcategories): ?><option<?= $ticket['category'] === $category ? ' selected' : '' ?>><?= e($category) ?></option><?php endforeach; ?></select></label>
     <label>Subcategory<select name="subcategory" id="subcategory" data-ui-select><?php if ($ticket['subcategory']): ?><option value="<?= e($ticket['subcategory']) ?>" selected><?= e($ticket['subcategory']) ?></option><?php else: ?><option value="">Select category first</option><?php endif; ?></select></label>
-    <label>Current department<select name="department_id" id="department-id" required data-ui-select><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= (int) $ticket['department_id'] === (int) $department['id'] ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select></label>
-    <label>Departments involved<select name="department_ids[]" id="department-ids" multiple size="5"><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= in_array((int) $department['id'], $selectedDepartments, true) ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select><small class="field-help">Options are selected from the category’s department group.</small></label>
+    <label>Role<select name="department_id" id="department-id" required data-ui-select><?php foreach ($staffDepartments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= (int) $ticket['department_id'] === (int) $department['id'] ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select></label>
+    <label>Departments involved<select name="department_ids[]" id="department-ids" multiple size="5"><?php foreach ($internalDepartments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= in_array((int) $department['id'], $selectedDepartments, true) ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select><small class="field-help">Choose the internal departments involved in routing this ticket.</small></label>
     <label>Employee<input name="employee_name" value="<?= e($ticket['employee_name']) ?>" required></label>
-    <?php if (user_can('assign_tickets')): ?><label>Assignees<select name="assignee_ids[]" id="assignee-ids" multiple size="6"><?php foreach ($users as $member): ?><option value="<?= (int) $member['id'] ?>" data-department-id="<?= (int) ($member['department_id'] ?? 0) ?>" data-role="<?= e($member['role_slug'] ?? '') ?>"<?= in_array((int) $member['id'], $selectedAssignees, true) ? ' selected' : '' ?>><?= e($member['full_name']) ?></option><?php endforeach; ?></select><small class="field-help">Assignees are filtered to the selected category’s department group.</small></label><?php endif; ?>
+    <?php if (user_can('assign_tickets')): ?><label>Assignees<select name="assignee_ids[]" id="assignee-ids" multiple size="6"><?php foreach ($users as $member): ?><option value="<?= (int) $member['id'] ?>" data-department-id="<?= (int) ($member['department_id'] ?? 0) ?>" data-role="<?= e($member['role_slug'] ?? '') ?>" data-assignment-legacy="<?= empty($member['is_assignable']) ? '1' : '0' ?>"<?= in_array((int) $member['id'], $selectedAssignees, true) ? ' selected' : '' ?>><?= e($member['display_label']) ?></option><?php endforeach; ?></select><small class="field-help">Team Leaders, CNG Admin, Super Admin, and Management accounts are available; current assignments stay selected unless removed.</small></label><?php endif; ?>
     <label>Description<textarea name="description" rows="6" required><?= e($ticket['description']) ?></textarea></label>
     <label>Resolution<textarea name="resolution" rows="5"><?= e($ticket['resolution'] ?? '') ?></textarea></label>
     </div><div class="record-form-actions"><a class="button button-secondary" href="ticket.php?id=<?= $id ?>">Cancel</a><button class="button">Save ticket details</button></div>
@@ -130,7 +133,7 @@ page_start('Edit ticket', $user);
 const map = <?= json_encode(TICKET_CATEGORIES) ?>;
 const categoryDepartmentMap = <?= json_encode($categoryDepartmentMap) ?>;
 const categoryAssigneeMap = <?= json_encode($categoryAssigneeMap) ?>;
-const category = document.querySelector('#category'), subcategory = document.querySelector('#subcategory'), department = document.querySelector('#department-id'), departments = document.querySelector('#department-ids'), assignees = document.querySelector('#assignee-ids');
+const category = document.querySelector('#category'), subcategory = document.querySelector('#subcategory'), department = document.querySelector('#department-id'), assignees = document.querySelector('#assignee-ids');
 const currentSubcategory = <?= json_encode($ticket['subcategory'] ?? '') ?>;
 function applyCategoryDefaults() {
   const allowedDepartments = (categoryDepartmentMap[category.value] || []).map(String);
@@ -138,9 +141,9 @@ function applyCategoryDefaults() {
   Array.from(department.options).forEach(option => { option.hidden = allowedDepartments.length > 0 && !allowedDepartments.includes(option.value); });
   if (allowedDepartments.length > 0 && !allowedDepartments.includes(department.value)) department.value = allowedDepartments[0];
   department.dispatchEvent(new Event('change', { bubbles: true }));
-  Array.from(departments.options).forEach(option => { const allowed = allowedDepartments.length === 0 || allowedDepartments.includes(option.value); option.hidden = !allowed; if (!allowed) option.selected = false; });
-  if (assignees) Array.from(assignees.options).forEach(option => { const allowed = allowedAssignees.length === 0 || allowedAssignees.includes(option.value); option.hidden = !allowed; if (!allowed) option.selected = false; });
+  if (assignees) Array.from(assignees.options).forEach(option => { const legacyCurrent = option.dataset.assignmentLegacy === '1' && option.selected; const allowed = legacyCurrent || allowedAssignees.length === 0 || allowedAssignees.includes(option.value); option.hidden = !allowed; if (!allowed) option.selected = false; });
 }
+if (assignees) assignees.addEventListener('change', () => Array.from(assignees.options).forEach(option => { if (option.dataset.assignmentLegacy === '1' && !option.selected) option.hidden = true; }));
 function updateSubcategories(keepCurrent) {
   const values = map[category.value] || [];
   subcategory.innerHTML = '<option value="">No subcategory</option>';

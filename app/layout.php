@@ -15,7 +15,7 @@ function sidebar_icon(string $name): string
         'calendar' => '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5.5" width="16" height="14" rx="1"/><path d="M8 3.5v4M16 3.5v4M4 10h16"/></svg>',
         'attendance' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.75h14v13.5H5zM8 3.75v4M16 3.75v4M5 10h14M8 14h2M12 14h4M8 17h2M12 17h4"/></svg>',
         'leave' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.75h10l2 2v12.5H7zM17 4.75v4h4M10 13h7M10 16h5"/></svg>',
-        'settings' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.75 4.75h4.5l.75 2.25 2 .85 2.1-1.05 2.2 2.2-1.05 2.1.85 2-.75 2.25h-4.5l-.75-2.25-2-.85-2.1 1.05-2.2-2.2 1.05-2.1-.85-2zM12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>',
+        'settings' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.14 12.94c.04-.31.06-.62.06-.94s-.02-.63-.07-.94l2.03-1.58a.5.5 0 0 0 .12-.61l-1.92-3.32a.5.5 0 0 0-.59-.22l-2.39.96a7.28 7.28 0 0 0-1.63-.94l-.36-2.54A.5.5 0 0 0 13.9 2h-3.8a.5.5 0 0 0-.49.41l-.36 2.54c-.59.24-1.14.56-1.63.94l-2.39-.96a.5.5 0 0 0-.59.22L2.72 8.47a.5.5 0 0 0 .12.61l2.03 1.58c-.05.31-.07.63-.07.94s.02.63.07.94l-2.03 1.58a.5.5 0 0 0-.12.61l1.92 3.32a.5.5 0 0 0 .59.22l2.39-.96c.49.38 1.04.7 1.63.94l.36 2.54a.5.5 0 0 0 .49.41h3.8a.5.5 0 0 0 .49-.41l.36-2.54c.59-.24 1.14-.56 1.63-.94l2.39.96a.5.5 0 0 0 .59-.22l1.92-3.32a.5.5 0 0 0-.12-.61l-2.03-1.58ZM12 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z"/></svg>',
         'paperclip' => '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5 12.2 20.3a5 5 0 0 1-7.1-7.1l9.3-9.3a3.3 3.3 0 0 1 4.7 4.7l-9.4 9.4a1.6 1.6 0 1 1-2.3-2.3l8.8-8.8"/></svg>',
     ];
     return $icons[$name] ?? '';
@@ -29,7 +29,7 @@ function page_start(string $title, ?array $user = null): void
         'department-workload.php' => 'departments-page', 'team-calendar.php' => 'team-calendar-page',
         'team-attendance.php' => 'team-attendance-page', 'leave-requests.php' => 'leave-requests-page',
         'notifications.php' => 'notifications-page', 'admin.php' => 'roles-access-page',
-        'users.php' => 'users-page', 'recruitment.php' => 'recruitment-page', 'reports.php' => 'reports-page', 'audit-log.php' => 'audit-page',
+        'users.php' => 'users-page', 'pending-activations.php' => 'pending-activations-page', 'recruitment.php' => 'recruitment-page', 'reports.php' => 'reports-page', 'audit-log.php' => 'audit-page',
         'deleted-tickets.php' => 'deleted-tickets-page',
         'calendar-admin.php' => 'calendar-admin-page', 'health.php' => 'health-page', 'import.php' => 'import-page',
         'create-ticket.php' => 'ticket-form-page', 'edit-ticket.php' => 'ticket-form-page',
@@ -41,7 +41,7 @@ function page_start(string $title, ?array $user = null): void
     // role that can read the ticket workspace. Team Members still get the read-only calendar.
     $canViewCalendar = $user && user_can('view_all_tickets');
     $canViewAttendance = $canViewCalendar && ($user['role_slug'] ?? '') !== 'team-member';
-    $canViewWorkQueue = $user && user_can('view_all_tickets') && !in_array(($user['role_slug'] ?? ''), ['cng-admin', 'team-member'], true);
+    $canViewWorkQueue = $user && user_can('view_all_tickets') && !in_array(($user['role_slug'] ?? ''), ['cng-admin', 'management', 'team-member'], true);
     $unreadNotifications = 0;
     $notificationItems = [];
     if ($user) {
@@ -65,16 +65,19 @@ function page_start(string $title, ?array $user = null): void
         $items[] = ['calendar', 'team-calendar.php', ['team-calendar.php'], 'Team Calendar', 'calendar'];
     }
     if ($canViewAttendance) {
-        $items[] = ['attendance', 'team-attendance.php', ['team-attendance.php'], 'Team Attendance', 'attendance'];
+        $items[] = ['attendance', 'team-attendance.php', ['team-attendance.php'], 'Staff Directory', 'attendance'];
         if (($user['role_slug'] ?? '') === 'super-admin') $items[] = ['calendar-admin', 'calendar-admin.php', ['calendar-admin.php'], 'Calendar admin', 'calendar'];
     }
-    if ($user && user_can('access_leave_request_module')) {
+    if ($user && ($user['role_slug'] ?? '') !== 'management' && user_can('access_leave_request_module')) {
         $items[] = ['leave', 'leave-requests.php', ['leave-requests.php'], 'Leave Requests', 'leave'];
     }
-    if ($user && user_can('manage_roles')) {
+    if ($user && ($user['role_slug'] ?? '') !== 'management' && user_can('manage_roles')) {
         $items[] = ['roles', 'admin.php', ['admin.php', 'reset-user-password.php'], 'Roles & Access', 'roles'];
     }
-    if ($user && user_can('manage_users')) {
+    if ($user && ($user['role_slug'] ?? '') === 'super-admin') {
+        $items[] = ['pending-activations', 'pending-activations.php', ['pending-activations.php'], 'Pending activations', 'users'];
+    }
+    if ($user && ($user['role_slug'] ?? '') !== 'management' && user_can('manage_users')) {
         $items[] = ['users', 'users.php', ['users.php'], 'Users', 'users'];
     }
     if ($user && ($user['role_slug'] ?? '') === 'super-admin') {
@@ -106,19 +109,19 @@ function page_start(string $title, ?array $user = null): void
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/app.css?v=20260911-reports-layout">
-    <link rel="stylesheet" href="assets/css/ui-fixes.css?v=20261012-attendance-modal">
-    <script src="assets/js/app.js?v=20261013-date-range-label" defer></script>
+    <link rel="stylesheet" href="assets/css/app.css?v=20261016-ticket-tablet-r1">
+    <link rel="stylesheet" href="assets/css/ui-fixes.css?v=20261016-leave-tablet-r4">
+    <script src="assets/js/app.js?v=20261014-header-action-icons" defer></script>
 </head>
 <body class="<?= e($pageClasses[$page] ?? '') ?>">
 <a class="skip-link" href="#main-content">Skip to main content</a>
 <header class="app-header">
-    <div class="app-header-title"><h1><?= e($title) ?></h1><p class="app-header-date"><?= e(date('l, F j, Y')) ?></p></div>
+    <div class="app-header-title"><h1><?= e($title) ?></h1><p class="app-header-date"><?= e(app_datetime_display('now', 'l, F j, Y')) ?></p></div>
     <div class="app-header-actions">
         <?php if ($page === 'dashboard.php'): ?><a class="button button-secondary" href="index.php"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.75h14v14.5H5zM8 9h8M8 13h8M8 17h5"/></svg>View tickets</a><?php endif; ?>
         <?php if ($user && user_can('create_tickets') && in_array($page, ['dashboard.php', 'index.php', 'my-work.php', 'department-workload.php', 'team-calendar.php', 'team-attendance.php', 'leave-requests.php', 'notifications.php', 'admin.php', 'ticket.php', 'edit-ticket.php'], true)): ?><a class="button" href="create-ticket.php"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Create ticket</a><?php endif; ?>
         <?php if ($user): ?>
-            <div class="notification-control">
+            <?php if (($user['role_slug'] ?? '') !== 'management'): ?><div class="notification-control">
                 <a class="notification-link<?= $page === 'notifications.php' ? ' active' : '' ?>" href="notifications.php" data-notification-popover-trigger aria-haspopup="dialog" aria-expanded="false" aria-controls="notification-popover" aria-label="Notifications<?= $unreadNotifications ? ' (' . min($unreadNotifications, 99) . ' unread)' : '' ?>" title="Notifications"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.75 10.75a5.25 5.25 0 0 1 10.5 0c0 3 1.25 4.5 2 5.5H4.75c.75-1 2-2.5 2-5.5M9.75 18.25a2.25 2.25 0 0 0 4.5 0"/></svg><?php if ($unreadNotifications): ?><span class="notification-count"><?= min($unreadNotifications, 99) ?></span><?php endif; ?></a>
                 <div class="notification-popover" id="notification-popover" data-notification-popover role="dialog" aria-modal="false" aria-labelledby="notification-popover-title" hidden>
                     <div class="notification-popover-head">
@@ -136,19 +139,11 @@ function page_start(string $title, ?array $user = null): void
                     </div>
                     <div class="notification-popover-actions"><a class="button button-secondary" href="notifications.php">View all notifications</a></div>
                 </div>
-            </div>
+            </div><?php endif; ?>
         <?php endif; ?>
         <?php if ($user): ?>
-            <div class="app-header-account-wrap">
-                <button class="app-header-account<?= $page === 'change-password.php' ? ' is-active' : '' ?>" type="button" data-account-menu-trigger aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu" aria-label="Open account menu">
-                    <span class="app-header-avatar" aria-hidden="true"><?= e(strtoupper(substr((string) ($user['full_name'] ?? 'U'), 0, 1))) ?></span>
-                    <span class="app-header-account-copy"><strong><?= e($user['full_name']) ?></strong><small><?= e($user['role_name'] ?? '') ?></small></span>
-                </button>
-                <div class="account-menu" id="account-menu" data-account-menu role="menu" hidden>
-                    <a href="change-password.php" role="menuitem"><?= sidebar_icon('settings') ?><span>Settings</span></a>
-                    <a href="logout.php" role="menuitem"><span>Sign out</span></a>
-                </div>
-            </div>
+            <a class="notification-link header-settings-link<?= $page === 'change-password.php' ? ' active' : '' ?>" href="change-password.php" aria-label="Settings" title="Settings"><?= sidebar_icon('settings') ?></a>
+            <a class="notification-link header-signout-link" href="logout.php" aria-label="Sign out" title="Sign out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5H4v14h5M14 8l4 4-4 4M8 12h10"/></svg></a>
         <?php endif; ?>
     </div>
 </header>
@@ -164,6 +159,14 @@ function page_start(string $title, ?array $user = null): void
             <a class="nav-link<?= $active === $item[0] ? ' active' : '' ?>" href="<?= e($item[1]) ?>"<?= $active === $item[0] ? ' aria-current="page"' : '' ?>><?= sidebar_icon($item[4]) ?><span><?= e($item[3]) ?></span></a>
         <?php endforeach; ?>
     </nav>
+    <?php if ($user): ?>
+        <div class="sidebar-footer" aria-label="Signed in account">
+            <div class="sidebar-account">
+                <span class="app-header-avatar" aria-hidden="true"><?= e(strtoupper(substr((string) ($user['full_name'] ?? 'U'), 0, 1))) ?></span>
+                <span class="sidebar-account-copy"><strong><?= e($user['full_name']) ?></strong></span>
+            </div>
+        </div>
+    <?php endif; ?>
 </aside>
 <main id="main-content" class="page"><div class="content-shell">
 <?php
@@ -171,12 +174,8 @@ function page_start(string $title, ?array $user = null): void
 
 function page_end(): void
 {
-    ?><div class="action-toast" role="status" aria-live="polite" hidden>Action completed.</div><script>
+    ?><script>
     (function(){
-        var toast=document.querySelector('.action-toast');
-        var storage=null;
-        try{storage=window.sessionStorage;}catch(error){}
-        if(storage&&storage.getItem('cng_action_success')==='1'){storage.removeItem('cng_action_success');toast.hidden=false;window.setTimeout(function(){toast.hidden=true;},3500);}
         document.querySelectorAll('form[method="post"]').forEach(function(form){form.addEventListener('submit',function(event){
             if(event.defaultPrevented)return;
             var button=event.submitter||form.querySelector('button[type="submit"],button');
@@ -186,7 +185,13 @@ function page_end(): void
             if(csvForm){
                 if(csvAction&&csvAction.value==='import'&&!window.confirm('Import all validated rows?')){event.preventDefault();return;}
             }else if(!button.dataset.confirm&&!form.dataset.confirm&&!window.confirm('Are you sure you want to continue?')){event.preventDefault();return;}
-            if(storage&&!csvForm)storage.setItem('cng_action_success','1');
+            if(button.name){
+                var submittedAction=document.createElement('input');
+                submittedAction.type='hidden';
+                submittedAction.name=button.name;
+                submittedAction.value=button.value;
+                form.appendChild(submittedAction);
+            }
             button.disabled=true;button.classList.add('is-processing');button.textContent=button.dataset.processing||button.textContent;
         });});
     })();

@@ -134,6 +134,21 @@ function external_ticket_rows(PDO $pdo, array $source): array
     }, $statement->fetchAll());
 }
 
+/** Source agent IDs are separate identities; do not merge equal IDs across systems. */
+function external_assignee_names(array $ticket): array
+{
+    if (isset($ticket['assignee_names']) && is_array($ticket['assignee_names'])) return $ticket['assignee_names'];
+    $raw = trim((string) ($ticket['assignees'] ?? $ticket['agent'] ?? ''));
+    if ($raw === '' || strcasecmp($raw, 'Unassigned') === 0) return ['Unassigned'];
+    $source = trim((string) ($ticket['source'] ?? $ticket['source_key'] ?? 'External')) ?: 'External';
+    $names = [];
+    foreach (explode('|', $raw) as $value) {
+        $value = trim($value);
+        if ($value !== '') $names[] = ctype_digit($value) ? $source . ' · Agent #' . $value : $value;
+    }
+    return array_values(array_unique($names)) ?: ['Unassigned'];
+}
+
 function fetch_stratast_support_tickets(PDO $pdo, array $source): array
 {
     return external_ticket_rows($pdo, $source);
@@ -271,6 +286,7 @@ function external_normalize_ticket(array $ticket, string $sourceKey): array
     $priorityLabel = trim((string) ($ticket['priority'] ?? '')) ?: 'N/A';
     $agent = trim((string) ($ticket['agent'] ?? '')) ?: null;
     $department = external_department_label($sourceKey);
+    $assigneeNames = external_assignee_names(['agent'=>$agent, 'source'=>$department]);
     return [
         'is_external' => true,
         'external_key' => $sourceKey,
@@ -289,7 +305,8 @@ function external_normalize_ticket(array $ticket, string $sourceKey): array
         'category' => trim((string) ($ticket['category'] ?? '')) ?: 'N/A',
         'subcategory' => '—',
         'agent' => $agent,
-        'assignees' => $agent ?: 'Unassigned',
+        'assignees' => implode(', ', $assigneeNames),
+        'assignee_names' => $assigneeNames,
         'employee_name' => trim((string) ($ticket['requester'] ?? '')) ?: '—',
         'department' => $department,
         'departments' => $department,
@@ -363,14 +380,14 @@ function external_ticket_thread(string $sourceKey, int $ticketId): array
     return $threadFunction(external_connection($source), $source, $ticketId);
 }
 
-function external_ticket_matches_filters(array $ticket, array $filters, string $dashboardStart, array $user = []): bool
+function external_ticket_matches_filters(array $ticket, array $filters, array $user = []): bool
 {
     if ($filters['status'] !== '' && $ticket['status'] !== $filters['status']) return false;
     if ($filters['priority'] !== '' && $ticket['priority'] !== $filters['priority']) return false;
-    if ($filters['subcategory'] !== '') return false;
+    if (($filters['subcategory'] ?? '') !== '') return false;
     if ($filters['department'] !== '') {
         $departmentName = trim((string) ($filters['department_name'] ?? ''));
-        if ($departmentName === '' || strcasecmp((string) ($ticket['department'] ?? ''), $departmentName) !== 0) return false;
+        if ($departmentName === '' || strcasecmp(trim((string) ($ticket['department'] ?? '')), $departmentName) !== 0) return false;
     }
     if (!empty($filters['employees'])) {
         $employeeName = trim((string) ($ticket['employee_name'] ?? $ticket['requester'] ?? ''));
@@ -380,7 +397,7 @@ function external_ticket_matches_filters(array $ticket, array $filters, string $
         }
         if (!$matchesEmployee) return false;
     }
-    if ($filters['category'] !== '' && strcasecmp((string) $ticket['category'], $filters['category']) !== 0) return false;
+    if ($filters['category'] !== '' && strcasecmp(trim((string) $ticket['category']), trim($filters['category'])) !== 0) return false;
     if (($filters['requestor'] ?? '') !== '' && strcasecmp(trim((string) ($ticket['requester'] ?? '')), $filters['requestor']) !== 0) return false;
     if (($filters['scope'] ?? '') === 'mine') {
         $agent = strtolower(trim((string) ($ticket['agent'] ?? '')));
@@ -391,11 +408,10 @@ function external_ticket_matches_filters(array $ticket, array $filters, string $
         $haystack = implode(' ', [$ticket['ticket_number'], $ticket['source'], $ticket['requester'], $ticket['email'], $ticket['subject'], $ticket['status_label'], $ticket['priority_label'], $ticket['category'], (string) ($ticket['agent'] ?? '')]);
         if (stripos($haystack, $filters['search']) === false) return false;
     }
-    if ($filters['date_from'] !== '' && (!$ticket['created_at'] || $ticket['created_at'] < $filters['date_from'] . ' 00:00:00')) return false;
-    if ($filters['date_to'] !== '' && (!$ticket['created_at'] || $ticket['created_at'] >= date('Y-m-d 00:00:00', strtotime($filters['date_to'] . ' +1 day')))) return false;
-    if (($filters['dashboard_from'] ?? '') !== '' && (!$ticket['created_at'] || $ticket['created_at'] < $filters['dashboard_from'] . ' 00:00:00')) return false;
-    if (($filters['dashboard_to'] ?? '') !== '' && (!$ticket['created_at'] || $ticket['created_at'] >= date('Y-m-d 00:00:00', strtotime($filters['dashboard_to'] . ' +1 day')))) return false;
-    if (in_array($filters['dashboard_range'] ?? 'all', ['today', '7d', '30d', '3m', '6m', '1y'], true) && (!$ticket['created_at'] || $ticket['created_at'] < $dashboardStart)) return false;
+    $dateWindow = ticket_window_bounds((string) ($filters['date_from'] ?? ''), (string) ($filters['date_to'] ?? ''), 'all');
+    if (!ticket_window_matches($ticket['created_at'] ?? null, $dateWindow)) return false;
+    $dashboardWindow = ticket_window_bounds((string) ($filters['dashboard_from'] ?? ''), (string) ($filters['dashboard_to'] ?? ''), (string) ($filters['dashboard_range'] ?? 'all'));
+    if (!ticket_window_matches($ticket['created_at'] ?? null, $dashboardWindow)) return false;
     if ($filters['dashboard_view'] === '') return true;
     return match ($filters['dashboard_view']) {
         'total' => true,

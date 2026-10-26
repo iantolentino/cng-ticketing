@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($existingUser->fetchColumn()) throw new RuntimeException('That username or company email is already in use.');
             $insert = $pdo->prepare('INSERT INTO users(role_id, username, full_name, email, password_hash, must_change_password) VALUES(?,?,?,?,?,0)');
             $insert->execute([$roleId, $username, $name, $email, password_hash($password, PASSWORD_DEFAULT)]);
+            $setupAdminId = (int)$pdo->lastInsertId();
             $seeds = [
                 ['Patricia Puno','management'], ['Michael O\'Bryan','management'], ['Neptalie Vitug','management'], ['Dan Fabros','management'], ['Karl Parson','management'],
                 ['Leonard Sunga','team-leader'], ['Sheena Magdaraog','team-leader'], ['Trisha Balingit','team-leader'],
@@ -41,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $credentials[] = [$seed[0], $base, $temporary];
             }
             $pdo->prepare("INSERT INTO app_settings(setting_key,setting_value) VALUES('setup_complete','1')")->execute();
+            audit_admin_action($setupAdminId, 'initial_setup_completed', 'application', null, ['seeded_account_count'=>count($credentials)]);
             $pdo->commit();
         } catch (Throwable $exception) {
             if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();

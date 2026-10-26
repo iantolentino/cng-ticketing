@@ -5,26 +5,48 @@ if (current_user()) redirect('index.php');
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
-    $login = strtolower(trim(request_string($_POST, 'username')));
-    $password = request_string($_POST, 'password');
-    $q = db()->prepare('SELECT id,password_hash,must_change_password,is_active,approval_status FROM users WHERE LOWER(username)=? OR LOWER(email)=?');
-    $q->execute([$login, $login]);
-    $user = $q->fetch();
-    $credentialsValid = $user && password_verify($password, $user['password_hash']);
-    if ($credentialsValid && $user['approval_status']!=='approved') {
-        $error = $user['approval_status'] === 'pending'
-            ? 'Your registration is awaiting Super Admin approval. Please wait a few minutes or contact the developer or Super Admin.'
-            : 'Your account is not activated yet. Please wait a few minutes or contact the Super Admin.';
-    } elseif ($credentialsValid && !$user['is_active']) {
-        $error = 'Your account is not activated yet. Please wait a few minutes or contact the Super Admin.';
-    } elseif ($credentialsValid) {
-        session_regenerate_id(true);
-        $_SESSION['user_id'] = $user['id'];
-        db()->prepare('UPDATE users SET last_login_at=NOW() WHERE id=?')->execute([$user['id']]);
-        refresh_current_user();
-        redirect($user['must_change_password'] ? 'change-password.php' : default_landing_page());
-    } else {
-        $error = 'Invalid username or password.';
+    try {
+        $retryAfter = login_throttle_update('check');
+        if ($retryAfter > 0) {
+            http_response_code(429);
+            header('Retry-After: ' . $retryAfter);
+            $error = 'Too many sign-in attempts. Please wait before trying again.';
+        } else {
+            $login = strtolower(trim(request_string($_POST, 'username')));
+            $password = request_string($_POST, 'password');
+            $q = db()->prepare('SELECT id,password_hash,must_change_password,is_active,approval_status FROM users WHERE LOWER(username)=? OR LOWER(email)=?');
+            $q->execute([$login, $login]);
+            $user = $q->fetch();
+            $credentialsValid = $user && password_verify($password, $user['password_hash']);
+            if ($credentialsValid && $user['approval_status'] !== 'approved') {
+                $error = $user['approval_status'] === 'pending'
+                    ? 'Your registration is awaiting Super Admin approval. Please wait a few minutes or contact the developer or Super Admin.'
+                    : 'Your account is not activated yet. Please wait a few minutes or contact the Super Admin.';
+            } elseif ($credentialsValid && !$user['is_active']) {
+                $error = 'Your account is not activated yet. Please wait a few minutes or contact the Super Admin.';
+            } elseif ($credentialsValid) {
+                login_throttle_update('success');
+                db()->prepare('UPDATE users SET last_login_at=NOW() WHERE id=?')->execute([$user['id']]);
+                session_regenerate_id(true);
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['auth_password_hash'] = $user['password_hash'];
+                refresh_current_user();
+                redirect($user['must_change_password'] ? 'change-password.php' : default_landing_page());
+            } else {
+                $retryAfter = login_throttle_update('failure');
+                if ($retryAfter > 0) {
+                    http_response_code(429);
+                    header('Retry-After: ' . $retryAfter);
+                    $error = 'Too many sign-in attempts. Please wait before trying again.';
+                } else {
+                    $error = 'Invalid username or password.';
+                }
+            }
+        }
+    } catch (Throwable $exception) {
+        error_log('CNG sign-in security check failed (' . $exception::class . ')');
+        http_response_code(503);
+        $error = 'Sign in is temporarily unavailable. Please try again shortly.';
     }
 }
 ?><!doctype html>
@@ -57,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label>Password<input name="password" type="password" required autocomplete="current-password" placeholder="Enter your password"></label>
         <div class="auth-actions"><button class="button">Sign in</button><a class="button button-secondary" href="register.php">Register</a></div>
     </form>
+    <?php if (app_public_leave_available()): ?><p class="auth-footnote"><a href="leave-request.php">Submit a public leave request</a></p><?php endif; ?>
     </section>
 </main>
 </body>

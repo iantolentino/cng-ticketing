@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/tickets.php';
+$internalDepartmentSql = ticket_internal_department_sql('dep');
 require __DIR__ . '/app/layout.php';
 
 $user = require_permission('view_all_tickets');
@@ -46,7 +47,7 @@ $idle->execute($summaryParams);
 $idleCount = (int) $idle->fetchColumn();
 
 $query = db()->prepare("SELECT t.*, d.name AS department,
-    COALESCE((SELECT GROUP_CONCAT(DISTINCT dep.name ORDER BY dep.name SEPARATOR ', ') FROM ticket_departments td JOIN departments dep ON dep.id = td.department_id WHERE td.ticket_id = t.id), d.name) AS departments,
+    COALESCE((SELECT GROUP_CONCAT(DISTINCT dep.name ORDER BY dep.name SEPARATOR ', ') FROM ticket_departments td JOIN departments dep ON dep.id = td.department_id AND {$internalDepartmentSql} WHERE td.ticket_id = t.id), d.name) AS departments,
     COALESCE((SELECT GROUP_CONCAT(DISTINCT u.full_name ORDER BY u.full_name SEPARATOR ', ') FROM ticket_assignees ta JOIN users u ON u.id = ta.user_id WHERE ta.ticket_id = t.id), a.full_name) AS assignees
     FROM tickets t
     JOIN departments d ON d.id = t.department_id

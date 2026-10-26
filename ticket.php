@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/tickets.php';
+$internalDepartmentSql = ticket_internal_department_sql('dep');
 require __DIR__ . '/app/external_tickets.php';
 require __DIR__ . '/app/notifications.php';
 require __DIR__ . '/app/layout.php';
@@ -54,7 +55,7 @@ if ($externalReference !== '') {
 $id = (int) ($_GET['id'] ?? 0);
 $stmt = db()->prepare("SELECT t.*, creator.full_name AS creator_name, d.name department,
     COALESCE((SELECT GROUP_CONCAT(DISTINCT u.full_name ORDER BY u.full_name SEPARATOR ', ') FROM ticket_assignees ta JOIN users u ON u.id = ta.user_id WHERE ta.ticket_id = t.id), a.full_name) AS assignees,
-    COALESCE((SELECT GROUP_CONCAT(DISTINCT dep.name ORDER BY dep.name SEPARATOR ', ') FROM ticket_departments td JOIN departments dep ON dep.id = td.department_id WHERE td.ticket_id = t.id), d.name) AS departments
+    COALESCE((SELECT GROUP_CONCAT(DISTINCT dep.name ORDER BY dep.name SEPARATOR ', ') FROM ticket_departments td JOIN departments dep ON dep.id = td.department_id AND {$internalDepartmentSql} WHERE td.ticket_id = t.id), d.name) AS departments
     FROM tickets t
     JOIN departments d ON d.id = t.department_id
     LEFT JOIN users a ON a.id = t.assignee_id LEFT JOIN users creator ON creator.id = t.created_by
@@ -64,9 +65,9 @@ $ticket = $stmt->fetch();
 if (!$ticket) { http_response_code(404); exit('Ticket not found.'); }
 require_ticket_visible($user, $id);
 
-$users = active_users();
-$userIds = array_map('intval', array_column($users, 'id'));
 $selectedAssignees = selected_ids('ticket_assignees', 'user_id', $id) ?: array_filter([(int) ($ticket['assignee_id'] ?? 0)]);
+$users = active_ticket_assignees($selectedAssignees);
+$userIds = array_map('intval', array_column($users, 'id'));
 $attachmentError = '';
 $sla = ticket_sla_state($ticket);
 $canFollowUp = user_can('comment_tickets') && $selectedAssignees && ($ticket['status'] === 'pending' || $sla[0] === 'overdue');
@@ -111,11 +112,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!move_uploaded_file((string) $file['tmp_name'], ROOT_PATH . '/' . $relativePath)) {
                     $attachmentError = 'Attachment could not be saved.';
                 } else {
+                    $pdo = db();
                     try {
-                        db()->prepare('INSERT INTO ticket_attachments(ticket_id,uploaded_by,file_name,file_path,stored_name,original_name,mime_type,file_size) VALUES(?,?,?,?,?,?,?,?)')->execute([$id, $user['id'], $originalName, $relativePath, $storedName, $originalName, $mime, (int) $file['size']]);
+                        $pdo->beginTransaction();
+                        $pdo->prepare('INSERT INTO ticket_attachments(ticket_id,uploaded_by,file_name,file_path,stored_name,original_name,mime_type,file_size) VALUES(?,?,?,?,?,?,?,?)')->execute([$id, $user['id'], $originalName, $relativePath, $storedName, $originalName, $mime, (int) $file['size']]);
                         activity($id, $user['id'], 'attachment_uploaded', ['file_name' => $originalName]);
+                        $pdo->commit();
                         $notice = 'attachment_uploaded';
                     } catch (Throwable $exception) {
+                        if ($pdo->inTransaction()) $pdo->rollBack();
                         if (is_file(ROOT_PATH . '/' . $relativePath)) unlink(ROOT_PATH . '/' . $relativePath);
                         $attachmentError = 'Attachment could not be saved.';
                     }
@@ -127,10 +132,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($body !== '') {
             $visibility = (string) ($_POST['visibility'] ?? 'shared');
             if (!in_array($visibility, ['shared', 'assignees', 'departments'], true)) $visibility = 'shared';
-            db()->prepare('INSERT INTO ticket_comments(ticket_id,user_id,body,visibility) VALUES(?,?,?,?)')->execute([$id, $user['id'], $body, $visibility]);
-            activity($id, $user['id'], 'commented');
+            $pdo = db();
+            $pdo->beginTransaction();
+            try {
+            $pdo->prepare('INSERT INTO ticket_comments(ticket_id,user_id,body,visibility) VALUES(?,?,?,?)')->execute([$id, $user['id'], $body, $visibility]);
+            activity($id, $user['id'], 'commented', ['comment_id'=>(int)$pdo->lastInsertId(), 'visibility'=>$visibility]);
             notify_many(array_merge($selectedAssignees, [(int) $ticket['created_by']]), (int) $user['id'], 'comment', 'New comment: ' . $ticket['ticket_number'], $ticket['subject'], 'ticket.php?id=' . $id);
+            $pdo->commit();
             $notice = 'comment_added';
+            } catch (Throwable $exception) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                $attachmentError = 'The comment could not be saved.';
+            }
         }
     } elseif (user_can('edit_tickets') || user_can('assign_tickets')) {
         $resolution = trim((string) ($_POST['resolution'] ?? ($ticket['resolution'] ?? '')));
@@ -148,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare('UPDATE tickets SET status=?,closed_at=?,resolution=?,assignee_id=? WHERE id=?')->execute([$newStatus, $closedAt, $resolution ?: null, $assigneeIds[0] ?? null, $id]);
             if (user_can('assign_tickets')) sync_ticket_assignees($id, $assigneeIds);
             if (user_can('assign_tickets')) notify_many(array_diff($assigneeIds, $selectedAssignees), (int) $user['id'], 'assignment', 'Ticket assigned: ' . $ticket['ticket_number'], $ticket['subject'], 'ticket.php?id=' . $id);
-            activity($id, $user['id'], 'updated', ['status' => $newStatus, 'resolution' => $resolution, 'assignee_ids' => $assigneeIds]);
+            activity($id, $user['id'], 'updated', ['before' => ['status' => $ticket['status'], 'resolution' => $ticket['resolution'], 'assignee_ids' => $selectedAssignees], 'after' => ['status' => $newStatus, 'resolution' => $resolution, 'assignee_ids' => $assigneeIds]]);
             $pdo->commit();
             notify_management('Ticket updated: ' . $ticket['ticket_number'], $ticket['subject'] . ' - ' . $newStatus, $id);
             $notice = 'changes_saved';
@@ -182,7 +195,7 @@ page_start($ticket['subject'], $user);
 <div class="sla-summary sla-summary-<?= e($sla[0]) ?>"><span class="sla-badge sla-<?= e($sla[0]) ?>"><?= e($sla[1]) ?></span><span><?= e($sla[2]) ?></span><span><?= ticket_age_days($ticket, 'created_at') ?> days open</span><span><?= ticket_age_days($ticket, 'updated_at') ?> days idle</span></div>
 <div class="page-actions"><a class="button button-secondary" href="index.php"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>Back to tickets</a><?php if ($canFollowUp): ?><form class="inline-form" method="post" data-feedback data-confirm="Send a follow-up to all assignees?"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="follow_up"><button class="button button-secondary" data-processing="Sending...">Follow up</button></form><?php endif; ?><?php if (user_can('edit_tickets')): ?><a class="button" href="edit-ticket.php?id=<?= $id ?>">Edit details</a><?php endif; ?><?php if (user_can('delete_tickets')): ?><form class="inline-form" method="post" action="delete-ticket.php" data-feedback data-confirm="Soft-delete this ticket?"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="id" value="<?= $id ?>"><button class="button button-danger" data-processing="Deleting...">Delete ticket</button></form><?php endif; ?></div>
 <div class="ticket-detail">
-    <section><h2>Description</h2><p><?= nl2br(e($ticket['description'])) ?></p><h2>Issue</h2><p><?= nl2br(e($ticket['issue'] ?? 'Not provided')) ?></p><h2>Resolution</h2><p><?= $ticket['resolution'] ? nl2br(e($ticket['resolution'])) : '<span class="muted">Not resolved; status remains In Progress.</span>' ?></p><dl><dt>Priority</dt><dd><span class="pill pill-priority-<?= e($ticket['priority'] ?? 'normal') ?>"><?= e(TICKET_PRIORITIES[$ticket['priority'] ?? 'normal'] ?? 'Normal') ?></span></dd><dt>Requestor</dt><dd><?= e(ticket_requestor_name($ticket)) ?></dd><dt>Escalator</dt><dd><?= e($ticket['issue_escalator']) ?></dd><dt>Employee</dt><dd><?= e($ticket['employee_name']) ?></dd><dt>Assignees</dt><dd><?= e($ticket['assignees'] ?? 'Unassigned') ?></dd><dt>Current department</dt><dd><?= e($ticket['department']) ?></dd></dl></section>
+    <section><h2>Description</h2><p><?= nl2br(e($ticket['description'])) ?></p><h2>Issue</h2><p><?= nl2br(e($ticket['issue'] ?? 'Not provided')) ?></p><h2>Resolution</h2><p><?= $ticket['resolution'] ? nl2br(e($ticket['resolution'])) : '<span class="muted">No resolution recorded.</span>' ?></p><dl><dt>Priority</dt><dd><span class="pill pill-priority-<?= e($ticket['priority'] ?? 'normal') ?>"><?= e(TICKET_PRIORITIES[$ticket['priority'] ?? 'normal'] ?? 'Normal') ?></span></dd><dt>Requestor</dt><dd><?= e(ticket_requestor_name($ticket)) ?></dd><dt>Escalator</dt><dd><?= e($ticket['issue_escalator']) ?></dd><dt>Employee</dt><dd><?= e($ticket['employee_name']) ?></dd><dt>Assignees</dt><dd><?= e($ticket['assignees'] ?? 'Unassigned') ?></dd><dt>Role</dt><dd><?= e($ticket['department']) ?></dd></dl></section>
     <?php if (user_can('edit_tickets') || user_can('assign_tickets')): ?><section><h2>Workflow</h2><form method="post" data-feedback><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><?php if (user_can('edit_tickets')): ?><label>Status<select name="status"><?php foreach (['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pending', 'closed' => 'Closed'] as $key => $label): ?><option value="<?= $key ?>"<?= $ticket['status'] === $key ? ' selected' : '' ?>><?= $label ?></option><?php endforeach; ?></select></label><?php endif; ?><?php if (user_can('assign_tickets')): ?><label>Assignees<select name="assignee_ids[]" multiple size="6"><?php foreach ($users as $member): ?><option value="<?= (int) $member['id'] ?>"<?= in_array((int) $member['id'], $selectedAssignees, true) ? ' selected' : '' ?>><?= e($member['full_name']) ?></option><?php endforeach; ?></select></label><?php endif; ?><button class="button" data-processing="Saving...">Save changes</button></form></section><?php endif; ?>
 </div>
 <?php if (user_can('view_attachments') || user_can('upload_attachments')): ?><section><div class="section-head"><div><h2>Confidential attachments</h2><p class="muted">Medical certificates and private files are visible only to roles granted attachment access.</p></div><?php if (user_can('upload_attachments')): ?><span class="pill pill-pending">Restricted</span><?php endif; ?></div><?php if ($attachmentError): ?><p class="auth-error"><?= e($attachmentError) ?></p><?php endif; ?><?php if (user_can('view_attachments')): ?><div class="attachment-list"><?php foreach ($attachments as $attachment): ?><div class="attachment-item"><div><strong><?= e($attachment['file_name'] ?: $attachment['original_name']) ?></strong><br><span class="muted">Uploaded by <?= e($attachment['uploaded_by_name']) ?> on <?= e(app_datetime_display($attachment['uploaded_at'] ?: $attachment['created_at'])) ?></span></div><a class="button button-secondary" href="download-attachment.php?id=<?= (int) $attachment['id'] ?>">Download</a></div><?php endforeach; ?><?php if (!$attachments): ?><p class="muted">No confidential attachments uploaded yet.</p><?php endif; ?></div><?php endif; ?><?php if (user_can('upload_attachments')): ?><form method="post" enctype="multipart/form-data" class="compact-form" data-feedback><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="upload_attachment"><label>Upload attachment<input type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required></label><button class="button" data-processing="Uploading...">Upload file</button></form><?php endif; ?></section><?php endif; ?>

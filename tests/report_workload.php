@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
+const APP_DISPLAY_TIMEZONE = 'Asia/Manila';
+require dirname(__DIR__) . '/app/tickets.php';
 require dirname(__DIR__) . '/app/external_tickets.php';
+$passed = 0;
 $source = file_get_contents(dirname(__DIR__) . '/reports.php');
 $start = strpos($source, '// Apply the same normalized external-ticket filters');
 $end = strpos($source, '$leave =', $start);
@@ -8,23 +11,26 @@ $code = substr($source, $start, $end - $start);
 function workload_case(string $department, array $employees, bool $failed = false): array {
     global $code;
     $from = '2026-09-01'; $to = '2026-09-14';
+    $reportWindow = ticket_window_bounds($from, $to, 'all');
     $selectedDepartment = $department; $selectedEmployees = $employees;
     $reportDepartments = [['id'=>1,'name'=>'Operations'],['id'=>2,'name'=>'Support']];
     $user = ['role_slug'=>'super-admin'];
     $departmentRows = [['name'=>'Operations','count'=>2,'closed'=>1]];
     $assigneeRows = [['name'=>'Alex','count'=>2]];
-    $base = ['created_at'=>'2026-09-14 23:59:59','status'=>'closed','department'=>'Operations','assignees'=>'Alex','employee_name'=>'Alice'];
+    $base = ['created_at'=>'2026-09-14 15:59:59','status'=>'closed','department'=>'Operations','assignees'=>'Alex','employee_name'=>'Alice'];
     $reportExternalTickets = ['tickets'=>[
         $base,
         array_replace($base,['department'=>'Support','assignees'=>'','status'=>'open','employee_name'=>'Ben']),
-        array_replace($base,['created_at'=>'2026-09-15 00:00:00']),
-        array_replace($base,['created_at'=>'2026-08-31 23:59:59']),
+        array_replace($base,['created_at'=>'2026-09-14 16:00:00']),
+        array_replace($base,['created_at'=>'2026-08-31 15:59:59']),
     ], 'errors'=>$failed?['Unavailable source']:[]];
     eval($code);
     return [$departmentRows, $assigneeRows, $workloadSourcesIncomplete];
 }
 function expect_workload(bool $ok, string $message): void {
+    global $passed;
     if (!$ok) throw new RuntimeException($message);
+    $passed++;
     echo "PASS: $message\n";
 }
 [$d,$a,$incomplete] = workload_case('',[]);
@@ -38,4 +44,6 @@ expect_workload(count($d)===1 && $d[0]['count']===3, 'employee matching follows 
 [$d,$a,$incomplete] = workload_case('',[],true);
 expect_workload($incomplete, 'unavailable sources marked incomplete');
 expect_workload(!str_contains($source,'class="report-metrics"'), 'metric cards removed');
-echo "7 workload checks passed\n";
+expect_workload(external_assignee_names(['source'=>'IT Department','assignees'=>'44|39|44']) === ['IT Department · Agent #44','IT Department · Agent #39'], 'every external assignee counted once with source identity');
+expect_workload(external_assignee_names(['source'=>'HR Department','assignees'=>'44']) !== external_assignee_names(['source'=>'IT Department','assignees'=>'44']), 'same numeric ID in separate sources is not one person');
+echo "$passed workload checks passed\n";

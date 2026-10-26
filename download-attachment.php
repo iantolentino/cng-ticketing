@@ -12,8 +12,9 @@ $attachment = $stmt->fetch();
 if (!$attachment || !ticket_access_allowed((int) $attachment['ticket_id'])) { http_response_code(404); exit('Attachment not found.'); }
 require_ticket_visible($user, (int) $attachment['ticket_id']);
 
-$path = ROOT_PATH . '/' . ltrim((string) ($attachment['file_path'] ?: ''), '/\\');
-if (!is_file($path)) { http_response_code(404); exit('Attachment file not found.'); }
+$path = private_attachment_path((string) ($attachment['file_path'] ?: ''), 'ticket-attachments');
+if ($path === null) { http_response_code(404); exit('Attachment file not found.'); }
+audit_admin_action((int) $user['id'], 'ticket_attachment_downloaded', 'ticket_attachment', $id, ['ticket_id' => (int) $attachment['ticket_id']]);
 
 $downloadName = $attachment['file_name'] ?: $attachment['original_name'];
 header('Content-Type: ' . ($attachment['mime_type'] ?: 'application/octet-stream'));

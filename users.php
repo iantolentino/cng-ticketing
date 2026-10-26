@@ -56,7 +56,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($approvalStatus !== false && $approvalStatus !== 'approved') { http_response_code(403); exit('Super Admin access required.'); }
         }
     }
+    if ($action === 'activate') { http_response_code(403); exit('Use the Pending activations page.'); }
+    if ($action === 'overrides' && !$canApproveAccounts) { http_response_code(403); exit('Only Super Admin can change permissions.'); }
+    if ($action === 'create_team_members' && !$canApproveAccounts) { http_response_code(403); exit('Only Super Admin can create role-bearing accounts.'); }
+    $transactionalChange = in_array($action, ['save', 'delete', 'overrides'], true);
     try {
+        if ($transactionalChange) $pdo->beginTransaction();
         if ($action === 'save') {
             $id = (int) ($_POST['id'] ?? 0);
             $fullName = trim((string) ($_POST['full_name'] ?? ''));
@@ -65,6 +70,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $roleId = (int) ($_POST['role_id'] ?? 0);
             $departmentId = (int) ($_POST['department_id'] ?? 0) ?: null;
             if ($fullName === '' || !preg_match('/^[a-z0-9._-]{3,80}$/', $username) || !filter_var($email, FILTER_VALIDATE_EMAIL) || $roleId < 1) throw new InvalidArgumentException('Enter a name, valid username, email, and role.');
+            $duplicatePerson = $pdo->prepare('SELECT id FROM users WHERE LOWER(TRIM(full_name))=LOWER(?) AND id<>? LIMIT 1');
+            $duplicatePerson->execute([$fullName, $id]);
+            if ($duplicatePerson->fetchColumn()) throw new InvalidArgumentException('This person already has an account. Update the existing account instead.');
             $roleQuery = $pdo->prepare('SELECT slug FROM roles WHERE id = ?');
             $roleQuery->execute([$roleId]);
             $roleSlug = (string) ($roleQuery->fetchColumn() ?: '');
@@ -76,10 +84,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$departmentQuery->fetchColumn()) throw new InvalidArgumentException('Select a valid department.');
             }
             if ($id > 0) {
-                $targetQuery = $pdo->prepare('SELECT u.id,u.is_active,u.disabled_at,r.slug FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?');
+                $disabledAtSql = app_schema_has('users', 'disabled_at') ? 'u.disabled_at' : 'NULL';
+                $targetQuery = $pdo->prepare('SELECT u.id,u.full_name,u.username,u.email,u.role_id,u.department_id,u.is_active,' . $disabledAtSql . ' AS disabled_at,r.slug FROM users u JOIN roles r ON r.id=u.role_id WHERE u.id=?');
                 $targetQuery->execute([$id]);
                 $target = $targetQuery->fetch();
                 if (!$target) throw new InvalidArgumentException('User not found.');
+                if (!$canApproveAccounts && ($target['slug'] === 'super-admin' || $roleId !== (int) $target['role_id'])) throw new InvalidArgumentException('Only Super Admin can change roles or edit a Super Admin account.');
+                if (!(bool) $target['is_active'] && isset($_POST['is_active'])) throw new InvalidArgumentException('Use the Pending activations page to reactivate an account.');
                 // The Status column is Super Admin only, so a viewer without that boundary never
                 // controls the enabled state: an unchecked box only means "left untouched".
                 $active = $canApproveAccounts ? (isset($_POST['is_active']) ? 1 : 0) : (int) $target['is_active'];
@@ -91,17 +102,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 [$activeStateSql, $activeStateParams] = user_active_state_update_sql((bool) $active, $target['disabled_at'] !== null ? (string) $target['disabled_at'] : null);
                 $pdo->prepare("UPDATE users SET full_name=?, username=?, email=?, role_id=?, department_id=?, $activeStateSql, approval_status=CASE WHEN ?=1 THEN 'approved' ELSE approval_status END WHERE id=?")->execute(array_merge([$fullName, $username, $email, $roleId, $departmentId], $activeStateParams, [$active, $id]));
+                audit_admin_action((int) $admin['id'], 'user_updated', 'user', $id, ['before' => $target, 'after' => ['full_name' => $fullName, 'username' => $username, 'email' => $email, 'role_id' => $roleId, 'department_id' => $departmentId, 'is_active' => $active]]);
                 $notice = 'User updated.';
             } else {
-                $temporary = strtoupper(bin2hex(random_bytes(5)));
+                if (!$canApproveAccounts) throw new InvalidArgumentException('Only Super Admin can assign a role to a new account.');
+                $temporary = strtoupper(bin2hex(random_bytes(8)));
                 $pdo->prepare('INSERT INTO users(full_name, username, email, role_id, department_id, password_hash, must_change_password) VALUES(?,?,?,?,?,?,1)')->execute([$fullName, $username, $email, $roleId, $departmentId, password_hash($temporary, PASSWORD_DEFAULT)]);
+                audit_admin_action((int) $admin['id'], 'user_created', 'user', (int) $pdo->lastInsertId(), ['full_name' => $fullName, 'username' => $username, 'role_id' => $roleId, 'department_id' => $departmentId]);
                 $notice = 'User created. Temporary password: ' . $temporary;
             }
-        } elseif ($action === 'activate') {
-            $id = (int) ($_POST['id'] ?? 0);
-            [$activeStateSql, $activeStateParams] = user_active_state_update_sql(true);
-            $pdo->prepare("UPDATE users SET $activeStateSql, approval_status='approved' WHERE id=?")->execute(array_merge($activeStateParams, [$id]));
-            $notice = 'Account activated.';
         } elseif ($action === 'delete') {
             $id = (int) ($_POST['id'] ?? 0);
             if ($id === (int) $admin['id']) throw new InvalidArgumentException('You cannot delete your own account.');
@@ -115,16 +124,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ((int) $remaining->fetchColumn() < 1) throw new InvalidArgumentException('At least one active Super Admin must remain.');
             }
             $pdo->prepare('DELETE FROM users WHERE id=?')->execute([$id]);
+            audit_admin_action((int) $admin['id'], 'user_deleted', 'user', $id, ['before' => $target]);
             $notice = 'User deleted.';
         } elseif ($action === 'overrides') {
             $id = (int) ($_POST['id'] ?? 0);
             $targetQuery = $pdo->prepare('SELECT 1 FROM users WHERE id=?');
             $targetQuery->execute([$id]);
             if (!$targetQuery->fetchColumn()) throw new InvalidArgumentException('User not found.');
+            $previousOverrides = $pdo->prepare('SELECT permission_id,granted FROM user_permission_overrides WHERE user_id=?');
+            $previousOverrides->execute([$id]);
+            $oldOverrides = $previousOverrides->fetchAll();
             $pdo->prepare('DELETE FROM user_permission_overrides WHERE user_id=?')->execute([$id]);
             $insert = $pdo->prepare('INSERT INTO user_permission_overrides(user_id,permission_id,granted) VALUES(?,?,?)');
             $validPermissions = array_map('intval', $pdo->query('SELECT id FROM permissions')->fetchAll(PDO::FETCH_COLUMN));
             foreach ($_POST['permission'] ?? [] as $permissionId => $granted) if (in_array((int) $permissionId, $validPermissions, true)) $insert->execute([$id, (int) $permissionId, (int) $granted === 1 ? 1 : 0]);
+            $previousOverrides->execute([$id]);
+            audit_admin_action((int) $admin['id'], 'user_permissions_updated', 'user', $id, ['before' => $oldOverrides, 'after' => $previousOverrides->fetchAll()]);
             $notice = 'User permission overrides updated.';
         } elseif ($action === 'create_team_members') {
             $candidateEmails = array_filter($teamMemberEmailValues, static fn(string $email): bool => $email !== '');
@@ -181,7 +196,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['team_member_credentials'] = $credentials;
             redirect('users.php?credentials=1');
         }
+        if ($transactionalChange) $pdo->commit();
     } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
         $error = $exception instanceof InvalidArgumentException ? $exception->getMessage() : 'The user change could not be saved. Check for duplicate username or email.';
     }
 }
@@ -190,7 +207,8 @@ $roles = $pdo->query('SELECT id,name FROM roles ORDER BY name')->fetchAll();
 $departments = $pdo->query('SELECT id,name FROM departments ORDER BY name')->fetchAll();
 $permissions = $pdo->query('SELECT id,label,permission_key FROM permissions ORDER BY label')->fetchAll();
 $userVisibilitySql = $canApproveAccounts ? '' : " WHERE u.approval_status='approved'";
-$users = $pdo->query('SELECT u.*,r.name role_name,d.name department_name FROM users u JOIN roles r ON r.id=u.role_id LEFT JOIN departments d ON d.id=u.department_id' . $userVisibilitySql . ' ORDER BY u.full_name')->fetchAll();
+$disabledAtSql = app_schema_has('users', 'disabled_at') ? 'u.disabled_at' : 'NULL';
+$users = $pdo->query('SELECT u.*,' . $disabledAtSql . ' AS disabled_at,r.name role_name,d.name department_name FROM users u JOIN roles r ON r.id=u.role_id LEFT JOIN departments d ON d.id=u.department_id' . $userVisibilitySql . ' ORDER BY u.full_name')->fetchAll();
 $teamMemberDirectory = [];
 $directoryError = '';
 try {
@@ -211,11 +229,11 @@ if ($editing) {
     foreach ($q as $override) $overrideMap[(int) $override['permission_id']] = (int) $override['granted'];
 }
 page_start('Users', $admin); ?>
-<?php $pendingAccounts = $canApproveAccounts ? array_filter($users, static fn(array $member): bool => !$member['is_active']) : []; if ($pendingAccounts): ?><section><h2>Pending activation</h2><p class="muted">Review registration requests before activating access.</p><div class="table-wrap"><table class="ticket-table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Action</th></tr></thead><tbody><?php foreach ($pendingAccounts as $member): ?><tr><td><?= e($member['full_name']) ?></td><td><?= e($member['email'] ?? '') ?></td><td><?= e($member['role_name']) ?></td><td><form method="post" onsubmit="return confirm('Activate this account?')"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="activate"><input type="hidden" name="id" value="<?= (int) $member['id'] ?>"><button class="button" type="submit">Activate</button></form></td></tr><?php endforeach; ?></tbody></table></div></section><?php endif; ?>
-<div class="page-actions"><button class="button" type="button" data-user-drawer-trigger aria-expanded="false" aria-controls="user-create-drawer">New user</button></div>
+
+<?php if ($canApproveAccounts): ?><div class="page-actions"><button class="button" type="button" data-user-drawer-trigger aria-expanded="false" aria-controls="user-create-drawer">New user</button></div><?php endif; ?>
 <?php if ($error): ?><p class="error"><?= e($error) ?></p><?php endif; ?><?php if ($notice): ?><p class="notice"><?= e($notice) ?></p><?php endif; ?>
 <?php if ($credentialBatch): ?><section class="team-member-credentials" aria-labelledby="team-member-credentials-title"><div class="section-head"><div><h2 id="team-member-credentials-title">Temporary Team Member credentials</h2><p>Save or send these now. They are shown only once, and every account must change its password at first sign-in.</p></div><span><?= count($credentialBatch) ?> account<?= count($credentialBatch) === 1 ? '' : 's' ?></span></div><div class="table-wrap"><table class="ticket-table"><thead><tr><th>Name</th><th>Email</th><th>Username</th><th>Temporary password</th></tr></thead><tbody><?php foreach ($credentialBatch as $credential): ?><tr><td><?= e($credential['full_name']) ?></td><td><?= e($credential['email']) ?></td><td><?= e($credential['username']) ?></td><td><code><?= e($credential['password']) ?></code></td></tr><?php endforeach; ?></tbody></table></div></section><?php endif; ?>
-<?php if ($editing): ?><section><h2>Edit user</h2><form method="post" class="form-grid"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?= (int) $editing['id'] ?>"><label>Full name<input name="full_name" required value="<?= e($editing['full_name'] ?? '') ?>"></label><label>Username<input name="username" required pattern="[A-Za-z0-9._-]{3,80}" value="<?= e($editing['username'] ?? '') ?>"></label><label>Email<input name="email" type="email" required value="<?= e($editing['email'] ?? '') ?>"></label><label>Role<select name="role_id" required><?php foreach ($roles as $role): ?><option value="<?= (int) $role['id'] ?>" <?= (int) ($editing['role_id'] ?? 0) === (int) $role['id'] ? 'selected' : '' ?>><?= e($role['name']) ?></option><?php endforeach; ?></select></label><label>Department<select name="department_id"><option value="">None</option><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>" <?= (int) ($editing['department_id'] ?? 0) === (int) $department['id'] ? 'selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select></label><label class="checkbox-label"><input type="checkbox" name="is_active" <?= $editing['is_active'] ? 'checked' : '' ?><?= $canApproveAccounts ? '' : ' disabled' ?>> Active account<?php if (!$canApproveAccounts): ?><small class="muted">Only a Super Admin can enable or disable an account.</small><?php endif; ?></label><div><button class="button">Save changes</button></div></form></section><?php endif; ?><aside class="user-create-drawer" id="user-create-drawer" data-user-drawer hidden role="dialog" aria-modal="true" aria-labelledby="user-create-drawer-title"><div class="drawer-header"><div><p class="eyebrow">User management</p><h2 id="user-create-drawer-title">Create user</h2><p class="drawer-description">Add an account and assign its access.</p></div><button class="icon-button" type="button" data-user-drawer-close aria-label="Close new user panel">×</button></div><form method="post" class="user-drawer-form"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="0"><label>Full name<input name="full_name" required></label><label>Username<input name="username" required pattern="[A-Za-z0-9._-]{3,80}"></label><label>Email<input name="email" type="email" required></label><label>Role<select name="role_id" required><option value="" selected disabled>Select a role</option><?php foreach ($roles as $role): ?><option value="<?= (int) $role['id'] ?>"><?= e($role['name']) ?></option><?php endforeach; ?></select></label><label>Department<select name="department_id"><option value="">None</option><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"><?= e($department['name']) ?></option><?php endforeach; ?></select></label><div class="drawer-footer"><button class="button button-secondary" type="button" data-user-drawer-close>Cancel</button><button class="button" type="submit">Create user</button></div></form></aside><div class="user-drawer-scrim" data-user-drawer-scrim hidden></div>
+<?php if ($editing): ?><section><h2>Edit user</h2><form method="post" class="form-grid"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="<?= (int) $editing['id'] ?>"><label>Full name<input name="full_name" required value="<?= e($editing['full_name'] ?? '') ?>"></label><label>Username<input name="username" required pattern="[A-Za-z0-9._-]{3,80}" value="<?= e($editing['username'] ?? '') ?>"></label><label>Email<input name="email" type="email" required value="<?= e($editing['email'] ?? '') ?>"></label><?php if ($canApproveAccounts): ?><label>Role<select name="role_id" required><?php foreach ($roles as $role): ?><option value="<?= (int) $role['id'] ?>" <?= (int) ($editing['role_id'] ?? 0) === (int) $role['id'] ? 'selected' : '' ?>><?= e($role['name']) ?></option><?php endforeach; ?></select></label><?php else: ?><input type="hidden" name="role_id" value="<?= (int) $editing['role_id'] ?>"><?php endif; ?><label>Department<select name="department_id"><option value="">None</option><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>" <?= (int) ($editing['department_id'] ?? 0) === (int) $department['id'] ? 'selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select></label><label class="checkbox-label"><input type="checkbox" name="is_active" <?= $editing['is_active'] ? 'checked' : '' ?><?= $canApproveAccounts && $editing['is_active'] ? '' : ' disabled' ?>> Active account<?php if (!$canApproveAccounts): ?><small class="muted">Only a Super Admin can enable or disable an account.</small><?php elseif (!$editing['is_active']): ?><small class="muted">Reactivate this account from <a href="pending-activations.php">Pending activations</a>.</small><?php endif; ?></label><div><button class="button">Save changes</button></div></form></section><?php endif; ?><aside class="user-create-drawer" id="user-create-drawer" data-user-drawer hidden role="dialog" aria-modal="true" aria-labelledby="user-create-drawer-title"><div class="drawer-header"><div><p class="eyebrow">User management</p><h2 id="user-create-drawer-title">Create user</h2><p class="drawer-description">Add an account and assign its access.</p></div><button class="icon-button" type="button" data-user-drawer-close aria-label="Close new user panel">×</button></div><form method="post" class="user-drawer-form"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="save"><input type="hidden" name="id" value="0"><label>Full name<input name="full_name" required></label><label>Username<input name="username" required pattern="[A-Za-z0-9._-]{3,80}"></label><label>Email<input name="email" type="email" required></label><label>Role<select name="role_id" required><option value="" selected disabled>Select a role</option><?php foreach ($roles as $role): ?><option value="<?= (int) $role['id'] ?>"><?= e($role['name']) ?></option><?php endforeach; ?></select></label><label>Department<select name="department_id"><option value="">None</option><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"><?= e($department['name']) ?></option><?php endforeach; ?></select></label><div class="drawer-footer"><button class="button button-secondary" type="button" data-user-drawer-close>Cancel</button><button class="button" type="submit">Create user</button></div></form></aside><div class="user-drawer-scrim" data-user-drawer-scrim hidden></div>
 <?php if ($directoryError): ?><section><h2>Team Member directory</h2><p class="error"><?= e($directoryError) ?></p></section><?php elseif ($teamMemberDirectory && $canApproveAccounts): ?><section class="team-member-setup"><div class="section-head"><div><h2>Team Member account setup</h2><p>Search for a staff member and enter their company email to create the account.</p></div><span><?= count($teamMemberDirectory) ?> staff</span></div><label class="filter-search" id="team-member-search-field"><span>Search staff</span><input type="search" id="team-member-search" placeholder="Search by name, team, or email" autocomplete="off" aria-controls="team-member-setup-form" aria-describedby="team-member-search-help"></label><small class="field-help" id="team-member-search-help">Showing all staff. Typing only hides rows — every email already entered is still submitted.</small><p class="muted" id="team-member-search-empty" hidden>No staff match this search.</p><form method="post" id="team-member-setup-form"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="create_team_members"><div class="table-wrap"><table class="ticket-table team-member-setup-table"><thead><tr><th scope="col">Name</th><th scope="col">Staff team</th><th scope="col">Exact company email</th><th scope="col">Account</th></tr></thead><tbody><?php foreach ($teamMemberDirectory as $staff): $account = $staff['account'] ?? null; $staffId = (int) $staff['id']; ?><tr data-team-member-row data-search="<?= e(strtolower($staff['full_name'] . ' ' . $staff['team_label'] . ' ' . ($account['email'] ?? '') . ' ' . ($account['username'] ?? ''))) ?>"><td data-team-member-name><strong><?= e($staff['full_name']) ?></strong></td><td><?= e($staff['team_label']) ?></td><td><?php if ($account): ?><?= e($account['email'] ?? 'No email recorded') ?><?php else: ?><input type="email" name="team_member_email[<?= $staffId ?>]" value="<?= e($teamMemberEmailValues[$staffId] ?? '') ?>" placeholder="employee@<?= e($staff['email_domain']) ?>" autocomplete="email"><small>Allowed: @<?= e($staff['email_domain']) ?></small><?php endif; ?></td><td><?php if ($account): ?><a href="users.php?edit=<?= (int) $account['id'] ?>">Existing: <?= e($account['username']) ?></a><?php else: ?><span class="muted">Ready to add</span><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div><button class="button" type="submit">Create filled Team Member accounts</button></form></section><script>
 (function () {
     var input = document.getElementById('team-member-search');
@@ -242,5 +260,5 @@ page_start('Users', $admin); ?>
 })();
 </script><?php endif; ?>
 <section><h2>Accounts</h2><div class="table-wrap"><table class="ticket-table"><thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Department</th><th>Status</th><?php if ($canApproveAccounts): ?><th>Last updated</th><th>Last disabled</th><?php endif; ?><th>Actions</th></tr></thead><tbody><?php foreach ($users as $member): ?><tr><td><?= e($member['full_name']) ?></td><td><?= e($member['username']) ?></td><td><?= e($member['email'] ?? '') ?></td><td><?= e($member['role_name']) ?></td><td><?= e($member['department_name'] ?? '—') ?></td><td><?php if ($canApproveAccounts): ?><span class="pill pill-<?= $member['is_active'] ? 'closed' : 'pending' ?>"><?= $member['is_active'] ? 'Active' : 'Disabled' ?></span><?php else: ?><?= $member['is_active'] ? 'Active' : 'Inactive' ?><?php endif; ?></td><?php if ($canApproveAccounts): ?><td><?= e(app_datetime_display($member['updated_at'] ?? null)) ?></td><td><?= $member['disabled_at'] ? e(app_datetime_display($member['disabled_at'])) : '—' ?></td><?php endif; ?><td><a href="users.php?edit=<?= (int) $member['id'] ?>">Edit</a> · <a href="reset-user-password.php?id=<?= (int) $member['id'] ?>">Reset password</a><?php if ($canApproveAccounts): ?><form method="post" style="display:inline" onsubmit="return confirm('Delete this user account?')"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= (int) $member['id'] ?>"><button class="link-button" type="submit">Delete</button></form><?php endif; ?></td></tr><?php endforeach; ?></tbody></table></div></section>
-<?php if ($editing): ?><section><h2>Permission overrides for <?= e($editing['full_name']) ?></h2><form method="post"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="overrides"><input type="hidden" name="id" value="<?= (int) $editing['id'] ?>"><div class="permission-grid"><?php foreach ($permissions as $permission): ?><label><input type="checkbox" name="permission[<?= (int) $permission['id'] ?>]" value="1" <?= ($overrideMap[(int) $permission['id']] ?? 0) === 1 ? 'checked' : '' ?>> <?= e($permission['label']) ?></label><?php endforeach; ?></div><button class="button">Save permission overrides</button></form></section><?php endif; ?>
+<?php if ($editing && $canApproveAccounts): ?><section><h2>Permission overrides for <?= e($editing['full_name']) ?></h2><form method="post"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="overrides"><input type="hidden" name="id" value="<?= (int) $editing['id'] ?>"><div class="permission-grid"><?php foreach ($permissions as $permission): ?><label><input type="checkbox" name="permission[<?= (int) $permission['id'] ?>]" value="1" <?= ($overrideMap[(int) $permission['id']] ?? 0) === 1 ? 'checked' : '' ?>> <?= e($permission['label']) ?></label><?php endforeach; ?></div><button class="button">Save permission overrides</button></form></section><?php endif; ?>
 <?php page_end();

@@ -12,6 +12,12 @@ function current_user(bool $refresh = false): ?array {
     $q = db()->prepare('SELECT u.*, r.name AS role_name, r.slug AS role_slug FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ? AND u.is_active = 1');
     $q->execute([$_SESSION['user_id']]);
     $user = $q->fetch() ?: null;
+    $sessionPasswordHash = $_SESSION['auth_password_hash'] ?? '';
+    if (!$user || !is_string($sessionPasswordHash) || $sessionPasswordHash === '' || !hash_equals((string) $user['password_hash'], $sessionPasswordHash)) {
+        $_SESSION = [];
+        session_regenerate_id(true);
+        return $user = null;
+    }
     $_SESSION['role'] = $user['role_slug'] ?? null;
     return $user;
 }
@@ -26,20 +32,30 @@ function refresh_current_user(): ?array {
  * "last disabled" date. An account can therefore never be disabled without a disable timestamp,
  * nor re-enabled while still carrying one.
  *
- * The fragment always binds users.disabled_at, in both directions, so the caller's parameter
- * list length never depends on which direction the state is moving.
+ * Older schemas without disabled_at keep their existing enabled flag; no column is added.
  *
  * @param string|null $currentDisabledAt users.disabled_at of the row being written.
  * @return array{0:string,1:array<int,string|null>} SQL fragment plus the two parameters it expects.
  */
 function user_active_state_update_sql(bool $isActive, ?string $currentDisabledAt = null): array
 {
+    if (!app_schema_has('users', 'disabled_at')) return ['is_active=?', [$isActive ? 1 : 0]];
     return $isActive
         ? ['is_active=?, disabled_at=?', [1, null]]
         : ['is_active=?, disabled_at=COALESCE(?, NOW())', [0, $currentDisabledAt]];
 }
 function user_can(string $permissionKey): bool {
     $user = current_user(); if ($user === null) return false;
+    if (($user['role_slug'] ?? '') === 'management') {
+        static $cngAdminRoleId = null;
+        if ($cngAdminRoleId === null) {
+            $cngAdminRoleId = (int) db()->query("SELECT id FROM roles WHERE slug='cng-admin' LIMIT 1")->fetchColumn();
+        }
+        if ($cngAdminRoleId < 1) return false;
+        $q = db()->prepare('SELECT COALESCE(rp.granted, 0) FROM permissions p LEFT JOIN role_permissions rp ON rp.permission_id = p.id AND rp.role_id = :role_id WHERE p.permission_key = :permission_key');
+        $q->execute(['role_id' => $cngAdminRoleId, 'permission_key' => $permissionKey]);
+        return (bool) $q->fetchColumn();
+    }
     $q = db()->prepare('SELECT COALESCE(uo.granted, rp.granted, 0) FROM permissions p LEFT JOIN role_permissions rp ON rp.permission_id = p.id AND rp.role_id = :role_id LEFT JOIN user_permission_overrides uo ON uo.permission_id = p.id AND uo.user_id = :user_id WHERE p.permission_key = :permission_key');
     $q->execute(['role_id' => $user['role_id'], 'user_id' => $user['id'], 'permission_key' => $permissionKey]);
     return (bool) $q->fetchColumn();
@@ -51,6 +67,13 @@ function default_landing_page(): string {
 }
 function require_login(): array {
     $user = current_user(); if ($user === null) redirect('login.php');
+    if (($user['role_slug'] ?? '') === 'management') {
+        $allowedPages = ['dashboard.php', 'index.php', 'ticket.php', 'team-calendar.php', 'team-attendance.php', 'reports.php', 'export-tickets.php', 'download-attachment.php', 'change-password.php', 'logout.php'];
+        if (!in_array(basename((string) ($_SERVER['PHP_SELF'] ?? '')), $allowedPages, true)) {
+            http_response_code(403);
+            exit('Management accounts can access Dashboard, Tickets, Team Calendar, Staff Directory, and Reports only.');
+        }
+    }
     if ($user['must_change_password'] && basename($_SERVER['PHP_SELF']) !== 'change-password.php') redirect('change-password.php');
     return $user;
 }

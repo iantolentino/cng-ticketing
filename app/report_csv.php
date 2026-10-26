@@ -27,8 +27,8 @@ function report_csv_preview($handle, string $type, array $expected): array
         $data = array_map(static fn($value): string => trim((string) $value), array_combine($expected, $row));
         if ($type === 'users' && (!$data['full_name'] || !preg_match('/^[a-z0-9._-]{3,80}$/', $data['username']) || !filter_var($data['email'], FILTER_VALIDATE_EMAIL) || !$data['role'])) {
             $errors[] = 'Row ' . $line . ': enter a full name, username (3-80 lowercase letters, numbers, dots, underscores or hyphens), valid email and role.';
-        } elseif ($type === 'departments' && (!$data['name'] || !$data['code'])) {
-            $errors[] = 'Row ' . $line . ': department name and code are required.';
+        } elseif ($type === 'departments' && (!$data['name'] || !$data['code'] || (in_array('department_type', $expected, true) && !in_array($data['department_type'] ?? '', ['internal','cng_staff'], true)))) {
+            $errors[] = 'Row ' . $line . ': department name, code, and department_type (internal or cng_staff) are required.';
         } elseif ($type === 'holidays') {
             $date = DateTimeImmutable::createFromFormat('!Y-m-d', $data['date']);
             if (!$date || $date->format('Y-m-d') !== $data['date'] || !$data['label']) {

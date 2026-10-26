@@ -1,9 +1,15 @@
 <?php
 require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/layout.php';
+require_once __DIR__ . '/app/pagination.php';
 $admin = require_login();
 if (($admin['role_slug'] ?? '') !== 'super-admin') { http_response_code(403); exit('Super Admin access required.'); }
-$events = db()->query('SELECT a.*,u.full_name FROM admin_audit_log a LEFT JOIN users u ON u.id=a.actor_id ORDER BY a.created_at DESC, a.id DESC LIMIT 500')->fetchAll();
+$auditPage = pagination_state((int) db()->query('SELECT COUNT(*) FROM admin_audit_log')->fetchColumn(), 25, pagination_requested_page());
+$auditQuery = db()->prepare('SELECT a.*,u.full_name FROM admin_audit_log a LEFT JOIN users u ON u.id=a.actor_id ORDER BY a.created_at DESC, a.id DESC LIMIT ? OFFSET ?');
+$auditQuery->bindValue(1, $auditPage['perPage'], PDO::PARAM_INT);
+$auditQuery->bindValue(2, $auditPage['offset'], PDO::PARAM_INT);
+$auditQuery->execute();
+$events = $auditQuery->fetchAll();
 $tickets = db()->query("SELECT t.id,t.ticket_number,t.subject,t.deleted_at,u.full_name AS deleted_by_name FROM tickets t LEFT JOIN users u ON u.id=t.deleted_by WHERE t.deleted_at IS NOT NULL ORDER BY t.deleted_at DESC")->fetchAll();
 page_start('Admin history', $admin); ?>
 <div class="admin-history-grid">
@@ -14,6 +20,7 @@ page_start('Admin history', $admin); ?>
     <section class="admin-history-panel">
         <div class="section-head"><div><p class="eyebrow">Account activity</p><h2>Audit log</h2><p>Recent user, permission, restore, leave, attachment, and calendar administration actions.</p></div></div>
         <div class="table-wrap"><table class="ticket-table"><thead><tr><th>Date</th><th>Actor</th><th>Action</th><th>Entity</th><th>Details</th></tr></thead><tbody><?php foreach ($events as $event): ?><tr><td><?= e($event['created_at']) ?></td><td><?= e($event['full_name'] ?? 'System') ?></td><td><?= e($event['action']) ?></td><td><?= e($event['entity_type']) ?><?= $event['entity_id'] ? ' #' . (int) $event['entity_id'] : '' ?></td><td><code><?= e((string) ($event['details'] ?? '')) ?></code></td></tr><?php endforeach; ?><?php if (!$events): ?><tr><td colspan="5" class="muted">No administrative actions recorded.</td></tr><?php endif; ?></tbody></table></div>
+        <?= pagination_nav('audit-log.php', [], $auditPage, 'Audit log pages') ?>
     </section>
 </div>
 <?php page_end();

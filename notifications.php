@@ -14,14 +14,22 @@ if (isset($_GET['open'])) {
     $query = $pdo->prepare('SELECT url FROM notifications WHERE id = ? AND user_id = ?' . $notificationClause);
     $query->execute(array_merge([$id, $user['id']], $notificationParams));
     $url = (string) ($query->fetchColumn() ?: 'notifications.php');
-    $pdo->prepare('UPDATE notifications SET read_at = COALESCE(read_at, NOW()) WHERE id = ? AND user_id = ?')->execute([$id, $user['id']]);
+    $pdo->beginTransaction();
+    $read = $pdo->prepare('UPDATE notifications SET read_at = NOW() WHERE id = ? AND user_id = ? AND read_at IS NULL' . $notificationClause);
+    $read->execute(array_merge([$id, $user['id']], $notificationParams));
+    if ($read->rowCount()) audit_admin_action((int)$user['id'], 'notification_read', 'notification', $id);
+    $pdo->commit();
     redirect($url);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
     if (($_POST['action'] ?? '') === 'mark_all_read') {
-        $pdo->prepare('UPDATE notifications SET read_at = COALESCE(read_at, NOW()) WHERE user_id = ? AND read_at IS NULL' . $notificationClause)->execute(array_merge([$user['id']], $notificationParams));
+        $pdo->beginTransaction();
+        $read = $pdo->prepare('UPDATE notifications SET read_at = NOW() WHERE user_id = ? AND read_at IS NULL' . $notificationClause);
+        $read->execute(array_merge([$user['id']], $notificationParams));
+        if ($read->rowCount()) audit_admin_action((int)$user['id'], 'notifications_read', 'notifications', null, ['count'=>$read->rowCount()]);
+        $pdo->commit();
         redirect('notifications.php?notice=read');
     }
 }

@@ -34,13 +34,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Enter a valid company email address.';
     } elseif (!in_array($emailDomain, $allowedEmailDomains, true)) {
         $error = 'Use a company email ending in ' . implode(', ', array_map(static fn(string $domain): string => '@' . $domain, $allowedEmailDomains)) . '.';
-    } elseif (strlen($password) < 12 || strlen($password) > 1024) {
-        $error = 'Password must be between 12 and 1024 characters.';
+    } elseif (!password_meets_policy($password)) {
+        $error = 'Password must be between 12 and 72 bytes.';
     } elseif ($password !== $confirmation) {
         $error = 'The passwords do not match.';
     } elseif (!$validRole->fetchColumn()) {
         $error = 'Select a valid requested role.';
     } else {
+        $duplicatePerson = db()->prepare('SELECT id FROM users WHERE LOWER(TRIM(full_name))=LOWER(?) LIMIT 1');
+        $duplicatePerson->execute([$name]);
+        if ($duplicatePerson->fetchColumn()) $error = 'An account is already registered for this name. Contact the Super Admin to activate or update it.';
         $existing = db()->prepare('SELECT username,email FROM users WHERE LOWER(username)=? OR LOWER(email)=?');
         $existing->execute([$username, $email]);
         foreach ($existing->fetchAll() as $account) {
@@ -53,10 +56,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         if ($error === '') {
+            $pdo = db();
             try {
-                db()->prepare("INSERT INTO users(role_id,username,full_name,email,password_hash,must_change_password,is_active,approval_status) VALUES(?,?,?,?,?,0,0,'pending')")->execute([$roleId, $username, $name, $email, password_hash($password, PASSWORD_DEFAULT)]);
+                $pdo->beginTransaction();
+                $pdo->prepare("INSERT INTO users(role_id,username,full_name,email,password_hash,must_change_password,is_active,approval_status) VALUES(?,?,?,?,?,0,0,'pending')")->execute([$roleId, $username, $name, $email, password_hash($password, PASSWORD_DEFAULT)]);
+                audit_admin_action(null, 'user_registration_submitted', 'user', (int)$pdo->lastInsertId(), ['requested_role_id'=>$roleId,'approval_status'=>'pending']);
+                $pdo->commit();
                 redirect('register.php?submitted=1');
             } catch (PDOException $exception) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
                 if ((int) ($exception->errorInfo[1] ?? 0) === 1062) {
                     $error = 'That username or email was registered by another submission. Contact the Super Admin about the existing account.';
                 } else {
@@ -83,9 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <p class="form-help" id="registration-email-help">Allowed domains: <?= e(implode(', ', array_map(static fn(string $domain): string => '@' . $domain, $allowedEmailDomains))) ?>.</p>
         <label>Username<input name="username" maxlength="80" pattern="[A-Za-z0-9._\-]{3,80}" value="<?= e($values['username']) ?>" required autocomplete="username" aria-describedby="registration-username-help"></label>
         <p class="form-help" id="registration-username-help">3–80 characters. Use letters, numbers, dots, underscores, or hyphens; no spaces or @.</p>
-        <label>Password<input name="password" type="password" minlength="12" maxlength="1024" required autocomplete="new-password" aria-describedby="registration-password-help"></label>
-        <p class="form-help" id="registration-password-help">Use at least 12 characters. Enter your password again if the form reports an error.</p>
-        <label>Confirm password<input name="password_confirmation" type="password" minlength="12" maxlength="1024" required autocomplete="new-password"></label>
+        <label>Password<input name="password" type="password" minlength="12" maxlength="72" required autocomplete="new-password" aria-describedby="registration-password-help"></label>
+        <p class="form-help" id="registration-password-help">Use 12 to 72 bytes. Enter your password again if the form reports an error.</p>
+        <label>Confirm password<input name="password_confirmation" type="password" minlength="12" maxlength="72" required autocomplete="new-password"></label>
         <label>Requested role<select name="role_id" required><option value="">Select a role</option><?php foreach ($roles as $role): ?><option value="<?= (int) $role['id'] ?>"<?= (string) $role['id'] === $values['role_id'] ? ' selected' : '' ?>><?= e($role['name']) ?></option><?php endforeach; ?></select></label>
         <div class="auth-actions"><button class="button">Submit registration</button><a class="button button-secondary" href="login.php">Return to log in</a></div>
     </form>

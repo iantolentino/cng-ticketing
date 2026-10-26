@@ -11,11 +11,12 @@ $attachment = $stmt->fetch();
 if (!$attachment) { http_response_code(404); exit('Attachment not found.'); }
 
 $isOwner = (int) $attachment['employee_user_id'] === (int) $user['id'];
-$isApprover = in_array($user['role_slug'] ?? '', ['team-leader', 'department-head'], true);
+$isApprover = in_array($user['role_slug'] ?? '', ['super-admin', 'team-leader', 'department-head'], true);
 if (!$isOwner && !$isApprover) { http_response_code(403); exit('You do not have permission to access this attachment.'); }
 
-$path = ROOT_PATH . '/' . ltrim((string) $attachment['file_path'], '/\\');
-if (!is_file($path)) { http_response_code(404); exit('Attachment file not found.'); }
+$path = private_attachment_path((string) $attachment['file_path'], 'leave-attachments');
+if ($path === null) { http_response_code(404); exit('Attachment file not found.'); }
+audit_admin_action((int) $user['id'], 'leave_attachment_downloaded', 'leave_request_attachment', $id, ['leave_request_id' => (int) $attachment['leave_request_id']]);
 
 header('Content-Type: ' . ($attachment['mime_type'] ?: 'application/octet-stream'));
 header('Content-Length: ' . filesize($path));

@@ -530,7 +530,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
 @media(min-width:701px){
   body.dashboard-page{overflow:hidden}
-  body.dashboard-page .page{height:calc(100vh - var(--header-height));overflow:hidden;padding-top:24px;padding-bottom:28px}
+  body.dashboard-page .page{height:calc(100vh - var(--header-height));overflow:hidden;padding-top:8px;padding-bottom:28px}
   body.dashboard-page .content-shell{height:100%}
   body.dashboard-page .dashboard-layout{height:100%;min-height:0}
   body.dashboard-page .dashboard-main{grid-template-rows:auto minmax(0,1fr);min-height:0}
@@ -550,7 +550,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 
 @media(max-width:700px){
   body.dashboard-page{overflow:auto}
-  body.dashboard-page .page{height:auto;overflow:visible}
+  body.dashboard-page .page{height:auto;overflow:visible;padding-top:8px}
 }
 
 @media(min-width:981px){
@@ -570,7 +570,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 /* Reference-style dashboard composition */
 .dashboard-canvas{display:grid;gap:14px;min-width:0}
 .dashboard-kpi-panel{padding:16px}
-.metric-grid-reference{grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.metric-grid-reference{grid-template-columns:repeat(8,minmax(0,1fr));gap:10px}
 .metric-reference-card{min-height:108px;padding:13px 14px}
 .metric-reference-card::before{display:none}
 .metric-reference-card span{font-size:10px}
@@ -619,8 +619,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   body.dashboard-page .dashboard-trend-panel{overflow:hidden}
 }
 
-@media(max-width:1100px){
-  .metric-grid-reference{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:1400px){
+  .metric-grid-reference{grid-template-columns:repeat(4,minmax(0,1fr))}
 }
 
 @media(max-width:800px){
@@ -751,6 +751,12 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
   .ticket-search-field{grid-column:auto}
 }
 
+@media(min-width:701px) and (max-width:1100px){
+  .tickets-screen .table-wrap{overflow-x:auto}
+  .tickets-screen .ticket-table{min-width:1080px;table-layout:auto}
+  .tickets-screen .ticket-table th,.tickets-screen .ticket-table td{white-space:nowrap}
+}
+
 @media(min-width:701px){
   body.dashboard-page{overflow:auto}
   body.dashboard-page .page{height:auto;min-height:calc(100vh - var(--header-height));overflow:visible}
@@ -769,16 +775,17 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 }
 
 /* Dashboard rhythm and type scale */
-.dashboard-canvas{gap:16px}
+.dashboard-canvas{gap:8px}
 .dashboard-chart-grid,.dashboard-lower-grid{gap:16px}
+.dashboard-kpi-panel{margin-bottom:0}
 .dashboard-kpi-panel,.dashboard-chart-grid .dashboard-panel,.dashboard-lower-grid .dashboard-panel{padding:16px}
 .dashboard-head{gap:16px;margin-bottom:12px}
 .dashboard-greeting-head{margin-bottom:16px}
 .dashboard-head h2,.section-head h2{font-size:16px;font-weight:700;line-height:1.25;letter-spacing:-.025em}
 .dashboard-head p,.section-head p{font-size:12px;line-height:1.45}
 .dashboard-date,.app-header-date{font-weight:500}
-.metric-grid-reference{column-gap:16px;row-gap:16px}
-.metric-reference-card{min-height:108px;padding:16px}
+.metric-grid-reference{column-gap:10px;row-gap:8px}
+.metric-reference-card{min-width:0;min-height:64px;padding:8px 10px}
 .metric-reference-card span{font-weight:600;letter-spacing:.07em}
 .metric-reference-card strong{margin-top:8px;font-size:30px;font-weight:700;line-height:1.1;letter-spacing:-.035em}
 .filter-segment{font-weight:600}
@@ -787,10 +794,10 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .recent-ticket-number{font-weight:700}
 
 @media(max-width:700px){
-  .dashboard-canvas{gap:12px}
+  .dashboard-canvas{gap:8px}
   .dashboard-chart-grid,.dashboard-lower-grid{gap:12px}
   .dashboard-kpi-panel,.dashboard-chart-grid .dashboard-panel,.dashboard-lower-grid .dashboard-panel{padding:14px}
-  .metric-grid-reference{column-gap:10px;row-gap:10px}
+  .metric-grid-reference{column-gap:8px;row-gap:8px}
 }
 
 /* Compact ticket filters and range picker */
@@ -799,7 +806,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .tickets-screen .ticket-filter-head h2{font-size:12px;font-weight:700;letter-spacing:.01em}
 .tickets-screen .ticket-filter-head p{display:none}
 .tickets-screen .ticket-filter-panel{padding:10px 12px}
-.tickets-screen .ticket-filter-grid{grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.tickets-screen .ticket-filter-grid{grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
 .tickets-screen .ticket-filter-field,.tickets-screen .ticket-date-range-field{min-width:0;position:relative}
 .tickets-screen .ticket-search-field{grid-column:1/-1;order:-1}
 .tickets-screen .ticket-search-field input{height:34px;padding:7px 10px;border-radius:8px;font-size:11px}
@@ -860,7 +867,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .ticket-scope-option.is-active{background:var(--surface);color:var(--ink);font-weight:700;box-shadow:0 1px 2px rgba(16,24,40,.08)}
 .ticket-scope-option svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:1.7}
 .ticket-filter-actions .button svg{width:12px;height:12px;margin-right:4px}
-.tickets-screen .ticket-filter-grid{display:grid;grid-template-columns:auto 100px 100px 124px 150px 116px 132px 178px auto;align-items:center;justify-content:start;gap:7px}
+.tickets-screen .ticket-filter-grid{display:grid;grid-template-columns:auto 100px 100px 124px 150px 116px 178px auto;align-items:center;justify-content:start;gap:7px}
 .ticket-filter-row-title{color:var(--muted);font-size:10px;font-weight:600}
 .tickets-screen .ticket-filter-field{min-width:0}
 .tickets-screen .ticket-date-range-field{grid-column:auto;min-width:0}
@@ -872,7 +879,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .ticket-filter-actions .button{min-height:28px;padding:0 7px;font-size:9px;white-space:nowrap}
 
 @media(max-width:1100px){
-  .tickets-screen .ticket-filter-grid{grid-template-columns:auto repeat(6,minmax(72px,1fr)) minmax(145px,1.4fr) auto;gap:6px}
+  .tickets-screen .ticket-filter-grid{grid-template-columns:auto repeat(5,minmax(72px,1fr)) minmax(145px,1.4fr) auto;gap:6px}
 }
 
 @media(max-width:900px){
@@ -1055,6 +1062,8 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .team-calendar-screen{display:grid;gap:12px}
 .team-calendar-screen .action-notice,.team-calendar-screen .auth-error{margin:0}
 .team-calendar-panel,.calendar-form-panel,.calendar-month-summary{margin:0;border:1px solid var(--border);border-radius:10px;background:var(--surface);box-shadow:var(--shadow-card)}
+.team-calendar-main-grid{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:12px;align-items:start;min-width:0}
+.team-calendar-main-grid>.team-calendar-panel{min-width:0}
 .team-calendar-panel{overflow:hidden}
 .team-calendar-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:11px 13px;border-bottom:1px solid var(--border)}
 .calendar-month-nav{display:flex;align-items:center;gap:8px;min-width:0}
@@ -1124,6 +1133,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
 .calendar-summary-list>div:first-child{border-top:0}
 .calendar-summary-list span{display:flex;align-items:center;gap:7px;color:#596579;font-size:10px;font-weight:500}
 .calendar-summary-list strong{color:var(--ink);font-size:13px;font-weight:700}
+@media(max-width:1200px){.team-calendar-main-grid{grid-template-columns:minmax(0,1fr)}}
 .team-calendar-screen .calendar-popover{z-index:70;padding:13px;border-radius:10px}
 .team-calendar-screen .calendar-popover-close{width:27px;height:27px;padding:0;border-radius:7px}
 .team-calendar-screen .calendar-popover-close svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-linecap:round;stroke-width:1.8}
@@ -1330,12 +1340,16 @@ body.ticket-form-page .content-shell,body.ticket-detail-page .content-shell,body
    The staff editor itself lives in a modal (see ui-fixes.css) and leave is filed
    on the Team Calendar, so there is no .attendance-staff-panel or leave form here. */
 .attendance-roster-panel{min-width:0;margin:0;padding:0;overflow:visible;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-card);box-shadow:var(--shadow-card)}
-.attendance-roster-panel>.section-head{margin:0;padding:13px 14px}
 .attendance-filter-bar{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;margin:0;padding:12px 14px;border-top:1px solid var(--border);background:#fbfcfe}
 .attendance-filter-field{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1 1 165px;max-width:230px}
 .attendance-filter-field>span{color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
 .attendance-filter-field input,.attendance-filter-field select{min-height:36px;font-size:12px}
-.attendance-roster-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:8px;padding:12px 14px}
+.attendance-roster-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-top:1px solid var(--border)}
+.attendance-roster-column{min-width:0;padding:14px}
+.attendance-roster-column+.attendance-roster-column{border-left:1px solid var(--border)}
+.attendance-roster-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 10px;font-size:13px}
+.attendance-roster-heading span{display:grid;place-items:center;min-width:26px;height:26px;padding:0 7px;border-radius:999px;background:var(--blue-soft);color:var(--blue);font-size:11px}
+.attendance-roster-list{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
 .attendance-roster-card{display:grid;gap:3px;min-width:0;padding:10px 11px;border:1px solid var(--border);border-radius:10px;background:#fff;color:var(--ink);text-decoration:none;transition:border-color .15s ease,box-shadow .15s ease}
 .attendance-roster-card:hover{border-color:#b9cde6;box-shadow:0 2px 8px rgba(16,24,40,.07)}
 .attendance-roster-card.is-selected{border-color:var(--blue);box-shadow:0 0 0 3px rgba(30,90,168,.12)}
@@ -1379,7 +1393,8 @@ body.ticket-form-page .content-shell,body.ticket-detail-page .content-shell,body
   .attendance-form-row{grid-template-columns:minmax(0,1fr)}
   .attendance-form-row .is-wide{grid-column:auto}
   .attendance-filter-field{max-width:none;flex-basis:100%}
-  .attendance-roster-grid{grid-template-columns:minmax(0,1fr)}
+  .attendance-roster-columns{grid-template-columns:minmax(0,1fr)}
+  .attendance-roster-column+.attendance-roster-column{border-top:1px solid var(--border);border-left:0}
 }
 
 /* Leave requests */

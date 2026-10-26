@@ -38,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
     $redirectMonth = substr((string) ($_POST['month'] ?? $month), 0, 7);
 
+    try {
     if (in_array($action, ['add_event', 'save_event'], true)) {
         $eventId = (int) request_string($_POST, 'event_id');
         $title = trim((string) request_string($_POST, 'title'));
@@ -65,27 +66,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($title === '' || $eventDate === null || ($endDate !== null && $endDate < $eventDate) || !isset($eventTypes[$eventType])) {
             $error = 'Enter a valid event title, type, and date range.';
         } else {
+            if ($existingEvent && $existingEvent['event_type'] === 'leave') throw new InvalidArgumentException('Edit staff leave using its leave form.');
+            $pdo->beginTransaction();
             if ($eventId > 0) {
                 $pdo->prepare("UPDATE calendar_events SET title=?, event_date=?, end_date=?, event_type=?, staff_id=NULL, leave_type=NULL, notes=? WHERE id=? AND event_type <> 'leave'")
                     ->execute([$title, $eventDate, $endDate, $eventType, $notes !== '' ? $notes : null, $eventId]);
-                audit_admin_action((int) $user['id'], 'calendar_event_updated', 'calendar_event', $eventId, ['title' => $title, 'event_date' => $eventDate]);
+                audit_admin_action((int) $user['id'], 'calendar_event_updated', 'calendar_event', $eventId, ['before'=>$existingEvent, 'after'=>['title'=>$title,'event_date'=>$eventDate,'end_date'=>$endDate,'event_type'=>$eventType,'notes'=>$notes]]);
             } else {
                 $pdo->prepare('INSERT INTO calendar_events(title,event_date,end_date,event_type,notes,created_by) VALUES(?,?,?,?,?,?)')
                     ->execute([$title, $eventDate, $endDate, $eventType, $notes !== '' ? $notes : null, $user['id']]);
                 $eventId = (int) $pdo->lastInsertId();
-                audit_admin_action((int) $user['id'], 'calendar_event_created', 'calendar_event', $eventId, ['title' => $title, 'event_date' => $eventDate]);
+                audit_admin_action((int) $user['id'], 'calendar_event_created', 'calendar_event', $eventId, ['title'=>$title,'event_date'=>$eventDate,'end_date'=>$endDate,'event_type'=>$eventType,'notes'=>$notes]);
             }
+            $pdo->commit();
             redirect('team-calendar.php?month=' . substr((string) $eventDate, 0, 7) . '&notice=' . ($action === 'save_event' && (int) request_string($_POST, 'event_id') > 0 ? 'entry_updated' : 'entry_saved'));
         }
     } elseif ($action === 'delete_event') {
         $eventId = (int) request_string($_POST, 'event_id');
-        $check = $pdo->prepare('SELECT id FROM calendar_events WHERE id = ? AND event_type <> \'leave\'');
+        $check = $pdo->prepare('SELECT * FROM calendar_events WHERE id = ? AND event_type <> \'leave\'');
         $check->execute([$eventId]);
-        if (!$check->fetchColumn()) {
+        $beforeEvent = $check->fetch();
+        if (!$beforeEvent) {
             $error = 'That calendar entry no longer exists.';
         } else {
+            $pdo->beginTransaction();
             $pdo->prepare("DELETE FROM calendar_events WHERE id = ? AND event_type <> 'leave'")->execute([$eventId]);
-            audit_admin_action((int) $user['id'], 'calendar_event_deleted', 'calendar_event', $eventId);
+            audit_admin_action((int) $user['id'], 'calendar_event_deleted', 'calendar_event', $eventId, ['before'=>$beforeEvent]);
+            $pdo->commit();
             redirect('team-calendar.php?month=' . $redirectMonth . '&notice=entry_deleted');
         }
     } elseif (in_array($action, ['add_holiday', 'save_holiday'], true)) {
@@ -98,14 +105,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $type = $country === 'COMPANY' ? 'company' : 'public';
             try {
+                $pdo->beginTransaction();
+                $beforeHolidayQuery = $pdo->prepare('SELECT * FROM company_holidays WHERE id=? FOR UPDATE');
+                $beforeHolidayQuery->execute([$holidayId]);
+                $beforeHoliday = $beforeHolidayQuery->fetch() ?: null;
+                if ($holidayId > 0 && !$beforeHoliday) throw new InvalidArgumentException('That holiday no longer exists.');
                 if ($holidayId > 0) {
                     $pdo->prepare('UPDATE company_holidays SET `date`=?,label=?,country_code=?,holiday_type=? WHERE id=?')->execute([$date, $label, $country, $type, $holidayId]);
-                    audit_admin_action((int) $user['id'], 'company_holiday_updated', 'company_holiday', $holidayId, ['date' => $date, 'label' => $label]);
+                    audit_admin_action((int) $user['id'], 'company_holiday_updated', 'company_holiday', $holidayId, ['before'=>$beforeHoliday,'after'=>['date'=>$date,'label'=>$label,'country_code'=>$country,'holiday_type'=>$type]]);
                 } else {
                     $pdo->prepare('INSERT INTO company_holidays(`date`,label,country_code,holiday_type) VALUES(?,?,?,?) ON DUPLICATE KEY UPDATE holiday_type=VALUES(holiday_type)')->execute([$date, $label, $country, $type]);
                     audit_admin_action((int) $user['id'], 'company_holiday_saved', 'company_holiday', null, ['date' => $date, 'label' => $label, 'country_code' => $country]);
                 }
+                $pdo->commit();
             } catch (PDOException $exception) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
                 if ((string) $exception->getCode() === '23000') {
                     $error = 'A holiday with that date, country, and label already exists.';
                 } else {
@@ -118,13 +132,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     } elseif ($action === 'delete_holiday') {
         $holidayId = (int) request_string($_POST, 'holiday_id');
-        $check = $pdo->prepare('SELECT id FROM company_holidays WHERE id = ?');
+        $check = $pdo->prepare('SELECT * FROM company_holidays WHERE id = ?');
         $check->execute([$holidayId]);
-        if (!$check->fetchColumn()) {
+        $beforeHoliday = $check->fetch();
+        if (!$beforeHoliday) {
             $error = 'That holiday no longer exists.';
         } else {
+            $pdo->beginTransaction();
             $pdo->prepare('DELETE FROM company_holidays WHERE id = ?')->execute([$holidayId]);
-            audit_admin_action((int) $user['id'], 'company_holiday_deleted', 'company_holiday', $holidayId);
+            audit_admin_action((int) $user['id'], 'company_holiday_deleted', 'company_holiday', $holidayId, ['before'=>$beforeHoliday]);
+            $pdo->commit();
             redirect('team-calendar.php?month=' . $redirectMonth . '&notice=entry_deleted');
         }
     } elseif ($action === 'save_leave') {
@@ -137,9 +154,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'delete_leave') {
         $result = roster_leave_delete((int) request_string($_POST, 'leave_id'), $user);
         if ($result['ok']) {
-            redirect('team-calendar.php?month=' . $redirectMonth . '&notice=entry_deleted');
+            redirect('team-calendar.php?month=' . $redirectMonth . '&notice=' . (!empty($result['message']) ? 'request_hidden' : 'entry_deleted'));
         }
         $error = $result['error'];
+    }
+    } catch (Throwable $exception) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $error = $exception instanceof InvalidArgumentException ? $exception->getMessage() : 'The calendar change could not be saved.';
     }
 }
 
@@ -149,6 +170,7 @@ $notices = [
     'entry_saved' => 'Calendar entry saved.',
     'entry_updated' => 'Calendar entry updated.',
     'entry_deleted' => 'Calendar entry deleted.',
+    'request_hidden' => 'Leave request hidden. Its request and calendar records were retained.',
 ];
 $notice = $notices[request_string($_GET, 'notice')] ?? '';
 $highlightStaffId = (int) request_string($_GET, 'staff');
@@ -198,6 +220,14 @@ foreach ($holidayRows as $holiday) {
 
 /* Staff leave (the same rows the Team Attendance page edits) ----------------- */
 $rosterLeave = roster_leave_rows(['from' => $monthStart, 'to' => $monthEnd]);
+$linkedRequestIds = array_values(array_filter(array_column($rosterLeave, 'leave_request_id')));
+$rosterLeaveAttachments = [];
+if ($linkedRequestIds) {
+    $placeholders = implode(',', array_fill(0, count($linkedRequestIds), '?'));
+    $files = $pdo->prepare("SELECT leave_request_id,id,file_name FROM leave_request_attachments WHERE leave_request_id IN ($placeholders)");
+    $files->execute($linkedRequestIds);
+    foreach ($files->fetchAll() as $file) $rosterLeaveAttachments[(int) $file['leave_request_id']][] = ['label' => $file['file_name'], 'href' => 'download-leave-attachment.php?id=' . (int) $file['id']];
+}
 foreach ($rosterLeave as $leaveRow) {
     $leaveTypeLabel = roster_leave_type_label((string) $leaveRow['leave_type']);
     $leaveSpan = $leaveRow['event_date'] . ((string) ($leaveRow['end_date'] ?? '') !== '' && $leaveRow['end_date'] !== $leaveRow['event_date'] ? ' to ' . $leaveRow['end_date'] : '');
@@ -205,8 +235,8 @@ foreach ($rosterLeave as $leaveRow) {
         'title' => $leaveRow['full_name'] . ' - ' . $leaveTypeLabel,
         'type' => 'Staff leave',
         'date' => $leaveSpan,
-        'body' => trim(($leaveRow['department'] ? $leaveRow['department'] . ' · ' : '') . $leaveRow['team_label'] . ($leaveRow['notes'] ? ' · ' . $leaveRow['notes'] : '')),
-        'attachments' => [],
+        'body' => trim(($leaveRow['department'] ? $leaveRow['department'] . ' · ' : '') . $leaveRow['team_label'] . ($leaveRow['notes'] ? ' · ' . $leaveRow['notes'] : '') . (!empty($leaveRow['request_reason']) ? ' · ' . $leaveRow['request_reason'] : '')),
+        'attachments' => $rosterLeaveAttachments[(int) ($leaveRow['leave_request_id'] ?? 0)] ?? [],
     ]);
     foreach (roster_leave_days($leaveRow, $monthStart, $monthEnd) as $date) {
         $addItem($itemsByDate, $date, ['kind' => 'leave', 'label' => $leaveRow['full_name'] . ' · ' . $leaveTypeLabel, 'detail_id' => $detailId]);
@@ -229,9 +259,17 @@ foreach ($rosterLeave as $leaveRow) {
 }
 
 /* Approved leave requests (workflow rows raised on the Leave Requests page) -- */
-$leave = $pdo->prepare('SELECT lr.*, u.full_name AS employee FROM leave_requests lr JOIN users u ON u.id = lr.employee_user_id WHERE lr.status = "department_head_approved" AND lr.start_date <= ? AND lr.end_date >= ? ORDER BY lr.start_date, u.full_name');
+$calendarRequestMatch = app_schema_has('calendar_events', 'leave_request_id') ? 'linked.leave_request_id=lr.id' : "linked.event_type='leave' AND linked.staff_id=lr.staff_id AND linked.notes=CONCAT('Approved leave request #',lr.id) AND linked.event_date=lr.start_date AND COALESCE(linked.end_date,linked.event_date)=lr.end_date AND linked.leave_type=lr.leave_type";
+$requestDeletedFilter = app_schema_has('leave_requests', 'deleted_at', $pdo) ? ' AND lr.deleted_at IS NULL' : '';
+$leave = $pdo->prepare('SELECT lr.*, COALESCE(sd.full_name,u.full_name) AS employee FROM leave_requests lr LEFT JOIN users u ON u.id = lr.employee_user_id LEFT JOIN staff_directory sd ON sd.id=lr.staff_id WHERE lr.status IN ("approved","department_head_approved")' . $requestDeletedFilter . ' AND lr.start_date <= ? AND lr.end_date >= ? AND NOT EXISTS(SELECT 1 FROM calendar_events linked WHERE ' . $calendarRequestMatch . ') ORDER BY lr.start_date, employee');
 $leave->execute([$monthEnd, $monthStart]);
 $approvedLeave = $leave->fetchAll();
+$approvedRequestCount = count($approvedLeave) + count($linkedRequestIds);
+if (!app_schema_has('calendar_events', 'leave_request_id')) {
+    $materialized = $pdo->prepare('SELECT COUNT(*) FROM leave_requests lr WHERE lr.status="department_head_approved"' . $requestDeletedFilter . ' AND lr.start_date<=? AND lr.end_date>=? AND EXISTS(SELECT 1 FROM calendar_events linked WHERE ' . $calendarRequestMatch . ')');
+    $materialized->execute([$monthEnd, $monthStart]);
+    $approvedRequestCount += (int) $materialized->fetchColumn();
+}
 $leaveAttachments = [];
 if ($approvedLeave) {
     $ids = array_map('intval', array_column($approvedLeave, 'id'));
@@ -342,6 +380,7 @@ page_start('Team Calendar', $user);
 <div class="team-calendar-screen">
     <?php if ($notice): ?><p class="action-notice" role="status"><?= e($notice) ?></p><?php endif; ?>
     <?php if ($error): ?><p class="auth-error" role="alert"><?= e($error) ?></p><?php endif; ?>
+    <?php if ($canManageCalendar): ?><div class="team-calendar-main-grid"><?php endif; ?>
     <section class="team-calendar-panel" aria-label="<?= e(date('F Y', strtotime($monthStart))) ?> calendar">
         <div class="team-calendar-toolbar">
             <nav class="calendar-month-nav" aria-label="Calendar month navigation">
@@ -353,8 +392,9 @@ page_start('Team Calendar', $user);
             <div class="calendar-summary-inline" aria-label="Month summary"><span><i class="calendar-legend-dot is-holiday"></i>Holidays <b><?= count($holidayRows) ?></b></span><span><i class="calendar-legend-dot is-leave"></i>Leave <b><?= count($rosterLeave) + count($approvedLeave) ?></b></span><span><i class="calendar-legend-dot is-event"></i>Events <b><?= count($eventRows) ?></b></span><span><i class="calendar-legend-dot is-attendance"></i>Attendance <b><?= count($attendanceRows) ?></b></span></div>
         </div>
         <div class="calendar-weekdays"><?php foreach (['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $weekday): ?><span><?= e($weekday) ?></span><?php endforeach; ?></div>
-        <div class="calendar-month-grid"><?php for ($day = $calendarStart; $day <= $calendarEnd; $day = strtotime('+1 day', $day)): $date = date('Y-m-d', $day); $outside = substr($date, 0, 7) !== $month; $items = $itemsByDate[$date] ?? []; ?><div class="calendar-day<?= $outside ? ' is-outside' : '' ?><?= $date === date('Y-m-d') ? ' is-today' : '' ?>" data-date="<?= e($date) ?>"><?php if ($canManageCalendar): ?><button type="button" class="calendar-date-button" data-date="<?= e($date) ?>" aria-label="Add or edit items on <?= e(date('F j, Y', $day)) ?>"><span class="calendar-date"><?= e(date('j', $day)) ?></span></button><?php else: ?><a class="calendar-date-button" href="leave-requests.php?start_date=<?= e($date) ?>&amp;end_date=<?= e($date) ?>" aria-label="Request leave on <?= e(date('F j, Y', $day)) ?>"><span class="calendar-date"><?= e(date('j', $day)) ?></span></a><?php endif; ?><?php foreach (array_slice($items, 0, 3) as $item): ?><button type="button" class="calendar-chip calendar-chip-<?= e($item['kind']) ?>" data-detail-id="<?= e($item['detail_id']) ?>"><?= e($item['label']) ?></button><?php endforeach; ?><?php if (count($items) > 3): ?><span class="calendar-more">+<?= count($items) - 3 ?> more</span><?php endif; ?></div><?php endfor; ?></div>
+        <div class="calendar-month-grid"><?php for ($day = $calendarStart; $day <= $calendarEnd; $day = strtotime('+1 day', $day)): $date = date('Y-m-d', $day); $outside = substr($date, 0, 7) !== $month; $items = $itemsByDate[$date] ?? []; ?><div class="calendar-day<?= $outside ? ' is-outside' : '' ?><?= $date === date('Y-m-d') ? ' is-today' : '' ?>" data-date="<?= e($date) ?>"><?php if ($canManageCalendar): ?><button type="button" class="calendar-date-button" data-date="<?= e($date) ?>" aria-label="Add or edit items on <?= e(date('F j, Y', $day)) ?>"><span class="calendar-date"><?= e(date('j', $day)) ?></span></button><?php elseif (($user['role_slug'] ?? '') === 'team-member'): ?><a class="calendar-date-button" href="leave-requests.php?start_date=<?= e($date) ?>&amp;end_date=<?= e($date) ?>" aria-label="Request leave on <?= e(date('F j, Y', $day)) ?>"><span class="calendar-date"><?= e(date('j', $day)) ?></span></a><?php else: ?><span class="calendar-date-button"><span class="calendar-date"><?= e(date('j', $day)) ?></span></span><?php endif; ?><?php foreach (array_slice($items, 0, 3) as $item): ?><button type="button" class="calendar-chip calendar-chip-<?= e($item['kind']) ?>" data-detail-id="<?= e($item['detail_id']) ?>"><?= e($item['label']) ?></button><?php endforeach; ?><?php if (count($items) > 3): ?><span class="calendar-more">+<?= count($items) - 3 ?> more</span><?php endif; ?></div><?php endfor; ?></div>
     </section>
+    <?php if ($canManageCalendar): ?><aside class="calendar-month-summary" aria-labelledby="calendar-summary-title"><div class="calendar-form-head"><div><h2 id="calendar-summary-title">Month summary</h2><p>Includes staff leave, approved leave requests, and attendance.</p></div></div><div class="calendar-summary-list"><div><span><i class="calendar-legend-dot is-holiday"></i>Holidays</span><strong><?= count($holidayRows) ?></strong></div><div><span><i class="calendar-legend-dot is-leave"></i>Staff leave</span><strong><?= count($rosterLeave) ?></strong></div><div><span><i class="calendar-legend-dot is-leave"></i>Approved requests</span><strong><?= $approvedRequestCount ?></strong></div><div><span><i class="calendar-legend-dot is-event"></i>Team events</span><strong><?= count($eventRows) ?></strong></div><div><span><i class="calendar-legend-dot is-attendance"></i>Attendance</span><strong><?= count($attendanceRows) ?></strong></div></div></aside></div><?php endif; ?>
     <div class="calendar-popover" id="calendar-popover" role="dialog" aria-labelledby="calendar-detail-title" aria-live="polite" hidden><div class="calendar-popover-head"><div><p class="eyebrow" id="calendar-detail-type">Details</p><h2 id="calendar-detail-title">Calendar item</h2><p class="muted" id="calendar-detail-date"></p></div><button type="button" class="calendar-popover-close" id="calendar-detail-close" aria-label="Close details"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><p id="calendar-detail-body"></p><div id="calendar-detail-files" class="attachment-list"></div></div>
 
     <?php if ($canManageCalendar): ?>
@@ -456,7 +496,6 @@ page_start('Team Calendar', $user);
     </div>
     <?php endif; ?>
 
-    <?php if ($canManageCalendar): ?><aside class="calendar-month-summary" aria-labelledby="calendar-summary-title"><div class="calendar-form-head"><div><h2 id="calendar-summary-title">Month summary</h2><p>Includes staff leave, approved leave requests, and attendance.</p></div></div><div class="calendar-summary-list"><div><span><i class="calendar-legend-dot is-holiday"></i>Holidays</span><strong><?= count($holidayRows) ?></strong></div><div><span><i class="calendar-legend-dot is-leave"></i>Staff leave</span><strong><?= count($rosterLeave) ?></strong></div><div><span><i class="calendar-legend-dot is-leave"></i>Approved requests</span><strong><?= count($approvedLeave) ?></strong></div><div><span><i class="calendar-legend-dot is-event"></i>Team events</span><strong><?= count($eventRows) ?></strong></div><div><span><i class="calendar-legend-dot is-attendance"></i>Attendance</span><strong><?= count($attendanceRows) ?></strong></div></div><p class="muted calendar-modal-hint"><a href="team-attendance.php<?= $highlightStaffId > 0 ? '?staff=' . $highlightStaffId : '' ?>">Edit shifts and leave on Team Attendance</a></p></aside><?php endif; ?>
 </div>
 <script>
 var calendarDetails = <?= json_encode($details, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;

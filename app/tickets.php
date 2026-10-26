@@ -1,12 +1,14 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../ticket_visibility.php';
+require_once __DIR__ . '/schema.php';
 
 const TICKET_CATEGORIES = [
     'Performance' => ['Capacity', 'Technical'], 'Resignation' => [],
     'Personal Requests' => ['Leave Request','Work-from-Home (WFH) Request','Incentives Request','Salary Request','General Request'],
     'Attendance' => ['Tardiness','AWOL','Daily Attendance'], 'Behavioural Issues' => ['Workplace Etiquette','Dress Code'],
 ];
+const TICKET_ASSIGNABLE_ROLE_SLUGS = ['team-leader', 'cng-admin', 'super-admin', 'management'];
 const TICKET_PRIORITIES = ['low' => 'Low', 'normal' => 'Normal', 'high' => 'High', 'urgent' => 'Urgent'];
 /** Legacy preset windows, kept so old links (and index.php drill-downs) still resolve. */
 const TICKET_WINDOW_PRESETS = [
@@ -32,12 +34,115 @@ function ticket_requestor_name(array $ticket): string {
 }
 
 function activity(int $ticketId, ?int $actorId, string $action, array $details = []): void {
+    $pdo = db();
+    $ownsTransaction = !$pdo->inTransaction();
+    if ($ownsTransaction) $pdo->beginTransaction();
+    try {
     $json = json_encode($details, JSON_THROW_ON_ERROR);
     db()->prepare('INSERT INTO ticket_activity(ticket_id,actor_id,action,details) VALUES(?,?,?,?)')->execute([$ticketId,$actorId,$action,$json]);
-    db()->prepare('INSERT INTO ticket_activity_log(ticket_id,action,changed_fields,old_values,new_values,changed_by) VALUES(?,?,?,?,?,?)')->execute([$ticketId,$action,$json,null,$json,$actorId === null ? 'system' : (string) $actorId]);
+    $before = $details['before'] ?? null;
+    $after = $details['after'] ?? $details;
+    $changed = array_keys($after);
+    if (is_array($before)) $changed = array_values(array_filter($changed, static fn(string $field): bool => ($before[$field] ?? null) !== ($after[$field] ?? null)));
+    db()->prepare('INSERT INTO ticket_activity_log(ticket_id,action,changed_fields,old_values,new_values,changed_by) VALUES(?,?,?,?,?,?)')->execute([$ticketId,$action,json_encode($changed, JSON_THROW_ON_ERROR),$before === null ? null : json_encode($before, JSON_THROW_ON_ERROR),json_encode($after, JSON_THROW_ON_ERROR),$actorId === null ? 'system' : (string) $actorId]);
+    if ($ownsTransaction) $pdo->commit();
+    } catch (Throwable $exception) {
+        if ($ownsTransaction && $pdo->inTransaction()) $pdo->rollBack();
+        throw $exception;
+    }
 }
-function active_users(): array { return db()->query('SELECT u.id,u.full_name,u.department_id,r.slug AS role_slug FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 ORDER BY u.full_name')->fetchAll(); }
-function active_departments(): array { return db()->query('SELECT id,name,code FROM departments ORDER BY name')->fetchAll(); }
+/** Role-limit new choices, but keep current active assignees available while editing. */
+function active_ticket_assignees(array $preserveUserIds = []): array {
+    $usersById = [];
+    $preserveUserIds = array_values(array_unique(array_filter(array_map('intval', $preserveUserIds), static fn(int $id): bool => $id > 0)));
+    if ($preserveUserIds) {
+        $placeholders = implode(',', array_fill(0, count($preserveUserIds), '?'));
+        $query = db()->prepare("SELECT u.id,u.full_name,u.username,u.department_id,r.slug AS role_slug FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND u.id IN ($placeholders) ORDER BY u.full_name,u.id");
+        $query->execute($preserveUserIds);
+        foreach ($query->fetchAll() as $member) {
+            $member['is_assignable'] = in_array($member['role_slug'], TICKET_ASSIGNABLE_ROLE_SLUGS, true);
+            $usersById[(int) $member['id']] = $member;
+        }
+    }
+    $rolePlaceholders = implode(',', array_fill(0, count(TICKET_ASSIGNABLE_ROLE_SLUGS), '?'));
+    $eligibleQuery = db()->prepare("SELECT u.id,u.full_name,u.username,u.department_id,r.slug AS role_slug FROM users u JOIN roles r ON r.id=u.role_id WHERE u.is_active=1 AND r.slug IN ($rolePlaceholders) ORDER BY u.full_name,u.username,u.id");
+    $eligibleQuery->execute(TICKET_ASSIGNABLE_ROLE_SLUGS);
+    $eligible = $eligibleQuery->fetchAll();
+    foreach ($eligible as $member) {
+        $member['is_assignable'] = true;
+        $usersById[(int) $member['id']] ??= $member;
+    }
+
+    $users = array_values($usersById);
+    $nameCounts = [];
+    foreach ($users as $member) {
+        $name = strtolower(trim((string) $member['full_name']));
+        $nameCounts[$name] = ($nameCounts[$name] ?? 0) + 1;
+    }
+    foreach ($users as &$member) {
+        $name = trim((string) $member['full_name']);
+        $nameKey = strtolower($name);
+        $label = $name;
+        if (($nameCounts[$nameKey] ?? 0) > 1) {
+            $label .= ' (' . (trim((string) $member['username']) ?: 'account #' . (int) $member['id']) . ')';
+        }
+        if (!$member['is_assignable']) $label .= ' · current assignment';
+        $member['display_label'] = $label;
+    }
+    unset($member);
+    usort($users, static fn(array $left, array $right): int => strnatcasecmp($left['full_name'], $right['full_name']) ?: strnatcasecmp($left['username'], $right['username']) ?: ((int) $left['id'] <=> (int) $right['id']));
+    return $users;
+}
+function active_departments(): array {
+    $where = app_schema_has('departments', 'department_type') ? " WHERE department_type = 'cng_staff'" : '';
+    return db()->query('SELECT id,name,code FROM departments' . $where . ' ORDER BY name')->fetchAll();
+}
+function active_internal_departments(): array {
+    $typed = app_schema_has('departments', 'department_type');
+    return db()->query("SELECT id,name,code," . ($typed ? 'department_type' : "'internal' AS department_type") . ' FROM departments' . ($typed ? " WHERE department_type = 'internal'" : '') . " ORDER BY FIELD(code,'internal-it','internal-finance','internal-hr','internal-learning-development','internal-rm'),name")->fetchAll();
+}
+function ticket_internal_department_sql(string $alias = 'departments'): string {
+    if (!preg_match('/\A[a-z_]+\z/', $alias)) throw new InvalidArgumentException('Invalid department alias.');
+    return app_schema_has('departments', 'department_type') ? $alias . ".department_type = 'internal'" : '1 = 1';
+}
+function ticket_category_options(array $externalTickets = []): array {
+    $categories = db()->query("SELECT DISTINCT TRIM(category) FROM tickets WHERE deleted_at IS NULL AND TRIM(category) <> '' ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($externalTickets as $ticket) {
+        $category = trim((string) ($ticket['category'] ?? ''));
+        if ($category !== '' && strcasecmp($category, 'N/A') !== 0) $categories[] = $category;
+    }
+    $unique = [];
+    foreach ($categories as $category) {
+        $category = trim((string) $category);
+        if ($category !== '') $unique[strtolower($category)] ??= $category;
+    }
+    $options = array_values($unique);
+    natcasesort($options);
+    return array_values($options);
+}
+function ticket_department_filter_options(array $departments): array {
+    $keysByCode = [
+        'internal-it' => 'it',
+        'internal-finance' => 'finance',
+        'internal-hr' => 'hr',
+        'internal-learning-development' => 'learning-development',
+        'internal-rm' => 'rm',
+        'rm' => 'rm',
+    ];
+    $options = [
+        'it' => ['name' => 'IT Department', 'department_id' => null],
+        'finance' => ['name' => 'Finance Department', 'department_id' => null],
+        'hr' => ['name' => 'HR Department', 'department_id' => null],
+        'learning-development' => ['name' => 'L&D', 'department_id' => null],
+        'rm' => ['name' => 'R&M', 'department_id' => null],
+    ];
+    foreach ($departments as $department) {
+        $key = $keysByCode[$department['code'] ?? ''] ?? null;
+        if ($key === null || ($department['department_type'] ?? 'internal') !== 'internal') continue;
+        $options[$key] = ['name' => ($department['code'] ?? '') === 'rm' ? 'R&M' : (string) $department['name'], 'department_id' => (int) $department['id']];
+    }
+    return $options;
+}
 /**
  * Distinct requestor names the current user is allowed to see: the ticket creator for native
  * tickets (what the list shows in the Requestor column) plus the requester of each federated
@@ -68,7 +173,7 @@ function category_department_ids(string $category, array $departments): array {
 }
 function category_assignee_ids(string $category, array $departments, array $users): array {
     $departmentIds = category_department_ids($category, $departments);
-    return array_values(array_map('intval', array_column(array_filter($users, static fn(array $member): bool => empty($member['department_id']) || ($member['role_slug'] ?? '') === 'team-leader' || in_array((int) $member['department_id'], $departmentIds, true)), 'id')));
+    return array_values(array_map('intval', array_column(array_filter($users, static fn(array $member): bool => !empty($member['is_assignable']) && (empty($member['department_id']) || ($member['role_slug'] ?? '') === 'team-leader' || in_array((int) $member['department_id'], $departmentIds, true))), 'id')));
 }
 function posted_text(string $key): string { return trim((string) ($_POST[$key] ?? '')); }
 function posted_ids(string $key): array {
@@ -88,7 +193,7 @@ function sync_ticket_assignees(int $ticketId, array $userIds): void {
     foreach ($userIds as $userId) $insert->execute([$ticketId, $userId]);
 }
 function sync_ticket_departments(int $ticketId, array $departmentIds): void {
-    db()->prepare('DELETE FROM ticket_departments WHERE ticket_id = ?')->execute([$ticketId]);
+    db()->prepare('DELETE FROM ticket_departments WHERE ticket_id = ? AND department_id IN (SELECT id FROM departments WHERE ' . ticket_internal_department_sql() . ')')->execute([$ticketId]);
     $insert = db()->prepare('INSERT INTO ticket_departments(ticket_id,department_id) VALUES(?,?)');
     foreach ($departmentIds as $departmentId) $insert->execute([$ticketId, $departmentId]);
 }
@@ -127,10 +232,15 @@ function ticket_window_label(string $from, string $to): string {
     if ($to !== '') return 'Until ' . date('M j, Y', strtotime($to));
     return 'All tickets';
 }
+/** Convert a local calendar date boundary into the UTC timestamp format stored in ticket tables and source mirrors. */
+function ticket_window_utc_boundary(string $date, bool $nextDay = false): string {
+    $boundary = new DateTimeImmutable($date . ' 00:00:00', new DateTimeZone(APP_DISPLAY_TIMEZONE));
+    if ($nextDay) $boundary = $boundary->modify('+1 day');
+    return $boundary->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+}
 /**
- * Resolve the created-date window shared by the dashboard KPIs and the ticket list, from either an
- * explicit calendar selection (start/end, inclusive) or one of the legacy presets. When both a
- * calendar selection and a preset exist the calendar wins, so the two pages can never disagree.
+ * Resolve the created-date window shared by the dashboard KPIs and the ticket list. Calendar dates
+ * are local to the app's display timezone; the resulting half-open timestamp bounds are UTC.
  *
  * @return array{start:string,end:?string,from:string,to:string,preset:string,label:string}
  */
@@ -138,12 +248,13 @@ function ticket_window_bounds(string $from, string $to, string $preset = 'all'):
     $from = ticket_valid_date($from);
     $to = ticket_valid_date($to);
     if ($from !== '' && $to !== '' && $from > $to) { $swap = $from; $from = $to; $to = $swap; }
+    $timezone = new DateTimeZone(APP_DISPLAY_TIMEZONE);
     if ($from === '' && $to === '') {
         $preset = isset(TICKET_WINDOW_PRESETS[$preset]) ? $preset : 'all';
         $modifier = TICKET_WINDOW_PRESETS[$preset]['modifier'];
-        if ($modifier !== null) $from = date('Y-m-d', strtotime($modifier));
+        if ($modifier !== null) $from = (new DateTimeImmutable('today', $timezone))->modify($modifier)->format('Y-m-d');
         return [
-            'start' => $from !== '' ? $from . ' 00:00:00' : TICKET_WINDOW_OPEN_START,
+            'start' => $from !== '' ? ticket_window_utc_boundary($from) : TICKET_WINDOW_OPEN_START,
             'end' => null,
             'from' => $from,
             'to' => '',
@@ -152,8 +263,8 @@ function ticket_window_bounds(string $from, string $to, string $preset = 'all'):
         ];
     }
     return [
-        'start' => $from !== '' ? $from . ' 00:00:00' : TICKET_WINDOW_OPEN_START,
-        'end' => $to !== '' ? $to : null,
+        'start' => $from !== '' ? ticket_window_utc_boundary($from) : TICKET_WINDOW_OPEN_START,
+        'end' => $to !== '' ? ticket_window_utc_boundary($to, true) : null,
         'from' => $from,
         'to' => $to,
         'preset' => '',
@@ -161,17 +272,17 @@ function ticket_window_bounds(string $from, string $to, string $preset = 'all'):
     ];
 }
 /** SQL fragments for a resolved window. `$params` is filled in place with bound values. */
-function ticket_window_sql(array $window, array &$params, string $column = 't.created_at'): array {
+function ticket_window_sql(array $window, array &$params, string $column = 't.created_at', string $parameterPrefix = 'window'): array {
     $clauses = [];
-    if ($window['start'] !== TICKET_WINDOW_OPEN_START) { $clauses[] = $column . ' >= :window_start'; $params['window_start'] = $window['start']; }
-    if ($window['end'] !== null) { $clauses[] = $column . ' < DATE_ADD(:window_end, INTERVAL 1 DAY)'; $params['window_end'] = $window['end']; }
+    if ($window['start'] !== TICKET_WINDOW_OPEN_START) { $parameter = $parameterPrefix . '_start'; $clauses[] = $column . ' >= :' . $parameter; $params[$parameter] = $window['start']; }
+    if ($window['end'] !== null) { $parameter = $parameterPrefix . '_end'; $clauses[] = $column . ' < :' . $parameter; $params[$parameter] = $window['end']; }
     return $clauses;
 }
 /** Same window applied in PHP, for federated external tickets that never reach SQL. */
 function ticket_window_matches(?string $createdAt, array $window): bool {
     if ($createdAt === null || $createdAt === '') return $window['start'] === TICKET_WINDOW_OPEN_START && $window['end'] === null;
     if ($window['start'] !== TICKET_WINDOW_OPEN_START && $createdAt < $window['start']) return false;
-    if ($window['end'] !== null && $createdAt >= date('Y-m-d 00:00:00', strtotime($window['end'] . ' +1 day'))) return false;
+    if ($window['end'] !== null && $createdAt >= $window['end']) return false;
     return true;
 }
 function ticket_age_days(array $ticket, string $field): int {

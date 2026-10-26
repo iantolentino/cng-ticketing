@@ -31,10 +31,11 @@ try {
 $checks[] = ['SMTP', empty($config['smtp']['host']) || empty($config['smtp']['from_email']) ? 'Not configured' : 'Configured'];
 $checks[] = ['PHP file uploads', extension_loaded('fileinfo') ? 'Ready' : 'Missing fileinfo extension'];
 $checks[] = ['Excel export', extension_loaded('zip') ? 'Ready' : 'Unavailable: zip extension missing'];
-foreach (['storage/private/ticket-attachments', 'storage/private/leave-attachments', '.local/sessions'] as $path) {
+foreach (['storage/private/ticket-attachments', 'storage/private/leave-attachments'] as $path) {
     $checks[] = [$path, is_dir(ROOT_PATH . '/' . $path) && is_writable(ROOT_PATH . '/' . $path) ? 'Writable' : 'Missing or not writable'];
 }
 $checks[] = ['Private storage web protection', is_file(ROOT_PATH . '/storage/private/.htaccess') ? 'Configured' : 'Missing .htaccess'];
+$checks[] = ['Private session storage', is_dir($sessionPath) && is_writable($sessionPath) ? 'Writable' : 'Missing or not writable'];
 
 $logs = [];
 try {

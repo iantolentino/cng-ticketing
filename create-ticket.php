@@ -10,15 +10,18 @@ require __DIR__ . '/app/layout.php';
 $user = require_permission('create_tickets');
 $error = '';
 $values = [];
-$departments = active_departments();
-$departmentIds = array_map('intval', array_column($departments, 'id'));
-$users = active_users();
+$selectedDepartments = [];
+$staffDepartments = active_departments();
+$internalDepartments = active_internal_departments();
+$departmentIds = array_map('intval', array_column($staffDepartments, 'id'));
+$internalDepartmentIds = array_map('intval', array_column($internalDepartments, 'id'));
+$users = active_ticket_assignees();
 $userIds = array_map('intval', array_column($users, 'id'));
 $categoryDepartmentMap = [];
 $categoryAssigneeMap = [];
 foreach (array_keys(TICKET_CATEGORIES) as $category) {
-    $categoryDepartmentMap[$category] = category_department_ids($category, $departments);
-    $categoryAssigneeMap[$category] = category_assignee_ids($category, $departments, $users);
+    $categoryDepartmentMap[$category] = category_department_ids($category, $staffDepartments);
+    $categoryAssigneeMap[$category] = category_assignee_ids($category, $staffDepartments, $users);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -37,10 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $subcategories = TICKET_CATEGORIES[$values['category'] ?? ''] ?? null;
     $departmentId = (int) ($values['department_id'] ?? 0);
     $departmentSelection = posted_ids('department_ids');
-    if ($departmentId > 0 && !in_array($departmentId, $departmentSelection, true)) $departmentSelection[] = $departmentId;
+    $selectedDepartments = $departmentSelection;
     $assigneeIds = user_can('assign_tickets') ? posted_ids('assignee_ids') : [];
-    $categoryDepartmentIds = category_department_ids($values['category'], $departments);
-    $categoryAssigneeIds = category_assignee_ids($values['category'], $departments, $users);
+    $categoryDepartmentIds = category_department_ids($values['category'], $staffDepartments);
+    $categoryAssigneeIds = category_assignee_ids($values['category'], $staffDepartments, $users);
 
     if (
         empty($values['issue_escalator']) ||
@@ -49,9 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $subcategories === null ||
         !array_key_exists($values['priority'], TICKET_PRIORITIES) ||
         !in_array($departmentId, $departmentIds, true) ||
-        !valid_ids($departmentSelection, $departmentIds) ||
+        !valid_ids($departmentSelection, $internalDepartmentIds) ||
         !in_array($departmentId, $categoryDepartmentIds, true) ||
-        !valid_ids($departmentSelection, $categoryDepartmentIds) ||
         !valid_ids($assigneeIds, $userIds) ||
         !valid_ids($assigneeIds, $categoryAssigneeIds) ||
         empty($values['employee_name']) ||
@@ -119,33 +121,32 @@ page_start('Create ticket', $user);
 <?php if ($error): ?><p class="auth-error"><?= e($error) ?></p><?php endif; ?>
 <form method="post" enctype="multipart/form-data" class="ticket-form record-form-panel">
     <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-    <div class="record-form-head"><div><h2>Ticket details</h2><p>Record the issue, routing, and responsible team.</p></div><span>Required fields</span></div><div class="record-form-grid">
+    <div class="record-form-head"><div><h2>Ticket details</h2><p>Record the issue, routing, and responsible team.</p></div></div><div class="record-form-grid">
     <label>Issue Escalator<input value="<?= e($user['full_name']) ?>" readonly aria-describedby="issue-escalator-help"><small id="issue-escalator-help" class="field-help">Automatically recorded from the signed-in account.</small></label>
     <label>Subject<input name="subject" value="<?= e($values['subject'] ?? '') ?>" required></label>
     <label>Issue<textarea name="issue" required rows="4"><?= e($values['issue'] ?? '') ?></textarea></label>
     <label>Priority<select name="priority" required data-ui-select><?php foreach (TICKET_PRIORITIES as $value => $label): ?><option value="<?= e($value) ?>"<?= ($values['priority'] ?? 'normal') === $value ? ' selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
     <label>Category<select name="category" id="category" required data-ui-select><option value="">Select category</option><?php foreach (TICKET_CATEGORIES as $category => $subcategories): ?><option<?= ($values['category'] ?? '') === $category ? ' selected' : '' ?>><?= e($category) ?></option><?php endforeach; ?></select></label>
     <?php $formSubcategories = TICKET_CATEGORIES[$values['category'] ?? ''] ?? []; ?><label>Subcategory<select name="subcategory" id="subcategory" data-ui-select><option value=""><?= $formSubcategories ? 'Select subcategory' : (($values['category'] ?? '') ? 'No subcategory' : 'Select category first') ?></option><?php foreach ($formSubcategories as $subcategoryOption): ?><option value="<?= e($subcategoryOption) ?>"<?= ($values['subcategory'] ?? '') === $subcategoryOption ? ' selected' : '' ?>><?= e($subcategoryOption) ?></option><?php endforeach; ?></select></label>
-    <label>Current department<select name="department_id" id="department-id" required data-ui-select><option value="">Select category first</option><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= (string) ($values['department_id'] ?? '') === (string) $department['id'] ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select></label>
-    <label>Departments involved<select name="department_ids[]" id="department-ids" multiple size="5"><?php foreach ($departments as $department): ?><option value="<?= (int) $department['id'] ?>"><?= e($department['name']) ?></option><?php endforeach; ?></select><small class="field-help">Options are selected from the category’s department group.</small></label>
+    <label>Role<select name="department_id" id="department-id" required data-ui-select><option value="">Select category first</option><?php foreach ($staffDepartments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= (string) ($values['department_id'] ?? '') === (string) $department['id'] ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select></label>
+    <label>Departments involved<select name="department_ids[]" id="department-ids" multiple size="5"><?php foreach ($internalDepartments as $department): ?><option value="<?= (int) $department['id'] ?>"<?= in_array((int) $department['id'], $selectedDepartments, true) ? ' selected' : '' ?>><?= e($department['name']) ?></option><?php endforeach; ?></select><small class="field-help">Choose the internal departments involved in routing this ticket.</small></label>
     <label>Employee<input name="employee_name" value="<?= e($values['employee_name'] ?? '') ?>" required></label>
-    <?php if (user_can('assign_tickets')): ?><label>Assignees<select name="assignee_ids[]" id="assignee-ids" multiple size="6"><?php foreach ($users as $member): ?><option value="<?= (int) $member['id'] ?>" data-department-id="<?= (int) ($member['department_id'] ?? 0) ?>" data-role="<?= e($member['role_slug'] ?? '') ?>"><?= e($member['full_name']) ?></option><?php endforeach; ?></select><small class="field-help">Assignees are filtered to the selected category’s department group.</small></label><?php endif; ?>
+    <?php if (user_can('assign_tickets')): ?><label>Assignees<select name="assignee_ids[]" id="assignee-ids" multiple size="6"><?php foreach ($users as $member): ?><option value="<?= (int) $member['id'] ?>" data-department-id="<?= (int) ($member['department_id'] ?? 0) ?>" data-role="<?= e($member['role_slug'] ?? '') ?>"><?= e($member['display_label']) ?></option><?php endforeach; ?></select><small class="field-help">Team Leaders, CNG Admin, Super Admin, and Management accounts are available.</small></label><?php endif; ?>
     <label>Description<textarea name="description" required rows="6"><?= e($values['description'] ?? '') ?></textarea></label>
-    <?php if (user_can('upload_attachments')): ?><label>Attachment (optional)<input type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" aria-describedby="attachment-help"><small id="attachment-help" class="field-help">PDF, JPG, or PNG, up to 10 MB (server limits may be lower). Only roles with attachment access can download it. If the form has an error, choose the file again.</small></label><?php endif; ?>
+    <?php if (user_can('upload_attachments')): ?><label>Attachment (optional)<input type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"></label><?php endif; ?>
     </div><div class="record-form-actions"><a class="button button-secondary" href="index.php">Cancel</a><button class="button">Create ticket</button></div>
 </form></div>
 <script>
 const map = <?= json_encode(TICKET_CATEGORIES) ?>;
 const categoryDepartmentMap = <?= json_encode($categoryDepartmentMap) ?>;
 const categoryAssigneeMap = <?= json_encode($categoryAssigneeMap) ?>;
-const category = document.querySelector('#category'), subcategory = document.querySelector('#subcategory'), department = document.querySelector('#department-id'), departments = document.querySelector('#department-ids'), assignees = document.querySelector('#assignee-ids');
+const category = document.querySelector('#category'), subcategory = document.querySelector('#subcategory'), department = document.querySelector('#department-id'), assignees = document.querySelector('#assignee-ids');
 function applyCategoryDefaults() {
   const allowedDepartments = (categoryDepartmentMap[category.value] || []).map(String);
   const allowedAssignees = (categoryAssigneeMap[category.value] || []).map(String);
   Array.from(department.options).forEach(option => { if (!option.value) return; option.hidden = allowedDepartments.length > 0 && !allowedDepartments.includes(option.value); });
   if (allowedDepartments.length > 0 && !allowedDepartments.includes(department.value)) department.value = allowedDepartments[0];
   department.dispatchEvent(new Event('change', { bubbles: true }));
-  Array.from(departments.options).forEach(option => { const allowed = allowedDepartments.length === 0 || allowedDepartments.includes(option.value); option.hidden = !allowed; option.selected = allowed; });
   if (assignees) Array.from(assignees.options).forEach(option => { const allowed = allowedAssignees.length === 0 || allowedAssignees.includes(option.value); option.hidden = !allowed; option.selected = allowed ? option.selected : false; });
 }
 category.onchange = () => {

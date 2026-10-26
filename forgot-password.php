@@ -10,15 +10,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $q->execute([$email]);
         $user = $q->fetch();
         if ($user) {
-            $token = bin2hex(random_bytes(32));
-            $pdo = db();
-            $pdo->prepare('DELETE FROM password_reset_tokens WHERE user_id = ? OR expires_at < NOW()')->execute([(int) $user['id']]);
-            $pdo->prepare('INSERT INTO password_reset_tokens(user_id, token_hash, expires_at) VALUES(?,?,DATE_ADD(NOW(), INTERVAL 1 HOUR))')->execute([(int) $user['id'], hash('sha256', $token)]);
-            $baseUrl = trim((string) ($config['app']['base_url'] ?? ''));
-            if ($baseUrl === '') {
-                $baseUrl = rtrim((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\'), '/');
+            $baseUrl = rtrim(trim((string) ($config['app']['base_url'] ?? '')), '/');
+            // Older live configs leave this blank. Use this site's trusted origin,
+            // never the request Host header, to keep the code-only upgrade compatible.
+            if ($baseUrl === '') $baseUrl = 'https://cng-tickets.stratastaff.com';
+            $parts = parse_url($baseUrl);
+            $validBaseUrl = is_array($parts)
+                && in_array(strtolower((string) ($parts['scheme'] ?? '')), ['http', 'https'], true)
+                && !empty($parts['host'])
+                && !isset($parts['user']) && !isset($parts['pass'])
+                && !isset($parts['query']) && !isset($parts['fragment'])
+                && preg_match('/\A[A-Za-z0-9.-]+(?::[0-9]{1,5})?\z/', (string) $parts['host']) === 1;
+            if ($validBaseUrl) {
+                $token = bin2hex(random_bytes(32));
+                $pdo = db();
+                $pdo->prepare('DELETE FROM password_reset_tokens WHERE user_id = ? OR expires_at < NOW()')->execute([(int) $user['id']]);
+                $pdo->prepare('INSERT INTO password_reset_tokens(user_id, token_hash, expires_at) VALUES(?,?,DATE_ADD(NOW(), INTERVAL 1 HOUR))')->execute([(int) $user['id'], hash('sha256', $token)]);
+                send_mail_to_addresses([$user['email']], 'Password reset request', "Hello {$user['full_name']},\n\nUse this link within 1 hour to reset your password:\n{$baseUrl}/reset-password.php?token={$token}\n\nIf you did not request this, you can ignore this email.");
+            } else {
+                error_log('CNG password reset email not sent: app.base_url must contain the application URL.');
             }
-            send_mail_to_addresses([$user['email']], 'Password reset request', "Hello {$user['full_name']},\n\nUse this link within 1 hour to reset your password:\n{$baseUrl}/reset-password.php?token={$token}\n\nIf you did not request this, you can ignore this email.");
         }
     }
     $message = 'If an active account uses that email address, a password reset link has been sent.';

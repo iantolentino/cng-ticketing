@@ -3,9 +3,24 @@ require __DIR__ . '/app/bootstrap.php';
 $user = require_login(); $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf(); $password = request_string($_POST, 'password'); $confirmation = request_string($_POST, 'password_confirmation');
-    if (strlen($password) < 12 || strlen($password) > 1024) $error = 'Use a password between 12 and 1024 characters.';
+    if (!password_meets_policy($password)) $error = 'Use a password between 12 and 72 bytes.';
     elseif ($password !== $confirmation) $error = 'The passwords do not match.';
-    else { db()->prepare('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?')->execute([password_hash($password, PASSWORD_DEFAULT), $user['id']]); refresh_current_user(); redirect(default_landing_page()); }
+    else {
+        $pdo = db();
+        $newPasswordHash = password_hash($password, PASSWORD_DEFAULT);
+        try {
+            $pdo->beginTransaction();
+            $pdo->prepare('UPDATE users SET password_hash=?,must_change_password=0 WHERE id=?')->execute([$newPasswordHash, $user['id']]);
+            audit_admin_action((int)$user['id'], 'password_changed', 'user', (int)$user['id']);
+            $pdo->commit();
+            session_regenerate_id(true);
+            $_SESSION['auth_password_hash'] = $newPasswordHash;
+            refresh_current_user(); redirect(default_landing_page());
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            $error = 'The password could not be saved.';
+        }
+    }
 }
 require __DIR__ . '/app/layout.php';
 page_start('Settings', $user);
@@ -35,8 +50,8 @@ page_start('Settings', $user);
         <?php if($error): ?><p class="auth-error" role="alert"><?= e($error) ?></p><?php endif; ?>
         <form method="post" class="settings-password-form">
             <input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>">
-            <label>New password<input name="password" type="password" minlength="12" maxlength="1024" required autocomplete="new-password" placeholder="Minimum 12 characters"></label>
-            <label>Confirm password<input name="password_confirmation" type="password" minlength="12" maxlength="1024" required autocomplete="new-password" placeholder="Re-enter your password"></label>
+            <label>New password<input name="password" type="password" minlength="12" maxlength="72" required autocomplete="new-password" placeholder="12 to 72 bytes"></label>
+            <label>Confirm password<input name="password_confirmation" type="password" minlength="12" maxlength="72" required autocomplete="new-password" placeholder="Re-enter your password"></label>
             <div class="record-form-actions"><button class="button" data-confirm="Save this password?">Save password</button></div>
         </form>
     </section>

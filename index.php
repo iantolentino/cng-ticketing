@@ -3,17 +3,19 @@ declare(strict_types=1);
 
 require __DIR__ . '/app/bootstrap.php';
 require __DIR__ . '/app/tickets.php';
+$internalDepartmentSql = ticket_internal_department_sql('dep');
 require __DIR__ . '/app/external_tickets.php';
 require __DIR__ . '/app/layout.php';
 
 $user = require_permission('view_all_tickets');
 $canBulkActions = user_can('bulk_ticket_actions');
 $statuses = ['open' => 'Open', 'in_progress' => 'In Progress', 'pending' => 'Pending', 'closed' => 'Closed'];
-$departments = active_departments();
-$departmentIds = array_map('intval', array_column($departments, 'id'));
+$departments = active_internal_departments();
+$departmentFilterOptions = ticket_department_filter_options($departments);
 // External sources are read once per request: the requestor filter and the row list share the result.
 $externalResult = external_ticket_load_all($user);
 $allExternalTickets = $externalResult['tickets'];
+$categoryOptions = ticket_category_options($allExternalTickets);
 $filters = [
     'dashboard_range' => trim((string) ($_GET['dashboard_range'] ?? 'all')),
     'dashboard_view' => trim((string) ($_GET['dashboard_view'] ?? '')),
@@ -24,7 +26,6 @@ $filters = [
     'priority' => trim((string) ($_GET['priority'] ?? '')),
     'department' => trim((string) ($_GET['department'] ?? '')),
     'category' => trim((string) ($_GET['category'] ?? '')),
-    'subcategory' => trim((string) ($_GET['subcategory'] ?? '')),
     'requestor' => trim((string) ($_GET['requestor'] ?? '')),
     'search' => trim((string) ($_GET['search'] ?? '')),
     'date_from' => trim((string) ($_GET['date_from'] ?? '')),
@@ -42,10 +43,9 @@ if (!isset($dashboardViews[$filters['dashboard_view']])) $filters['dashboard_vie
 if (!in_array($filters['scope'], ['', 'mine'], true)) $filters['scope'] = '';
 if (!isset($statuses[$filters['status']])) $filters['status'] = '';
 if (!isset(TICKET_PRIORITIES[$filters['priority']])) $filters['priority'] = '';
-if (!ctype_digit($filters['department']) || !in_array((int) $filters['department'], $departmentIds, true)) $filters['department'] = '';
-if (!array_key_exists($filters['category'], TICKET_CATEGORIES)) $filters['category'] = '';
-$subcategoryOptions = $filters['category'] ? TICKET_CATEGORIES[$filters['category']] : array_merge(...array_values(TICKET_CATEGORIES));
-if (!in_array($filters['subcategory'], $subcategoryOptions, true)) $filters['subcategory'] = '';
+if (!array_key_exists($filters['department'], $departmentFilterOptions)) $filters['department'] = '';
+if (!in_array($filters['category'], $categoryOptions, true)) $filters['category'] = '';
+$filters['department_name'] = $departmentFilterOptions[$filters['department']]['name'] ?? '';
 $requestorOptions = ticket_requestor_options($user, $allExternalTickets);
 if ($filters['requestor'] !== '' && !in_array($filters['requestor'], $requestorOptions, true)) $filters['requestor'] = '';
 foreach (['date_from', 'date_to'] as $dateKey) if ($filters[$dateKey] && !ticket_valid_date($filters[$dateKey])) $filters[$dateKey] = '';
@@ -54,25 +54,31 @@ $dashboardWindow = ticket_window_bounds($filters['dashboard_from'], $filters['da
 $filters['dashboard_from'] = $dashboardWindow['from'];
 $filters['dashboard_to'] = $dashboardWindow['to'];
 $filters['dashboard_range'] = $dashboardWindow['preset'];
+$dateWindow = ticket_window_bounds($filters['date_from'], $filters['date_to'], 'all');
 
 $where = ['t.deleted_at IS NULL'];
 $params = [];
-foreach (['status', 'priority', 'category', 'subcategory'] as $key) {
+foreach (['status', 'priority'] as $key) {
     if ($filters[$key] !== '') { $where[] = 't.' . $key . ' = :' . $key; $params[$key] = $filters[$key]; }
 }
+if ($filters['category'] !== '') { $where[] = 'LOWER(TRIM(t.category)) = LOWER(:category)'; $params['category'] = trim($filters['category']); }
 if ($filters['department'] !== '') {
-    $where[] = '(t.department_id = :department OR EXISTS (SELECT 1 FROM ticket_departments td_filter WHERE td_filter.ticket_id = t.id AND td_filter.department_id = :department_pivot))';
-    $params['department'] = (int) $filters['department'];
-    $params['department_pivot'] = (int) $filters['department'];
+    $departmentId = $departmentFilterOptions[$filters['department']]['department_id'];
+    if ($departmentId === null) {
+        $where[] = '1 = 0';
+    } else {
+        $where[] = '(t.department_id = :department OR EXISTS (SELECT 1 FROM ticket_departments td_filter WHERE td_filter.ticket_id = t.id AND td_filter.department_id = :department_pivot))';
+        $params['department'] = $departmentId;
+        $params['department_pivot'] = $departmentId;
+    }
 }
 if ($filters['search'] !== '') {
     $where[] = '(t.ticket_number LIKE :ticket_search OR t.subject LIKE :subject_search OR creator.full_name LIKE :requestor_search OR t.employee_name LIKE :employee_search OR t.description LIKE :description_search OR EXISTS (SELECT 1 FROM ticket_comments sc WHERE sc.ticket_id=t.id AND sc.body LIKE :comment_search) OR EXISTS (SELECT 1 FROM ticket_assignees sa JOIN users su ON su.id=sa.user_id WHERE sa.ticket_id=t.id AND su.full_name LIKE :assignee_search) OR EXISTS (SELECT 1 FROM ticket_departments sd JOIN departments sdep ON sdep.id=sd.department_id WHERE sd.ticket_id=t.id AND sdep.name LIKE :department_search))';
     $search = '%' . $filters['search'] . '%';
     $params['requestor_search'] = $params['ticket_search'] = $params['subject_search'] = $params['employee_search'] = $params['description_search'] = $params['comment_search'] = $params['assignee_search'] = $params['department_search'] = $search;
 }
-if ($filters['date_from'] !== '') { $where[] = 't.created_at >= :date_from'; $params['date_from'] = $filters['date_from'] . ' 00:00:00'; }
-if ($filters['date_to'] !== '') { $where[] = 't.created_at < DATE_ADD(:date_to, INTERVAL 1 DAY)'; $params['date_to'] = $filters['date_to']; }
 if ($filters['requestor'] !== '') { $where[] = 'creator.full_name = :requestor'; $params['requestor'] = $filters['requestor']; }
+$where = array_merge($where, ticket_window_sql($dateWindow, $params, 't.created_at', 'date_window'));
 $where = array_merge($where, ticket_window_sql($dashboardWindow, $params));
 if ($filters['dashboard_view'] !== '') {
     if ($filters['dashboard_view'] === 'open_work') $where[] = "t.status IN ('open','in_progress','pending')";
@@ -88,7 +94,7 @@ $perPage = 10;
 $notice = match ($_GET['notice'] ?? '') { 'ticket_deleted' => 'Ticket deleted.', 'bulk_updated' => 'Selected tickets updated.', 'bulk_empty' => 'No active tickets were selected.', default => null };
 
 $query = db()->prepare("SELECT t.*, creator.full_name AS creator_name, d.name AS department,
-    COALESCE((SELECT GROUP_CONCAT(DISTINCT dep.name ORDER BY dep.name SEPARATOR ', ') FROM ticket_departments td JOIN departments dep ON dep.id = td.department_id WHERE td.ticket_id = t.id), d.name) AS departments,
+    COALESCE((SELECT GROUP_CONCAT(DISTINCT dep.name ORDER BY dep.name SEPARATOR ', ') FROM ticket_departments td JOIN departments dep ON dep.id = td.department_id AND {$internalDepartmentSql} WHERE td.ticket_id = t.id), d.name) AS departments,
     COALESCE((SELECT GROUP_CONCAT(DISTINCT u.full_name ORDER BY u.full_name SEPARATOR ', ') FROM ticket_assignees ta JOIN users u ON u.id = ta.user_id WHERE ta.ticket_id = t.id), a.full_name) AS assignees
     FROM tickets t
     JOIN departments d ON d.id = t.department_id
@@ -98,7 +104,7 @@ $query = db()->prepare("SELECT t.*, creator.full_name AS creator_name, d.name AS
 foreach ($params as $key => $value) $query->bindValue(':' . $key, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
 $query->execute();
 $nativeTickets = $query->fetchAll();
-$externalTickets = array_values(array_filter($allExternalTickets, static fn(array $ticket): bool => external_ticket_matches_filters($ticket, $filters, $dashboardWindow['start'], $user)));
+$externalTickets = array_values(array_filter($allExternalTickets, static fn(array $ticket): bool => external_ticket_matches_filters($ticket, $filters, $user)));
 $tickets = array_merge($nativeTickets, $externalTickets);
 usort($tickets, static function (array $left, array $right): int {
     $leftTime = strtotime((string) ($left['sort_at'] ?? $left['updated_at'] ?? $left['created_at'] ?? '')) ?: 0;
@@ -144,10 +150,9 @@ page_start('Tickets', $user);
         <span class="ticket-filter-row-title">Filter</span>
         <div class="ticket-filter-field"><span class="ticket-filter-label">Status</span><div class="filter-picker" data-filter-picker><input type="hidden" name="status" value="<?= e($filters['status']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['status'] ? ($statuses[$filters['status']] ?? $filters['status']) : 'All statuses') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Status</p><button type="button" class="filter-option<?= $filters['status'] === '' ? ' is-selected' : '' ?>" data-filter-target="status" data-filter-value="" data-filter-label="All statuses"><span>All statuses</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($statuses as $value => $label): ?><button type="button" class="filter-option<?= $filters['status'] === $value ? ' is-selected' : '' ?>" data-filter-target="status" data-filter-value="<?= e($value) ?>" data-filter-label="<?= e($label) ?>"><span><?= e($label) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
         <div class="ticket-filter-field"><span class="ticket-filter-label">Priority</span><div class="filter-picker" data-filter-picker><input type="hidden" name="priority" value="<?= e($filters['priority']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['priority'] ? (TICKET_PRIORITIES[$filters['priority']] ?? $filters['priority']) : 'All priorities') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Priority</p><button type="button" class="filter-option<?= $filters['priority'] === '' ? ' is-selected' : '' ?>" data-filter-target="priority" data-filter-value="" data-filter-label="All priorities"><span>All priorities</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach (TICKET_PRIORITIES as $value => $label): ?><button type="button" class="filter-option<?= $filters['priority'] === $value ? ' is-selected' : '' ?>" data-filter-target="priority" data-filter-value="<?= e($value) ?>" data-filter-label="<?= e($label) ?>"><span><?= e($label) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
-        <div class="ticket-filter-field"><span class="ticket-filter-label">Department</span><div class="filter-picker" data-filter-picker><input type="hidden" name="department" value="<?= e($filters['department']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['department'] ? 'Selected department' : 'All departments') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Department</p><button type="button" class="filter-option<?= $filters['department'] === '' ? ' is-selected' : '' ?>" data-filter-target="department" data-filter-value="" data-filter-label="All departments"><span>All departments</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($departments as $department): ?><button type="button" class="filter-option<?= $filters['department'] === (string) $department['id'] ? ' is-selected' : '' ?>" data-filter-target="department" data-filter-value="<?= (int) $department['id'] ?>" data-filter-label="<?= e($department['name']) ?>"><span><?= e($department['name']) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
+        <div class="ticket-filter-field"><span class="ticket-filter-label">Department</span><div class="filter-picker" data-filter-picker><input type="hidden" name="department" value="<?= e($filters['department']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['department'] ? ($departmentFilterOptions[$filters['department']]['name'] ?? 'All departments') : 'All departments') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Department</p><button type="button" class="filter-option<?= $filters['department'] === '' ? ' is-selected' : '' ?>" data-filter-target="department" data-filter-value="" data-filter-label="All departments"><span>All departments</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($departmentFilterOptions as $departmentKey => $departmentOption): ?><button type="button" class="filter-option<?= $filters['department'] === $departmentKey ? ' is-selected' : '' ?>" data-filter-target="department" data-filter-value="<?= e($departmentKey) ?>" data-filter-label="<?= e($departmentOption['name']) ?>"><span><?= e($departmentOption['name']) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
         <div class="ticket-filter-field"><span class="ticket-filter-label">Requestor</span><div class="filter-picker" data-filter-picker><input type="hidden" name="requestor" value="<?= e($filters['requestor']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['requestor'] ?: 'All requestors') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Requestor</p><button type="button" class="filter-option<?= $filters['requestor'] === '' ? ' is-selected' : '' ?>" data-filter-target="requestor" data-filter-value="" data-filter-label="All requestors"><span>All requestors</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($requestorOptions as $requestor): ?><button type="button" class="filter-option<?= $filters['requestor'] === $requestor ? ' is-selected' : '' ?>" data-filter-target="requestor" data-filter-value="<?= e($requestor) ?>" data-filter-label="<?= e($requestor) ?>"><span><?= e($requestor) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?><?php if (!$requestorOptions): ?><p class="filter-menu-empty">No requestors yet.</p><?php endif; ?></div></div></div>
-        <div class="ticket-filter-field"><span class="ticket-filter-label">Category</span><div class="filter-picker" data-filter-picker><input type="hidden" name="category" value="<?= e($filters['category']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['category'] ?: 'All categories') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Category</p><button type="button" class="filter-option<?= $filters['category'] === '' ? ' is-selected' : '' ?>" data-filter-target="category" data-filter-value="" data-filter-label="All categories"><span>All categories</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach (array_keys(TICKET_CATEGORIES) as $category): ?><button type="button" class="filter-option<?= $filters['category'] === $category ? ' is-selected' : '' ?>" data-filter-target="category" data-filter-value="<?= e($category) ?>" data-filter-label="<?= e($category) ?>"><span><?= e($category) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
-        <div class="ticket-filter-field"><span class="ticket-filter-label">Subcategory</span><div class="filter-picker" data-filter-picker><input type="hidden" name="subcategory" value="<?= e($filters['subcategory']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['subcategory'] ?: 'All subcategories') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Subcategory</p><button type="button" class="filter-option<?= $filters['subcategory'] === '' ? ' is-selected' : '' ?>" data-filter-target="subcategory" data-filter-value="" data-filter-label="All subcategories"><span>All subcategories</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($subcategoryOptions as $subcategory): ?><button type="button" class="filter-option<?= $filters['subcategory'] === $subcategory ? ' is-selected' : '' ?>" data-filter-target="subcategory" data-filter-value="<?= e($subcategory) ?>" data-filter-label="<?= e($subcategory) ?>"><span><?= e($subcategory) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
+        <div class="ticket-filter-field"><span class="ticket-filter-label">Category</span><div class="filter-picker" data-filter-picker><input type="hidden" name="category" value="<?= e($filters['category']) ?>"><button type="button" class="filter-picker-trigger" data-filter-trigger aria-expanded="false"><span class="filter-picker-copy"><strong data-filter-label><?= e($filters['category'] ?: 'All categories') ?></strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu" data-filter-menu hidden><p class="filter-menu-label">Category</p><button type="button" class="filter-option<?= $filters['category'] === '' ? ' is-selected' : '' ?>" data-filter-target="category" data-filter-value="" data-filter-label="All categories"><span>All categories</span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php foreach ($categoryOptions as $category): ?><button type="button" class="filter-option<?= $filters['category'] === $category ? ' is-selected' : '' ?>" data-filter-target="category" data-filter-value="<?= e($category) ?>" data-filter-label="<?= e($category) ?>"><span><?= e($category) ?></span><span class="filter-option-check" aria-hidden="true">✓</span></button><?php endforeach; ?></div></div></div>
         <div class="ticket-date-range-field" data-date-range-picker><input type="hidden" name="date_from" data-date-from value="<?= e($filters['date_from']) ?>"><input type="hidden" name="date_to" data-date-to value="<?= e($filters['date_to']) ?>"><button type="button" class="filter-picker-trigger date-range-trigger" data-date-range-trigger aria-label="Created date range" aria-expanded="false"><span class="filter-picker-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M8 3.5v3M16 3.5v3M3.5 9.5h17"/></svg></span><span class="filter-picker-copy"><strong data-date-range-label>Date Range</strong></span><svg class="filter-picker-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg></button><div class="filter-picker-menu date-range-menu" data-date-range-menu hidden></div></div>
         <div class="filter-actions ticket-filter-actions" data-filter-actions hidden><a class="button button-secondary" href="index.php"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>Clear</a></div>
     </div>

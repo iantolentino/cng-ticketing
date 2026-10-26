@@ -4,16 +4,22 @@ require __DIR__ . '/app/layout.php';
 $user = require_permission('manage_roles');
 $canApproveAccounts = ($user['role_slug'] ?? '') === 'super-admin';
 $pdo = db();
+$newApiToken = request_string($_SESSION, 'new_api_token');
+unset($_SESSION['new_api_token']);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     verify_csrf();
+    if (!$canApproveAccounts) { http_response_code(403); exit('Only Super Admin can change roles and permissions.'); }
     $action = $_POST['action'] ?? '';
     if ($action === 'generate_api_token') {
+        $pdo->beginTransaction();
         $pdo->exec('UPDATE api_tokens SET revoked_at=NOW() WHERE revoked_at IS NULL');
         $token = bin2hex(random_bytes(32));
         $pdo->prepare('INSERT INTO api_tokens(token,token_hash,created_by) VALUES(NULL,?,?)')->execute([hash('sha256', $token), $user['id']]);
-        audit_admin_action((int) $user['id'], 'api_token_generated', 'api_token');
-        redirect('admin.php?api_token=' . urlencode($token));
+        audit_admin_action((int) $user['id'], 'api_token_generated', 'api_token', (int)$pdo->lastInsertId());
+        $pdo->commit();
+        $_SESSION['new_api_token'] = $token;
+        redirect('admin.php?token_generated=1');
     }
     if ($action === 'permission') {
         if (($user['role_slug'] ?? '') !== 'super-admin') { http_response_code(403); exit('Super Admin access required.'); }
@@ -22,24 +28,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $valid = $pdo->prepare('SELECT (SELECT COUNT(*) FROM roles WHERE id = ?) + (SELECT COUNT(*) FROM permissions WHERE id = ?)');
         $valid->execute([$roleId, $permissionId]);
         if ((int) $valid->fetchColumn() !== 2) { http_response_code(400); exit('Invalid role or permission.'); }
+        $pdo->beginTransaction();
+        $oldPermission = $pdo->prepare('SELECT granted FROM role_permissions WHERE role_id=? AND permission_id=?');
+        $oldPermission->execute([$roleId, $permissionId]);
+        $beforeGranted = $oldPermission->fetchColumn();
         $pdo->prepare('INSERT INTO role_permissions(role_id,permission_id,granted) VALUES(?,?,?) ON DUPLICATE KEY UPDATE granted=VALUES(granted)')->execute([$roleId, $permissionId, isset($_POST['granted']) ? 1 : 0]);
-        audit_admin_action((int) $user['id'], 'role_permission_changed', 'role', $roleId);
-    }
-    if ($action === 'approval' && user_can('manage_users')) {
-        if (!$canApproveAccounts) { http_response_code(403); exit('Super Admin access required.'); }
-        $approved = ($_POST['status'] ?? '') === 'approved';
-        $targetId = (int) $_POST['user_id'];
-        $targetQuery = $pdo->prepare('SELECT disabled_at FROM users WHERE id=?');
-        $targetQuery->execute([$targetId]);
-        $targetDisabledAt = $targetQuery->fetchColumn();
-        [$activeStateSql, $activeStateParams] = user_active_state_update_sql($approved, $targetDisabledAt !== false && $targetDisabledAt !== null ? (string) $targetDisabledAt : null);
-        $pdo->prepare("UPDATE users SET approval_status=?, $activeStateSql WHERE id=?")->execute(array_merge([$approved ? 'approved' : 'rejected'], $activeStateParams, [$targetId]));
-        audit_admin_action((int) $user['id'], 'user_registration_' . ($approved ? 'approved' : 'rejected'), 'user', $targetId);
+        audit_admin_action((int) $user['id'], 'role_permission_changed', 'role', $roleId, ['permission_id'=>$permissionId, 'before'=>['granted'=>$beforeGranted === false ? null : (int)$beforeGranted], 'after'=>['granted'=>isset($_POST['granted']) ? 1 : 0]]);
+        $pdo->commit();
     }
     if ($action === 'user' && user_can('manage_users')) {
         $targetId = (int) ($_POST['user_id'] ?? 0);
         $roleId = (int) ($_POST['role_id'] ?? 0);
-        $target = $pdo->prepare('SELECT u.id, u.approval_status, r.slug FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?');
+        $target = $pdo->prepare('SELECT u.id, u.role_id, u.is_active, u.approval_status, r.slug FROM users u JOIN roles r ON r.id = u.role_id WHERE u.id = ?');
         $target->execute([$targetId]);
         $targetRow = $target->fetch();
         if ($targetRow && !$canApproveAccounts && $targetRow['approval_status'] !== 'approved') { http_response_code(403); exit('Super Admin access required.'); }
@@ -52,12 +52,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $remaining->execute([$targetId]);
             if ((int) $remaining->fetchColumn() < 1) { http_response_code(400); exit('At least one active Super Admin must remain.'); }
         }
-        $stateQuery = $pdo->prepare('SELECT disabled_at FROM users WHERE id=?');
+        $disabledAtSql = app_schema_has('users', 'disabled_at') ? 'disabled_at' : 'NULL';
+        $stateQuery = $pdo->prepare('SELECT ' . $disabledAtSql . ' AS disabled_at FROM users WHERE id=?');
         $stateQuery->execute([$targetId]);
         $targetDisabledAt = $stateQuery->fetchColumn();
         [$activeStateSql, $activeStateParams] = user_active_state_update_sql(isset($_POST['is_active']), $targetDisabledAt !== false && $targetDisabledAt !== null ? (string) $targetDisabledAt : null);
+        $pdo->beginTransaction();
         $pdo->prepare("UPDATE users SET role_id=?, $activeStateSql, approval_status='approved' WHERE id=?")->execute(array_merge([$roleId], $activeStateParams, [$targetId]));
-        audit_admin_action((int) $user['id'], 'user_access_changed', 'user', $targetId);
+        audit_admin_action((int) $user['id'], 'user_access_changed', 'user', $targetId, ['before'=>$targetRow, 'after'=>['role_id'=>$roleId,'is_active'=>isset($_POST['is_active']) ? 1 : 0,'approval_status'=>'approved']]);
+        $pdo->commit();
     }
     redirect('admin.php');
 }
@@ -67,22 +70,15 @@ $grants = [];
 foreach ($pdo->query('SELECT * FROM role_permissions') as $grant) $grants[$grant['role_id']][$grant['permission_id']] = $grant['granted'];
 $userVisibilitySql = $canApproveAccounts ? '' : " WHERE u.approval_status='approved'";
 $users = $pdo->query('SELECT u.*,r.name role_name FROM users u JOIN roles r ON r.id=u.role_id' . $userVisibilitySql . ' ORDER BY u.full_name')->fetchAll();
-$pendingUsers = $canApproveAccounts ? $pdo->query("SELECT u.id,u.full_name,u.username,u.email,r.name role_name FROM users u JOIN roles r ON r.id=u.role_id WHERE u.approval_status='pending' ORDER BY u.created_at")->fetchAll() : [];
 $activeApi = $pdo->query('SELECT id FROM api_tokens WHERE revoked_at IS NULL ORDER BY id DESC LIMIT 1')->fetch();
-$activeUserCount=count(array_filter($users,static fn(array $member):bool=>(bool)$member['is_active']));
+$apiFeedUrl = rtrim((string) ($config['app']['base_url'] ?? ''), '/') . '/api/feed.php';
+if ($apiFeedUrl === '/api/feed.php') $apiFeedUrl = 'https://cng-tickets.stratastaff.com/api/feed.php';
 $canManageUsers=user_can('manage_users');
 page_start('Roles & Access',$user); ?>
 <div class="roles-access-screen">
-    <section class="access-panel access-utility-panel" aria-labelledby="api-access-title"><div class="access-section-head"><div><h2 id="api-access-title">Webhook / API access</h2><p>The active URL is rotated when a new one is generated.</p></div><?php if ($activeApi): ?><span class="access-role-badge">Configured</span><?php endif; ?></div><?php if (isset($_GET['api_token'])): ?><p class="action-notice">New URL: <code><?= e('https://cng-tickets.stratastaff.com/api/feed.php?token=' . $_GET['api_token']) ?></code></p><?php endif; ?><form method="post"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="generate_api_token"><button class="button button-secondary">Generate new URL</button></form></section>
-    <?php if ($pendingUsers): ?><section class="access-panel access-utility-panel" aria-labelledby="pending-users-title"><div class="access-section-head"><div><h2 id="pending-users-title">Pending registrations</h2><p>Review accounts awaiting approval.</p></div><span><?= count($pendingUsers) ?> pending</span></div><div class="access-pending-list"><?php foreach ($pendingUsers as $pending): ?><div><span><strong><?= e($pending['full_name']) ?></strong><small><?= e($pending['email']) ?> Â· <?= e($pending['role_name']) ?></small></span><span><form method="post" class="inline-form"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="approval"><input type="hidden" name="user_id" value="<?= (int) $pending['id'] ?>"><input type="hidden" name="status" value="approved"><button class="button">Approve</button></form><form method="post" class="inline-form"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="approval"><input type="hidden" name="user_id" value="<?= (int) $pending['id'] ?>"><input type="hidden" name="status" value="rejected"><button class="button button-secondary">Reject</button></form></span></div><?php endforeach; ?></div></section><?php endif; ?>
-    <section class="access-summary-panel" aria-label="Access management summary">
-        <div class="access-summary-grid">
-            <article class="access-summary-card"><span>Roles</span><strong><?=count($roles)?></strong><small>Configured access levels</small></article>
-            <article class="access-summary-card"><span>Permissions</span><strong><?=count($permissions)?></strong><small>Available capabilities</small></article>
-            <article class="access-summary-card"><span>Users</span><strong><?=count($users)?></strong><small>Registered accounts</small></article>
-            <article class="access-summary-card"><span>Active users</span><strong><?=$activeUserCount?></strong><small>Currently enabled</small></article>
-        </div>
-    </section>
+    <section class="access-panel access-utility-panel" aria-labelledby="api-access-title"><div class="access-section-head"><div><h2 id="api-access-title">Webhook / API access</h2><p>The active URL is rotated when a new one is generated.</p></div><?php if ($activeApi): ?><span class="access-role-badge">Configured</span><?php endif; ?></div><?php if ($newApiToken !== ''): ?><p class="action-notice">New URL: <code><?= e($apiFeedUrl . '?token=' . $newApiToken) ?></code></p><?php endif; ?><form method="post"><input type="hidden" name="csrf_token" value="<?= e(csrf_token()) ?>"><input type="hidden" name="action" value="generate_api_token"><button class="button button-secondary">Generate new URL</button></form></section>
+
+
     <div class="access-management-layout">
     <section class="access-panel access-workspace" aria-labelledby="roles-title">
         <div class="access-section-head"><div><h2 id="roles-title">Roles</h2></div><span><?=count($roles)?> roles</span></div>
